@@ -6,10 +6,15 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     name: Test (Go ${{ matrix.go }})
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       matrix:
         go: ['1.21', '1.22', '1.23', '1.24', '1.25']
@@ -33,7 +38,7 @@ jobs:
         ports:
           - 3306:3306
         options: >-
-          --health-cmd "mysqladmin ping -h localhost -u root -proot"
+          --health-cmd "mysqladmin ping -u root -proot"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
@@ -81,6 +86,9 @@ jobs:
 
       - name: Vet
         run: go vet ./...
+
+      - name: Wait for services
+        run: sleep 5
 
       - name: Run tests
         run: go test -v -race -count=1 ./...
