@@ -221,6 +221,25 @@ Run with race detector:
 go test ./... -race
 ```
 
+### Integration tests (Redis, MySQL, Postgres)
+
+To run integration tests against real Redis, MySQL, and Postgres, start the services with Docker Compose:
+
+```bash
+docker compose up -d
+```
+
+Then run tests with:
+
+```bash
+REDIS_ENABLED=true REDIS_HOST=127.0.0.1 REDIS_PORT=6379 \
+DATABASE_DRIVER=mysql DATABASE_HOST=127.0.0.1 DATABASE_PORT=3306 \
+DATABASE_USERNAME=root DATABASE_PASSWORD=root DATABASE_DBNAME=testdb \
+go test ./...
+```
+
+Integration tests skip automatically when services are not available. CI uses the same `docker-compose.yml` services (Redis, MySQL, Postgres) via GitHub Actions.
+
 Tests cover: `crypto`, `util`, `config`, `jwt`, `logger`, `redis`, `database`, `gcs`, and `types`. Packages that require external services (Redis, GCS, MySQL/Postgres) use disabled or in-memory/sqlite config where possible so tests can run without those services.
 
 ## License
