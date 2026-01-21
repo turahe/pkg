@@ -70,8 +70,36 @@ func (h *gcpHandler) Handle(ctx context.Context, record slog.Record) error {
 		Message:  record.Message,
 	}
 
-	// Add source location if available
-	if record.PC != 0 {
+	// Collect attributes; extract file/line/function into sourceLocation (from *f caller)
+	// and do not put them in fields to avoid duplication and wrong PC-based source.
+	fields := make(map[string]interface{})
+	var locFromAttrs sourceLocation
+	record.Attrs(func(a slog.Attr) bool {
+		switch a.Key {
+		case "file":
+			if s, ok := a.Value.Any().(string); ok {
+				locFromAttrs.File = s
+			}
+		case "line":
+			switch v := a.Value.Any().(type) {
+			case int:
+				locFromAttrs.Line = v
+			case int64:
+				locFromAttrs.Line = int(v)
+			}
+		case "function":
+			if s, ok := a.Value.Any().(string); ok {
+				locFromAttrs.Function = s
+			}
+		default:
+			fields[a.Key] = a.Value.Any()
+		}
+		return true
+	})
+
+	if locFromAttrs.File != "" || locFromAttrs.Line != 0 || locFromAttrs.Function != "" {
+		entry.SourceLocation = &locFromAttrs
+	} else if record.PC != 0 {
 		fs := runtime.CallersFrames([]uintptr{record.PC})
 		f, _ := fs.Next()
 		if f.File != "" {
@@ -82,13 +110,6 @@ func (h *gcpHandler) Handle(ctx context.Context, record slog.Record) error {
 			}
 		}
 	}
-
-	// Collect attributes
-	fields := make(map[string]interface{})
-	record.Attrs(func(a slog.Attr) bool {
-		fields[a.Key] = a.Value.Any()
-		return true
-	})
 
 	if len(fields) > 0 {
 		entry.Fields = fields
