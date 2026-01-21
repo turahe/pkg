@@ -201,6 +201,62 @@ The package supports configuration via environment variables:
 - `SERVER_ACCESS_TOKEN_EXPIRY` - Access token expiry in hours
 - `SERVER_REFRESH_TOKEN_EXPIRY` - Refresh token expiry in days
 
+### Example .env
+
+Copy `env.example` to `.env` and adjust for your environment. `config.Setup("")` loads `.env` via [godotenv](https://github.com/joho/godotenv).
+
+```bash
+cp env.example .env
+```
+
+```env
+# Server
+SERVER_PORT=8080
+SERVER_SECRET=your-jwt-secret-key-change-in-production
+SERVER_MODE=debug
+SERVER_ACCESS_TOKEN_EXPIRY=1
+SERVER_REFRESH_TOKEN_EXPIRY=7
+
+# CORS
+CORS_GLOBAL=true
+CORS_IPS=
+
+# Database (required: DBNAME, USERNAME, PASSWORD)
+DATABASE_DRIVER=mysql
+DATABASE_HOST=127.0.0.1
+DATABASE_PORT=3306
+DATABASE_USERNAME=appuser
+DATABASE_PASSWORD=apppassword
+DATABASE_DBNAME=appdb
+DATABASE_SSLMODE=false
+DATABASE_LOGMODE=true
+# For Cloud SQL: project:region:instance
+DATABASE_CLOUD_SQL_INSTANCE=
+
+# Database Site (optional; leave DBNAME empty to disable)
+DATABASE_DRIVER_SITE=mysql
+DATABASE_HOST_SITE=127.0.0.1
+DATABASE_PORT_SITE=3306
+DATABASE_USERNAME_SITE=
+DATABASE_PASSWORD_SITE=
+DATABASE_DBNAME_SITE=
+DATABASE_SSLMODE_SITE=false
+DATABASE_LOGMODE_SITE=true
+DATABASE_CLOUD_SQL_INSTANCE_SITE=
+
+# Redis
+REDIS_ENABLED=false
+REDIS_HOST=127.0.0.1
+REDIS_PORT=6379
+REDIS_PASSWORD=
+REDIS_DB=1
+
+# GCS
+GCS_ENABLED=false
+GCS_BUCKET_NAME=
+GCS_CREDENTIALS_FILE=
+```
+
 ## Testing
 
 Run all tests:
