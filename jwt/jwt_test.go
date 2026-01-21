@@ -24,10 +24,8 @@ func TestGenerateTokenWithExpiry_and_ValidateToken(t *testing.T) {
 	initTestJWT(t)
 
 	id := uuid.MustParse("550e8400-e29b-41d4-a716-446655440000")
-	email := "test@example.com"
-	name := "Test User"
 
-	token, err := GenerateTokenWithExpiry(id, email, name, time.Hour)
+	token, err := GenerateTokenWithExpiry(id, time.Hour)
 	if err != nil {
 		t.Fatalf("GenerateTokenWithExpiry: %v", err)
 	}
@@ -41,12 +39,6 @@ func TestGenerateTokenWithExpiry_and_ValidateToken(t *testing.T) {
 	}
 	if claims.UUID != id.String() {
 		t.Errorf("UUID = %q, want %q", claims.UUID, id.String())
-	}
-	if claims.Email != email {
-		t.Errorf("Email = %q, want %q", claims.Email, email)
-	}
-	if claims.Name != name {
-		t.Errorf("Name = %q, want %q", claims.Name, name)
 	}
 }
 

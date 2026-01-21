@@ -19,9 +19,7 @@ var (
 
 // Claims represents JWT claims
 type Claims struct {
-	UUID  string `json:"uuid"`
-	Email string `json:"email"`
-	Name  string `json:"name"`
+	UUID string `json:"uuid"`
 	jwt.RegisteredClaims
 }
 
@@ -71,20 +69,18 @@ func GetAccessTokenExpiry() time.Duration {
 }
 
 // GenerateToken generates a JWT token for admin
-func GenerateToken(id uuid.UUID, email, name string) (string, error) {
-	return GenerateTokenWithExpiry(id, email, name, accessTokenExpiry) // Default: 1 hour
+func GenerateToken(id uuid.UUID) (string, error) {
+	return GenerateTokenWithExpiry(id, accessTokenExpiry) // Default: 1 hour
 }
 
 // GenerateTokenWithExpiry generates a JWT token with custom expiration time
-func GenerateTokenWithExpiry(id uuid.UUID, email, name string, expiry time.Duration) (string, error) {
+func GenerateTokenWithExpiry(id uuid.UUID, expiry time.Duration) (string, error) {
 	if len(jwtSecret) == 0 {
 		Init()
 	}
 
 	claims := Claims{
-		UUID:  id.String(),
-		Email: email,
-		Name:  name,
+		UUID: id.String(),
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(expiry)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
@@ -97,11 +93,11 @@ func GenerateTokenWithExpiry(id uuid.UUID, email, name string, expiry time.Durat
 }
 
 // GenerateRefreshToken generates a refresh token with longer expiration
-func GenerateRefreshToken(id uuid.UUID, email, name string) (string, error) {
+func GenerateRefreshToken(id uuid.UUID) (string, error) {
 	if refreshTokenExpiry == 0 {
 		Init()
 	}
-	return GenerateTokenWithExpiry(id, email, name, refreshTokenExpiry)
+	return GenerateTokenWithExpiry(id, refreshTokenExpiry)
 }
 
 // ValidateToken validates a JWT token and returns the claims
