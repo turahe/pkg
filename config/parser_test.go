@@ -115,7 +115,8 @@ func TestBuildConfigFromEnv_Defaults(t *testing.T) {
 	// Clear env for keys that have non-empty defaults so we can assert defaults
 	keys := []string{
 		"SERVER_PORT", "SERVER_MODE", "DATABASE_DRIVER", "DATABASE_HOST", "DATABASE_PORT",
-		"REDIS_HOST", "REDIS_PORT",
+		"REDIS_HOST", "REDIS_PORT", "REDIS_ENABLED", "REDIS_DB",
+		"CORS_GLOBAL", "GCS_ENABLED",
 	}
 	for _, k := range keys {
 		os.Unsetenv(k)
