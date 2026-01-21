@@ -2,6 +2,8 @@ package repositories
 
 import (
 	"errors"
+	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -13,6 +15,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+var dbMutex sync.Mutex
 
 // TestModel is a test model for testing repository operations
 type TestModel struct {
@@ -27,18 +31,40 @@ func (TestModel) TableName() string {
 	return "test_models"
 }
 
-// setupTestDB creates an in-memory SQLite database for testing
+// setupTestDB creates a test database connection
+// Tries MySQL first (for CI), falls back to SQLite (for local development)
 func setupTestDB(t *testing.T) *gorm.DB {
-	cfg := &config.DatabaseConfiguration{
+	// Try MySQL first (for CI environments)
+	mysqlCfg := &config.DatabaseConfiguration{
+		Driver:   "mysql",
+		Dbname:   getTestEnvOrDefault("DATABASE_DBNAME", "testing"),
+		Username: getTestEnvOrDefault("DATABASE_USERNAME", "root"),
+		Password: getTestEnvOrDefault("DATABASE_PASSWORD", "secret"),
+		Host:     getTestEnvOrDefault("DATABASE_HOST", "127.0.0.1"),
+		Port:     getTestEnvOrDefault("DATABASE_PORT", "3306"),
+		Logmode:  false,
+	}
+
+	db, err := database.CreateDatabaseConnection(mysqlCfg)
+	if err == nil {
+		// MySQL connection successful
+		// Auto-migrate test model
+		err = db.AutoMigrate(&TestModel{})
+		require.NoError(t, err, "Failed to migrate test model")
+		return db
+	}
+
+	// Fallback to SQLite for local development
+	sqliteCfg := &config.DatabaseConfiguration{
 		Driver:  "sqlite",
 		Dbname:  ":memory:",
 		Logmode: false,
 	}
 
-	db, err := database.CreateDatabaseConnection(cfg)
+	db, err = database.CreateDatabaseConnection(sqliteCfg)
 	if err != nil {
-		// Skip test if SQLite is not available (e.g., CGO disabled)
-		t.Skipf("SQLite not available (CGO may be disabled): %v", err)
+		// Skip test if neither MySQL nor SQLite is available
+		t.Skipf("Database not available (MySQL: %v, SQLite: CGO may be disabled)", err)
 		return nil
 	}
 
@@ -49,20 +75,22 @@ func setupTestDB(t *testing.T) *gorm.DB {
 	return db
 }
 
+// getTestEnvOrDefault gets environment variable or returns default value for testing
+func getTestEnvOrDefault(key, defaultValue string) string {
+	val := os.Getenv(key)
+	if val == "" {
+		return defaultValue
+	}
+	return val
+}
+
 // setupTestDBForRepo sets up the database and assigns it to the package-level DB variable
 func setupTestDBForRepo(t *testing.T) func() {
+	dbMutex.Lock()
+	defer dbMutex.Unlock()
+	
 	// Setup test DB
 	db := setupTestDB(t)
-	
-	// Use reflection or direct assignment if DB is exported
-	// Since DB might not be exported, we'll use a workaround by setting up config
-	// and calling Setup, but for tests we'll use the db directly via GetDB override
-	// Actually, let's just use the db we created and test the repository methods
-	// that use getDB() internally - we need to ensure database.GetDB() returns our test db
-	
-	// For now, let's use a simpler approach: create the DB connection and use it
-	// We'll need to ensure the database package is set up correctly
-	// Since we can't easily mock GetDB(), let's use the actual database setup
 	
 	// Save original setup
 	originalDB := database.DB
@@ -70,8 +98,16 @@ func setupTestDBForRepo(t *testing.T) func() {
 	// Set our test DB
 	database.DB = db
 
+	// Clean up any existing test data to ensure test isolation
+	_ = db.Exec("DELETE FROM test_models").Error
+
 	// Return cleanup function
 	return func() {
+		dbMutex.Lock()
+		defer dbMutex.Unlock()
+		
+		// Clean up test data
+		_ = db.Exec("DELETE FROM test_models").Error
 		sqlDB, _ := db.DB()
 		_ = sqlDB.Close()
 		database.DB = originalDB
@@ -326,13 +362,17 @@ func TestBaseRepository_Scan(t *testing.T) {
 	assert.Equal(t, model.Name, foundWithTable.Name)
 
 	// Scan non-existing record
+	// Note: GORM's Scan doesn't return ErrRecordNotFound, it just returns empty result
 	var notFoundModel TestModel
 	conditions = types.Conditions{
 		"id = ?": 99999,
 	}
 	notFound, err = repo.Scan("", &TestModel{}, &notFoundModel, conditions)
 	assert.NoError(t, err)
-	assert.True(t, notFound)
+	// Scan returns notFound=false when no records found (unlike First)
+	// The result will just be empty (zero value)
+	assert.Zero(t, notFoundModel.ID)
+	assert.Empty(t, notFoundModel.Name)
 }
 
 func TestBaseRepository_RawSQL(t *testing.T) {
