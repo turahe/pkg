@@ -1,5 +1,10 @@
 # Go Package Collection
 
+[![Go Reference](https://pkg.go.dev/badge/github.com/turahe/pkg.svg)](https://pkg.go.dev/github.com/turahe/pkg)
+[![Test](https://github.com/turahe/pkg/actions/workflows/test.yml/badge.svg)](https://github.com/turahe/pkg/actions/workflows/test.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/turahe/pkg)](https://goreportcard.com/report/github.com/turahe/pkg)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 A collection of reusable Go packages for common functionality including database connections, Redis, JWT, crypto, GCS, logging, and utilities.
 
 ## Packages
