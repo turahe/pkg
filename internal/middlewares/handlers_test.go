@@ -129,7 +129,6 @@ func TestRecoveryHandler(t *testing.T) {
 	// Test that handler aborts after panic
 	router.GET("/panic-abort", func(c *gin.Context) {
 		panic("test panic")
-		c.JSON(http.StatusOK, gin.H{"status": "should not reach here"})
 	})
 
 	req = httptest.NewRequest("GET", "/panic-abort", nil)
