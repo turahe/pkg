@@ -21,6 +21,11 @@ func buildConfigFromEnv() *Configuration {
 			Mode:               getEnvOrDefault("SERVER_MODE", "debug"),
 			AccessTokenExpiry:  parseInt("SERVER_ACCESS_TOKEN_EXPIRY", 1),
 			RefreshTokenExpiry: parseInt("SERVER_REFRESH_TOKEN_EXPIRY", 7),
+			SessionExpiry:      parseInt("SERVER_SESSION_EXPIRY", 24),
+			SessionCookieName:  getEnvOrDefault("SERVER_SESSION_COOKIE_NAME", "admin_session"),
+			SessionSecure:      parseBool("SERVER_SESSION_SECURE", false),
+			SessionHttpOnly:    parseBool("SERVER_SESSION_HTTP_ONLY", true),
+			SessionSameSite:    getEnvOrDefault("SERVER_SESSION_SAME_SITE", "lax"),
 		},
 		Cors: CorsConfiguration{
 			Global: parseBool("CORS_GLOBAL", true),

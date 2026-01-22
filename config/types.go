@@ -19,6 +19,11 @@ type ServerConfiguration struct {
 	Mode               string
 	AccessTokenExpiry  int // hours
 	RefreshTokenExpiry int // days
+	SessionExpiry      int // hours, default 24
+	SessionCookieName  string
+	SessionSecure      bool   // Set Secure flag for cookies (HTTPS only)
+	SessionHttpOnly    bool   // Set HttpOnly flag for cookies (default true)
+	SessionSameSite    string // SameSite cookie attribute: "strict", "lax", "none"
 }
 
 // CorsConfiguration holds CORS-related configuration
