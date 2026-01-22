@@ -54,11 +54,13 @@ func buildConfigFromEnv() *Configuration {
 			CloudSQLInstance: getEnvOrDefault("DATABASE_CLOUD_SQL_INSTANCE_SITE", ""),
 		},
 		Redis: RedisConfiguration{
-			Enabled:  parseBool("REDIS_ENABLED", false),
-			Host:     getEnvOrDefault("REDIS_HOST", "127.0.0.1"),
-			Port:     getEnvOrDefault("REDIS_PORT", "6379"),
-			Password: getEnvOrDefault("REDIS_PASSWORD", ""),
-			DB:       parseInt("REDIS_DB", 1),
+			Enabled:      parseBool("REDIS_ENABLED", false),
+			Host:         getEnvOrDefault("REDIS_HOST", "127.0.0.1"),
+			Port:         getEnvOrDefault("REDIS_PORT", "6379"),
+			Password:     getEnvOrDefault("REDIS_PASSWORD", ""),
+			DB:           parseInt("REDIS_DB", 1),
+			ClusterMode:  parseBool("REDIS_CLUSTER_MODE", false),
+			ClusterNodes: getEnvOrDefault("REDIS_CLUSTER_NODES", ""),
 		},
 		GCS: GCSConfiguration{
 			Enabled:         parseBool("GCS_ENABLED", false),

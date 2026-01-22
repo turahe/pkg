@@ -47,11 +47,13 @@ type DatabaseConfiguration struct {
 
 // RedisConfiguration holds Redis-related configuration
 type RedisConfiguration struct {
-	Enabled  bool
-	Host     string
-	Port     string
-	Password string
-	DB       int
+	Enabled      bool
+	Host         string
+	Port         string
+	Password     string
+	DB           int
+	ClusterMode  bool   // Enable cluster mode for Google Cloud Memorystore Redis Cluster
+	ClusterNodes string // Comma-separated list of cluster node addresses (e.g., "10.0.0.1:6379,10.0.0.2:6379")
 }
 
 // GCSConfiguration holds Google Cloud Storage-related configuration
