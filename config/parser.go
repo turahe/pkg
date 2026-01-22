@@ -60,6 +60,16 @@ func buildConfigFromEnv() *Configuration {
 			BucketName:      getEnvOrDefault("GCS_BUCKET_NAME", ""),
 			CredentialsFile: getEnvOrDefault("GCS_CREDENTIALS_FILE", ""),
 		},
+		RateLimiter: RateLimiterConfiguration{
+			Enabled:   parseBool("RATE_LIMITER_ENABLED", false),
+			Requests:  parseInt("RATE_LIMITER_REQUESTS", 100),
+			Window:    parseInt("RATE_LIMITER_WINDOW", 60),
+			KeyBy:     getEnvOrDefault("RATE_LIMITER_KEY_BY", "ip"),
+			SkipPaths: getEnvOrDefault("RATE_LIMITER_SKIP_PATHS", ""),
+		},
+		Timezone: TimezoneConfiguration{
+			Timezone: getEnvOrDefault("SERVER_TIMEZONE", "UTC"),
+		},
 	}
 }
 

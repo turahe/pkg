@@ -8,6 +8,8 @@ type Configuration struct {
 	DatabaseSite DatabaseConfiguration // Site database connection
 	Redis        RedisConfiguration
 	GCS          GCSConfiguration
+	RateLimiter  RateLimiterConfiguration
+	Timezone     TimezoneConfiguration
 }
 
 // ServerConfiguration holds server-related configuration
@@ -52,4 +54,18 @@ type GCSConfiguration struct {
 	Enabled         bool
 	BucketName      string
 	CredentialsFile string // Path to service account JSON file (optional, uses ADC if not provided)
+}
+
+// RateLimiterConfiguration holds rate limiter-related configuration
+type RateLimiterConfiguration struct {
+	Enabled   bool
+	Requests  int    // Number of requests allowed per window
+	Window    int    // Time window in seconds
+	KeyBy     string // Key strategy: "ip" (default) or "user" (requires auth)
+	SkipPaths string // Comma-separated list of paths to skip rate limiting (e.g., "/health,/metrics")
+}
+
+// TimezoneConfiguration holds timezone-related configuration
+type TimezoneConfiguration struct {
+	Timezone string // IANA timezone identifier (e.g., "Asia/Jakarta", "UTC", "America/New_York")
 }

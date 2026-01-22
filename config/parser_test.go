@@ -193,3 +193,254 @@ func TestInvalidPlaceholders(t *testing.T) {
 		}
 	}
 }
+
+func TestGetEnvOrDefault_EdgeCases(t *testing.T) {
+	tests := []struct {
+		name         string
+		envValue     string
+		defaultValue string
+		want         string
+	}{
+		{"empty string", "", "default", "default"},
+		{"single char with double quotes", `"a"`, "default", "a"},
+		{"single char with single quotes", "'a'", "default", "a"},
+		{"only opening quote", `"value`, "default", `"value`},
+		{"only closing quote", `value"`, "default", `value"`},
+		{"quotes in middle", `val"ue`, "default", `val"ue`},
+		{"empty quoted string", `""`, "default", ""},
+		{"empty single quoted string", `''`, "default", ""},
+		{"single character", "a", "default", "a"},
+		{"value with spaces", "value with spaces", "default", "value with spaces"},
+		{"quoted value with spaces", `"value with spaces"`, "default", "value with spaces"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.envValue != "" {
+				os.Setenv("_TEST_EDGE", tt.envValue)
+				defer os.Unsetenv("_TEST_EDGE")
+			} else {
+				os.Unsetenv("_TEST_EDGE")
+			}
+			got := getEnvOrDefault("_TEST_EDGE", tt.defaultValue)
+			if got != tt.want {
+				t.Errorf("getEnvOrDefault(%q, %q) = %q, want %q", tt.envValue, tt.defaultValue, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestParseInt_NegativeNumbers(t *testing.T) {
+	os.Setenv("_TEST_NEG_INT", "-42")
+	defer os.Unsetenv("_TEST_NEG_INT")
+	if got := parseInt("_TEST_NEG_INT", 0); got != -42 {
+		t.Errorf("parseInt(-42) = %v, want -42", got)
+	}
+}
+
+func TestParseInt_Zero(t *testing.T) {
+	os.Setenv("_TEST_ZERO_INT", "0")
+	defer os.Unsetenv("_TEST_ZERO_INT")
+	if got := parseInt("_TEST_ZERO_INT", 42); got != 0 {
+		t.Errorf("parseInt(0) = %v, want 0", got)
+	}
+}
+
+func TestParseInt_LargeNumber(t *testing.T) {
+	os.Setenv("_TEST_LARGE_INT", "2147483647")
+	defer os.Unsetenv("_TEST_LARGE_INT")
+	if got := parseInt("_TEST_LARGE_INT", 0); got != 2147483647 {
+		t.Errorf("parseInt(2147483647) = %v, want 2147483647", got)
+	}
+}
+
+func TestBuildConfigFromEnv_AllSections(t *testing.T) {
+	// Set comprehensive environment variables
+	envVars := map[string]string{
+		"SERVER_PORT":                  "3000",
+		"SERVER_SECRET":                "test-secret",
+		"SERVER_MODE":                  "release",
+		"SERVER_ACCESS_TOKEN_EXPIRY":   "2",
+		"SERVER_REFRESH_TOKEN_EXPIRY":  "14",
+		"SERVER_TIMEZONE":              "Asia/Jakarta",
+		"CORS_GLOBAL":                  "false",
+		"CORS_IPS":                     "192.168.1.1",
+		"DATABASE_DRIVER":              "postgres",
+		"DATABASE_DBNAME":              "testdb",
+		"DATABASE_USERNAME":            "testuser",
+		"DATABASE_PASSWORD":            "testpass",
+		"DATABASE_HOST":                "localhost",
+		"DATABASE_PORT":                "5432",
+		"DATABASE_SSLMODE":             "true",
+		"DATABASE_LOGMODE":             "false",
+		"DATABASE_CLOUD_SQL_INSTANCE":  "project:region:instance",
+		"DATABASE_DRIVER_SITE":         "mysql",
+		"DATABASE_DBNAME_SITE":         "sitedb",
+		"DATABASE_USERNAME_SITE":       "siteuser",
+		"DATABASE_PASSWORD_SITE":       "sitepass",
+		"DATABASE_HOST_SITE":           "sitehost",
+		"DATABASE_PORT_SITE":           "3307",
+		"DATABASE_SSLMODE_SITE":        "true",
+		"DATABASE_LOGMODE_SITE":        "false",
+		"DATABASE_CLOUD_SQL_INSTANCE_SITE": "site:region:instance",
+		"REDIS_ENABLED":                "true",
+		"REDIS_HOST":                   "redis-host",
+		"REDIS_PORT":                   "6380",
+		"REDIS_PASSWORD":                "redis-pass",
+		"REDIS_DB":                      "5",
+		"GCS_ENABLED":                  "true",
+		"GCS_BUCKET_NAME":              "test-bucket",
+		"GCS_CREDENTIALS_FILE":          "/path/to/creds.json",
+		"RATE_LIMITER_ENABLED":         "true",
+		"RATE_LIMITER_REQUESTS":        "200",
+		"RATE_LIMITER_WINDOW":          "120",
+		"RATE_LIMITER_KEY_BY":          "user",
+		"RATE_LIMITER_SKIP_PATHS":      "/health,/metrics",
+	}
+
+	// Set all environment variables
+	for k, v := range envVars {
+		os.Setenv(k, v)
+	}
+	defer func() {
+		// Clean up
+		for k := range envVars {
+			os.Unsetenv(k)
+		}
+	}()
+
+	cfg := buildConfigFromEnv()
+
+	// Test Server configuration
+	if cfg.Server.Port != "3000" {
+		t.Errorf("Server.Port = %q, want 3000", cfg.Server.Port)
+	}
+	if cfg.Server.Secret != "test-secret" {
+		t.Errorf("Server.Secret = %q, want test-secret", cfg.Server.Secret)
+	}
+	if cfg.Server.Mode != "release" {
+		t.Errorf("Server.Mode = %q, want release", cfg.Server.Mode)
+	}
+	if cfg.Server.AccessTokenExpiry != 2 {
+		t.Errorf("Server.AccessTokenExpiry = %v, want 2", cfg.Server.AccessTokenExpiry)
+	}
+	if cfg.Server.RefreshTokenExpiry != 14 {
+		t.Errorf("Server.RefreshTokenExpiry = %v, want 14", cfg.Server.RefreshTokenExpiry)
+	}
+
+	// Test CORS configuration
+	if cfg.Cors.Global != false {
+		t.Errorf("Cors.Global = %v, want false", cfg.Cors.Global)
+	}
+	if cfg.Cors.Ips != "192.168.1.1" {
+		t.Errorf("Cors.Ips = %q, want 192.168.1.1", cfg.Cors.Ips)
+	}
+
+	// Test Database configuration
+	if cfg.Database.Driver != "postgres" {
+		t.Errorf("Database.Driver = %q, want postgres", cfg.Database.Driver)
+	}
+	if cfg.Database.Dbname != "testdb" {
+		t.Errorf("Database.Dbname = %q, want testdb", cfg.Database.Dbname)
+	}
+	if cfg.Database.Username != "testuser" {
+		t.Errorf("Database.Username = %q, want testuser", cfg.Database.Username)
+	}
+	if cfg.Database.Password != "testpass" {
+		t.Errorf("Database.Password = %q, want testpass", cfg.Database.Password)
+	}
+	if cfg.Database.Host != "localhost" {
+		t.Errorf("Database.Host = %q, want localhost", cfg.Database.Host)
+	}
+	if cfg.Database.Port != "5432" {
+		t.Errorf("Database.Port = %q, want 5432", cfg.Database.Port)
+	}
+	if cfg.Database.Sslmode != true {
+		t.Errorf("Database.Sslmode = %v, want true", cfg.Database.Sslmode)
+	}
+	if cfg.Database.Logmode != false {
+		t.Errorf("Database.Logmode = %v, want false", cfg.Database.Logmode)
+	}
+	if cfg.Database.CloudSQLInstance != "project:region:instance" {
+		t.Errorf("Database.CloudSQLInstance = %q, want project:region:instance", cfg.Database.CloudSQLInstance)
+	}
+
+	// Test DatabaseSite configuration
+	if cfg.DatabaseSite.Driver != "mysql" {
+		t.Errorf("DatabaseSite.Driver = %q, want mysql", cfg.DatabaseSite.Driver)
+	}
+	if cfg.DatabaseSite.Dbname != "sitedb" {
+		t.Errorf("DatabaseSite.Dbname = %q, want sitedb", cfg.DatabaseSite.Dbname)
+	}
+	if cfg.DatabaseSite.Username != "siteuser" {
+		t.Errorf("DatabaseSite.Username = %q, want siteuser", cfg.DatabaseSite.Username)
+	}
+	if cfg.DatabaseSite.Password != "sitepass" {
+		t.Errorf("DatabaseSite.Password = %q, want sitepass", cfg.DatabaseSite.Password)
+	}
+	if cfg.DatabaseSite.Host != "sitehost" {
+		t.Errorf("DatabaseSite.Host = %q, want sitehost", cfg.DatabaseSite.Host)
+	}
+	if cfg.DatabaseSite.Port != "3307" {
+		t.Errorf("DatabaseSite.Port = %q, want 3307", cfg.DatabaseSite.Port)
+	}
+	if cfg.DatabaseSite.Sslmode != true {
+		t.Errorf("DatabaseSite.Sslmode = %v, want true", cfg.DatabaseSite.Sslmode)
+	}
+	if cfg.DatabaseSite.Logmode != false {
+		t.Errorf("DatabaseSite.Logmode = %v, want false", cfg.DatabaseSite.Logmode)
+	}
+	if cfg.DatabaseSite.CloudSQLInstance != "site:region:instance" {
+		t.Errorf("DatabaseSite.CloudSQLInstance = %q, want site:region:instance", cfg.DatabaseSite.CloudSQLInstance)
+	}
+
+	// Test Redis configuration
+	if cfg.Redis.Enabled != true {
+		t.Errorf("Redis.Enabled = %v, want true", cfg.Redis.Enabled)
+	}
+	if cfg.Redis.Host != "redis-host" {
+		t.Errorf("Redis.Host = %q, want redis-host", cfg.Redis.Host)
+	}
+	if cfg.Redis.Port != "6380" {
+		t.Errorf("Redis.Port = %q, want 6380", cfg.Redis.Port)
+	}
+	if cfg.Redis.Password != "redis-pass" {
+		t.Errorf("Redis.Password = %q, want redis-pass", cfg.Redis.Password)
+	}
+	if cfg.Redis.DB != 5 {
+		t.Errorf("Redis.DB = %v, want 5", cfg.Redis.DB)
+	}
+
+	// Test GCS configuration
+	if cfg.GCS.Enabled != true {
+		t.Errorf("GCS.Enabled = %v, want true", cfg.GCS.Enabled)
+	}
+	if cfg.GCS.BucketName != "test-bucket" {
+		t.Errorf("GCS.BucketName = %q, want test-bucket", cfg.GCS.BucketName)
+	}
+	if cfg.GCS.CredentialsFile != "/path/to/creds.json" {
+		t.Errorf("GCS.CredentialsFile = %q, want /path/to/creds.json", cfg.GCS.CredentialsFile)
+	}
+
+	// Test RateLimiter configuration
+	if cfg.RateLimiter.Enabled != true {
+		t.Errorf("RateLimiter.Enabled = %v, want true", cfg.RateLimiter.Enabled)
+	}
+	if cfg.RateLimiter.Requests != 200 {
+		t.Errorf("RateLimiter.Requests = %v, want 200", cfg.RateLimiter.Requests)
+	}
+	if cfg.RateLimiter.Window != 120 {
+		t.Errorf("RateLimiter.Window = %v, want 120", cfg.RateLimiter.Window)
+	}
+	if cfg.RateLimiter.KeyBy != "user" {
+		t.Errorf("RateLimiter.KeyBy = %q, want user", cfg.RateLimiter.KeyBy)
+	}
+	if cfg.RateLimiter.SkipPaths != "/health,/metrics" {
+		t.Errorf("RateLimiter.SkipPaths = %q, want /health,/metrics", cfg.RateLimiter.SkipPaths)
+	}
+
+	// Test Timezone configuration
+	if cfg.Timezone.Timezone != "Asia/Jakarta" {
+		t.Errorf("Timezone.Timezone = %q, want Asia/Jakarta", cfg.Timezone.Timezone)
+	}
+}
