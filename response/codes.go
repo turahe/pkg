@@ -18,6 +18,7 @@ const (
 	ServiceCodeIPWhitelist                 = "13" // IP Whitelist service
 	ServiceCodeApiKey                      = "14" // API Key service
 	ServiceCodeDeposit                     = "15" // Deposit service
+	ServiceCodeWallet                      = "16" // Wallet service
 )
 
 // Case codes (2 digits: 01-99)
