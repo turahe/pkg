@@ -12,7 +12,23 @@ import (
 	"time"
 )
 
-var logger *slog.Logger
+var (
+	logger     *slog.Logger
+	cachedWriter io.Writer
+)
+
+// getCallerSource returns file, line, and function name for the caller at skip (1 = direct caller).
+func getCallerSource(skip int) (file string, line int, function string) {
+	pc, path, line, ok := runtime.Caller(skip)
+	if !ok {
+		return "", 0, ""
+	}
+	file = filepath.Base(path)
+	if fn := runtime.FuncForPC(pc); fn != nil {
+		function = fn.Name()
+	}
+	return file, line, function
+}
 
 // gcpSeverity maps slog levels to Google Cloud Logging severity levels
 func gcpSeverity(level slog.Level) string {
@@ -71,6 +87,17 @@ func GetCorrelationID(ctx context.Context) string {
 	return ""
 }
 
+// getTraceAndCorrelationID returns both IDs from ctx in one pass (used by handler).
+func getTraceAndCorrelationID(ctx context.Context) (traceID, correlationID string) {
+	if v, ok := ctx.Value(contextKeyTraceID).(string); ok {
+		traceID = v
+	}
+	if v, ok := ctx.Value(contextKeyCorrelationID).(string); ok {
+		correlationID = v
+	}
+	return traceID, correlationID
+}
+
 // gcpLogEntry represents a Google Cloud Logging log entry
 type gcpLogEntry struct {
 	Severity       string                 `json:"severity"`
@@ -100,17 +127,18 @@ func (h *gcpHandler) Enabled(ctx context.Context, level slog.Level) bool {
 }
 
 func (h *gcpHandler) Handle(ctx context.Context, record slog.Record) error {
+	traceID, correlationID := getTraceAndCorrelationID(ctx)
 	entry := gcpLogEntry{
 		Severity:      gcpSeverity(record.Level),
 		Time:          record.Time.Format(time.RFC3339Nano),
 		Message:       record.Message,
-		TraceID:       GetTraceID(ctx),
-		CorrelationID: GetCorrelationID(ctx),
+		TraceID:       traceID,
+		CorrelationID: correlationID,
 	}
 
 	// Collect attributes; extract file/line/function into sourceLocation (from *f caller)
 	// and do not put them in fields to avoid duplication and wrong PC-based source.
-	fields := make(map[string]interface{})
+	fields := make(map[string]interface{}, 8)
 	var locFromAttrs sourceLocation
 	record.Attrs(func(a slog.Attr) bool {
 		switch a.Key {
@@ -178,263 +206,120 @@ func (h *gcpHandler) WithGroup(name string) slog.Handler {
 }
 
 func init() {
-	writer := getWriter()
-	handler := newGCPHandler(writer, slog.LevelInfo)
+	cachedWriter = getWriter()
+	handler := newGCPHandler(cachedWriter, slog.LevelInfo)
 	logger = slog.New(handler)
 }
 
 // SetLogLevel sets the log level for the logger
 func SetLogLevel(level slog.Level) {
-	writer := getWriter()
-	handler := newGCPHandler(writer, level)
+	if cachedWriter == nil {
+		cachedWriter = getWriter()
+	}
+	handler := newGCPHandler(cachedWriter, level)
 	logger = slog.New(handler)
 }
 
 // Fields is a map of key-value pairs for structured logging
 type Fields map[string]interface{}
 
-// DebugfContext logs a message at level Debug with the given context (trace_id/correlation_id from ctx are included in JSON).
+// logf writes a formatted log at the given level with caller source (skip: 1 = caller of logf wrapper).
+func logf(ctx context.Context, level slog.Level, skip int, format string, args ...interface{}) {
+	if !logger.Enabled(ctx, level) {
+		return
+	}
+	msg := fmt.Sprintf(format, args...)
+	file, line, function := getCallerSource(skip)
+	if file != "" || line != 0 || function != "" {
+		logger.Log(ctx, level, msg,
+			slog.String("file", file),
+			slog.Int("line", line),
+			slog.String("function", function),
+		)
+	} else {
+		logger.Log(ctx, level, msg)
+	}
+}
+
+// logAttrs writes a log at the given level with structured fields.
+func logAttrs(ctx context.Context, level slog.Level, msg string, fields Fields) {
+	if !logger.Enabled(ctx, level) {
+		return
+	}
+	attrs := make([]slog.Attr, 0, len(fields))
+	for k, v := range fields {
+		attrs = append(attrs, slog.Any(k, v))
+	}
+	logger.LogAttrs(ctx, level, msg, attrs...)
+}
+
+// callerSkip is the depth to get the user's call site from logf (logf -> *f -> user = 3).
+const callerSkip = 3
+
+// DebugfContext logs at level Debug with trace_id/correlation_id from ctx.
 func DebugfContext(ctx context.Context, format string, args ...interface{}) {
-	if logger.Enabled(ctx, slog.LevelDebug) {
-		pc, file, line, ok := runtime.Caller(1)
-		if ok {
-			fn := runtime.FuncForPC(pc)
-			var fnName string
-			if fn != nil {
-				fnName = fn.Name()
-			}
-			logger.Log(ctx, slog.LevelDebug, fmt.Sprintf(format, args...),
-				slog.String("file", filepath.Base(file)),
-				slog.Int("line", line),
-				slog.String("function", fnName),
-			)
-		} else {
-			logger.Log(ctx, slog.LevelDebug, fmt.Sprintf(format, args...))
-		}
-	}
+	logf(ctx, slog.LevelDebug, callerSkip, format, args...)
 }
 
-// InfofContext logs a message at level Info with the given context (trace_id/correlation_id from ctx are included in JSON).
+// InfofContext logs at level Info with trace_id/correlation_id from ctx.
 func InfofContext(ctx context.Context, format string, args ...interface{}) {
-	if logger.Enabled(ctx, slog.LevelInfo) {
-		pc, file, line, ok := runtime.Caller(1)
-		if ok {
-			fn := runtime.FuncForPC(pc)
-			var fnName string
-			if fn != nil {
-				fnName = fn.Name()
-			}
-			logger.Log(ctx, slog.LevelInfo, fmt.Sprintf(format, args...),
-				slog.String("file", filepath.Base(file)),
-				slog.Int("line", line),
-				slog.String("function", fnName),
-			)
-		} else {
-			logger.Log(ctx, slog.LevelInfo, fmt.Sprintf(format, args...))
-		}
-	}
+	logf(ctx, slog.LevelInfo, callerSkip, format, args...)
 }
 
-// WarnfContext logs a message at level Warn with the given context (trace_id/correlation_id from ctx are included in JSON).
+// WarnfContext logs at level Warn with trace_id/correlation_id from ctx.
 func WarnfContext(ctx context.Context, format string, args ...interface{}) {
-	if logger.Enabled(ctx, slog.LevelWarn) {
-		pc, file, line, ok := runtime.Caller(1)
-		if ok {
-			fn := runtime.FuncForPC(pc)
-			var fnName string
-			if fn != nil {
-				fnName = fn.Name()
-			}
-			logger.Log(ctx, slog.LevelWarn, fmt.Sprintf(format, args...),
-				slog.String("file", filepath.Base(file)),
-				slog.Int("line", line),
-				slog.String("function", fnName),
-			)
-		} else {
-			logger.Log(ctx, slog.LevelWarn, fmt.Sprintf(format, args...))
-		}
-	}
+	logf(ctx, slog.LevelWarn, callerSkip, format, args...)
 }
 
-// ErrorfContext logs a message at level Error with the given context (trace_id/correlation_id from ctx are included in JSON).
+// ErrorfContext logs at level Error with trace_id/correlation_id from ctx.
 func ErrorfContext(ctx context.Context, format string, args ...interface{}) {
-	if logger.Enabled(ctx, slog.LevelError) {
-		pc, file, line, ok := runtime.Caller(1)
-		if ok {
-			fn := runtime.FuncForPC(pc)
-			var fnName string
-			if fn != nil {
-				fnName = fn.Name()
-			}
-			logger.Log(ctx, slog.LevelError, fmt.Sprintf(format, args...),
-				slog.String("file", filepath.Base(file)),
-				slog.Int("line", line),
-				slog.String("function", fnName),
-			)
-		} else {
-			logger.Log(ctx, slog.LevelError, fmt.Sprintf(format, args...))
-		}
-	}
+	logf(ctx, slog.LevelError, callerSkip, format, args...)
 }
 
-// Debugf logs a message at level Debug on the standard logger.
+// Debugf logs at level Debug (no trace/correlation).
 func Debugf(format string, args ...interface{}) {
-	ctx := context.Background()
-	if logger.Enabled(ctx, slog.LevelDebug) {
-		// Get caller information for source location
-		pc, file, line, ok := runtime.Caller(1)
-		if ok {
-			fn := runtime.FuncForPC(pc)
-			var fnName string
-			if fn != nil {
-				fnName = fn.Name()
-			}
-			logger.Log(ctx, slog.LevelDebug, fmt.Sprintf(format, args...),
-				slog.String("file", filepath.Base(file)),
-				slog.Int("line", line),
-				slog.String("function", fnName),
-			)
-		} else {
-			logger.Debug(fmt.Sprintf(format, args...))
-		}
-	}
+	logf(context.Background(), slog.LevelDebug, callerSkip, format, args...)
 }
 
-// Infof logs a message at level Info on the standard logger.
+// Infof logs at level Info (no trace/correlation).
 func Infof(format string, args ...interface{}) {
-	ctx := context.Background()
-	if logger.Enabled(ctx, slog.LevelInfo) {
-		pc, file, line, ok := runtime.Caller(1)
-		if ok {
-			fn := runtime.FuncForPC(pc)
-			var fnName string
-			if fn != nil {
-				fnName = fn.Name()
-			}
-			logger.Log(ctx, slog.LevelInfo, fmt.Sprintf(format, args...),
-				slog.String("file", filepath.Base(file)),
-				slog.Int("line", line),
-				slog.String("function", fnName),
-			)
-		} else {
-			logger.Info(fmt.Sprintf(format, args...))
-		}
-	}
+	logf(context.Background(), slog.LevelInfo, callerSkip, format, args...)
 }
 
-// Warnf logs a message at level Warn on the standard logger.
+// Warnf logs at level Warn (no trace/correlation).
 func Warnf(format string, args ...interface{}) {
-	ctx := context.Background()
-	if logger.Enabled(ctx, slog.LevelWarn) {
-		pc, file, line, ok := runtime.Caller(1)
-		if ok {
-			fn := runtime.FuncForPC(pc)
-			var fnName string
-			if fn != nil {
-				fnName = fn.Name()
-			}
-			logger.Log(ctx, slog.LevelWarn, fmt.Sprintf(format, args...),
-				slog.String("file", filepath.Base(file)),
-				slog.Int("line", line),
-				slog.String("function", fnName),
-			)
-		} else {
-			logger.Warn(fmt.Sprintf(format, args...))
-		}
-	}
+	logf(context.Background(), slog.LevelWarn, callerSkip, format, args...)
 }
 
-// Errorf logs a message at level Error on the standard logger.
+// Errorf logs at level Error (no trace/correlation).
 func Errorf(format string, args ...interface{}) {
-	ctx := context.Background()
-	if logger.Enabled(ctx, slog.LevelError) {
-		pc, file, line, ok := runtime.Caller(1)
-		if ok {
-			fn := runtime.FuncForPC(pc)
-			var fnName string
-			if fn != nil {
-				fnName = fn.Name()
-			}
-			logger.Log(ctx, slog.LevelError, fmt.Sprintf(format, args...),
-				slog.String("file", filepath.Base(file)),
-				slog.Int("line", line),
-				slog.String("function", fnName),
-			)
-		} else {
-			logger.Error(fmt.Sprintf(format, args...))
-		}
-	}
+	logf(context.Background(), slog.LevelError, callerSkip, format, args...)
 }
 
-// Fatalf logs a message at level Fatal on the standard logger and exits.
+// Fatalf logs at level Error and exits with code 1.
 func Fatalf(format string, args ...interface{}) {
-	ctx := context.Background()
-	if logger.Enabled(ctx, slog.LevelError) {
-		pc, file, line, ok := runtime.Caller(1)
-		if ok {
-			fn := runtime.FuncForPC(pc)
-			var fnName string
-			if fn != nil {
-				fnName = fn.Name()
-			}
-			logger.Log(ctx, slog.LevelError, fmt.Sprintf(format, args...),
-				slog.String("file", filepath.Base(file)),
-				slog.Int("line", line),
-				slog.String("function", fnName),
-			)
-		} else {
-			logger.Error(fmt.Sprintf(format, args...))
-		}
-		os.Exit(1)
-	}
+	logf(context.Background(), slog.LevelError, callerSkip, format, args...)
+	os.Exit(1)
 }
 
-// Debug logs a message at level Debug with fields.
+// Debug logs at level Debug with fields.
 func Debug(msg string, fields Fields) {
-	ctx := context.Background()
-	if logger.Enabled(ctx, slog.LevelDebug) {
-		attrs := make([]slog.Attr, 0, len(fields))
-		for k, v := range fields {
-			attrs = append(attrs, slog.Any(k, v))
-		}
-		logger.LogAttrs(ctx, slog.LevelDebug, msg, attrs...)
-	}
+	logAttrs(context.Background(), slog.LevelDebug, msg, fields)
 }
 
-// Info logs a message at level Info with fields.
+// Info logs at level Info with fields.
 func Info(msg string, fields Fields) {
-	ctx := context.Background()
-	if logger.Enabled(ctx, slog.LevelInfo) {
-		attrs := make([]slog.Attr, 0, len(fields))
-		for k, v := range fields {
-			attrs = append(attrs, slog.Any(k, v))
-		}
-		logger.LogAttrs(ctx, slog.LevelInfo, msg, attrs...)
-	}
+	logAttrs(context.Background(), slog.LevelInfo, msg, fields)
 }
 
-// Warn logs a message at level Warn with fields.
+// Warn logs at level Warn with fields.
 func Warn(msg string, fields Fields) {
-	ctx := context.Background()
-	if logger.Enabled(ctx, slog.LevelWarn) {
-		attrs := make([]slog.Attr, 0, len(fields))
-		for k, v := range fields {
-			attrs = append(attrs, slog.Any(k, v))
-		}
-		logger.LogAttrs(ctx, slog.LevelWarn, msg, attrs...)
-	}
+	logAttrs(context.Background(), slog.LevelWarn, msg, fields)
 }
 
-// Error logs a message at level Error with fields.
+// Error logs at level Error with fields.
 func Error(msg string, fields Fields) {
-	ctx := context.Background()
-	if logger.Enabled(ctx, slog.LevelError) {
-		attrs := make([]slog.Attr, 0, len(fields))
-		for k, v := range fields {
-			attrs = append(attrs, slog.Any(k, v))
-		}
-		logger.LogAttrs(ctx, slog.LevelError, msg, attrs...)
-	}
+	logAttrs(context.Background(), slog.LevelError, msg, fields)
 }
 
 func getWriter() io.Writer {
@@ -457,3 +342,71 @@ func getWriter() io.Writer {
 func GetLogger() *slog.Logger {
 	return logger
 }
+
+// Ctx is a logger bound to a context. Use WithContext to create it; then Infof, Debugf, etc.
+// automatically include trace_id and correlation_id from that context in the JSON output.
+type Ctx struct {
+	ctx context.Context
+}
+
+// WithContext returns a context-bound logger. Calls to Infof, Debugf, Warnf, Errorf (and Debug, Info, Warn, Error)
+// on the returned value will automatically include trace_id and correlation_id from ctx in the log JSON.
+// Use this in request handlers after trace middleware has set the context, e.g.:
+//
+//	log := logger.WithContext(c.Request.Context())
+//	log.Infof("user %s logged in", userID)
+func WithContext(ctx context.Context) *Ctx {
+	return &Ctx{ctx: ctx}
+}
+
+func (c *Ctx) logf(level slog.Level, format string, args ...interface{}) {
+	if !logger.Enabled(c.ctx, level) {
+		return
+	}
+	msg := fmt.Sprintf(format, args...)
+	// Ctx.logf <- Infof <- user => skip 3 for user call site
+	file, line, function := getCallerSource(3)
+	if file != "" || line != 0 || function != "" {
+		logger.Log(c.ctx, level, msg,
+			slog.String("file", file),
+			slog.Int("line", line),
+			slog.String("function", function),
+		)
+	} else {
+		logger.Log(c.ctx, level, msg)
+	}
+}
+
+// Debugf logs at level Debug with trace_id/correlation_id from the bound context.
+func (c *Ctx) Debugf(format string, args ...interface{}) { c.logf(slog.LevelDebug, format, args...) }
+
+// Infof logs at level Info with trace_id/correlation_id from the bound context.
+func (c *Ctx) Infof(format string, args ...interface{}) { c.logf(slog.LevelInfo, format, args...) }
+
+// Warnf logs at level Warn with trace_id/correlation_id from the bound context.
+func (c *Ctx) Warnf(format string, args ...interface{}) { c.logf(slog.LevelWarn, format, args...) }
+
+// Errorf logs at level Error with trace_id/correlation_id from the bound context.
+func (c *Ctx) Errorf(format string, args ...interface{}) { c.logf(slog.LevelError, format, args...) }
+
+// Fatalf logs at level Error and exits with code 1; includes trace_id/correlation_id from the bound context.
+func (c *Ctx) Fatalf(format string, args ...interface{}) {
+	c.logf(slog.LevelError, format, args...)
+	os.Exit(1)
+}
+
+func (c *Ctx) logAttrs(level slog.Level, msg string, fields Fields) {
+	logAttrs(c.ctx, level, msg, fields)
+}
+
+// Debug logs at level Debug with fields; includes trace_id/correlation_id from the bound context.
+func (c *Ctx) Debug(msg string, fields Fields) { c.logAttrs(slog.LevelDebug, msg, fields) }
+
+// Info logs at level Info with fields; includes trace_id/correlation_id from the bound context.
+func (c *Ctx) Info(msg string, fields Fields) { c.logAttrs(slog.LevelInfo, msg, fields) }
+
+// Warn logs at level Warn with fields; includes trace_id/correlation_id from the bound context.
+func (c *Ctx) Warn(msg string, fields Fields) { c.logAttrs(slog.LevelWarn, msg, fields) }
+
+// Error logs at level Error with fields; includes trace_id/correlation_id from the bound context.
+func (c *Ctx) Error(msg string, fields Fields) { c.logAttrs(slog.LevelError, msg, fields) }

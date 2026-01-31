@@ -49,7 +49,7 @@ JWT token generation and validation.
 - `ValidateToken(tokenString string) (*Claims, error)` - Validate and parse token
 
 ### `logger`
-Structured logging with Google Cloud Logging format support.
+Structured logging with Google Cloud Logging format support. Log entries are JSON with `severity`, `time`, `message`, optional `trace_id`/`correlation_id`, `sourceLocation`, and `fields`.
 
 **Functions:**
 - `Debugf(format string, args ...interface{})` - Debug log
@@ -57,7 +57,15 @@ Structured logging with Google Cloud Logging format support.
 - `Warnf(format string, args ...interface{})` - Warning log
 - `Errorf(format string, args ...interface{})` - Error log
 - `Fatalf(format string, args ...interface{})` - Fatal log (exits)
+- `Debug(msg string, fields Fields)` / `Info` / `Warn` / `Error` - Structured log with fields
 - `SetLogLevel(level slog.Level)` - Set log level
+- `GetLogger() *slog.Logger` - Get underlying slog logger
+
+**Trace ID / Correlation ID (for request-scoped logging):**
+- `WithTraceID(ctx, traceID)` / `WithCorrelationID(ctx, correlationID)` - Store IDs in context
+- `GetTraceID(ctx)` / `GetCorrelationID(ctx)` - Read IDs from context
+- `WithContext(ctx) *Ctx` - Context-bound logger; `Infof`/`Debugf`/etc. automatically include trace_id/correlation_id in JSON
+- `DebugfContext(ctx, format, args...)` / `InfofContext` / `WarnfContext` / `ErrorfContext` - Log with context (IDs in JSON)
 
 ### `redis`
 Redis client wrapper with common operations. Supports both standard Redis and Redis Cluster (Google Cloud Memorystore).
@@ -104,7 +112,8 @@ Common type definitions.
 Gin framework middleware collection for common HTTP operations.
 
 **Middleware Functions:**
-- `LoggerMiddleware() gin.HandlerFunc` - HTTP request logging middleware
+- `TraceMiddleware() gin.HandlerFunc` - Injects trace_id and correlation_id from headers (`X-Trace-Id`, `X-Correlation-Id`, or `X-Request-Id`) into request context; generates UUID if missing. Use before LoggerMiddleware so logs include IDs.
+- `LoggerMiddleware() gin.HandlerFunc` - HTTP request logging (method, path, status, latency, IP); includes trace_id/correlation_id in JSON when TraceMiddleware is used
 - `AuthMiddleware() gin.HandlerFunc` - JWT authentication middleware
 - `CORS() gin.HandlerFunc` - CORS middleware
 - `RateLimiter() gin.HandlerFunc` - Rate limiting middleware (requires Redis)
@@ -218,7 +227,8 @@ import (
 
 router := gin.Default()
 
-// Add middleware
+// Trace first so request context has trace_id/correlation_id for logging
+router.Use(middlewares.TraceMiddleware())
 router.Use(middlewares.LoggerMiddleware())
 router.Use(middlewares.CORS())
 router.Use(middlewares.AuthMiddleware()) // Requires JWT setup
@@ -250,8 +260,20 @@ claims, err := jwt.ValidateToken(tokenString)
 ```go
 import "github.com/turahe/pkg/logger"
 
+// Package-level (no trace/correlation)
 logger.Infof("Application started")
 logger.Errorf("Error occurred: %v", err)
+
+// With structured fields
+logger.Info("user login", logger.Fields{"user_id": id, "ip": ip})
+
+// Request-scoped: use context-bound logger so trace_id/correlation_id appear in JSON
+// (use after TraceMiddleware so c.Request.Context() has IDs)
+func myHandler(c *gin.Context) {
+    log := logger.WithContext(c.Request.Context())
+    log.Infof("user %s logged in", userID)
+    log.Errorf("operation failed: %v", err)
+}
 ```
 
 ## Environment Variables

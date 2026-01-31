@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"context"
 	"log/slog"
 	"testing"
 )
@@ -32,4 +33,19 @@ func TestGetLogger(t *testing.T) {
 func TestSetLogLevel(t *testing.T) {
 	SetLogLevel(slog.LevelWarn)
 	SetLogLevel(slog.LevelInfo)
+}
+
+func TestWithContext(t *testing.T) {
+	SetLogLevel(slog.LevelDebug)
+	ctx := context.Background()
+	ctx = WithTraceID(ctx, "trace-123")
+	ctx = WithCorrelationID(ctx, "corr-456")
+
+	log := WithContext(ctx)
+	log.Infof("context-bound info %s", "msg")
+	log.Debugf("context-bound debug %s", "msg")
+	log.Warnf("context-bound warn %s", "msg")
+	log.Errorf("context-bound error %s", "msg")
+	log.Info("context-bound info with fields", Fields{"key": "value"})
+	// Fatalf would exit; skip in test
 }

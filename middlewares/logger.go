@@ -34,68 +34,31 @@ func LoggerMiddleware() gin.HandlerFunc {
 			path = path + "?" + raw
 		}
 
-		// Log request details (use request context so trace_id/correlation_id appear in JSON)
-		reqCtx := ctx.Request.Context()
+		// Log request details; use context-bound logger so trace_id/correlation_id appear in JSON
+		log := logger.WithContext(ctx.Request.Context())
 		errorMsg := ctx.Errors.String()
 		if statusCode >= 500 {
 			// Server errors
 			if errorMsg != "" {
-				logger.ErrorfContext(reqCtx,
-					"[%s] %s %s %d %v %s - Error: %s",
-					method,
-					path,
-					clientIP,
-					statusCode,
-					latency,
-					ctx.Request.UserAgent(),
-					errorMsg,
-				)
+				log.Errorf("[%s] %s %s %d %v %s - Error: %s",
+					method, path, clientIP, statusCode, latency, ctx.Request.UserAgent(), errorMsg)
 			} else {
-				logger.ErrorfContext(reqCtx,
-					"[%s] %s %s %d %v %s",
-					method,
-					path,
-					clientIP,
-					statusCode,
-					latency,
-					ctx.Request.UserAgent(),
-				)
+				log.Errorf("[%s] %s %s %d %v %s",
+					method, path, clientIP, statusCode, latency, ctx.Request.UserAgent())
 			}
 		} else if statusCode >= 400 {
 			// Client errors
 			if errorMsg != "" {
-				logger.WarnfContext(reqCtx,
-					"[%s] %s %s %d %v %s - Error: %s",
-					method,
-					path,
-					clientIP,
-					statusCode,
-					latency,
-					ctx.Request.UserAgent(),
-					errorMsg,
-				)
+				log.Warnf("[%s] %s %s %d %v %s - Error: %s",
+					method, path, clientIP, statusCode, latency, ctx.Request.UserAgent(), errorMsg)
 			} else {
-				logger.WarnfContext(reqCtx,
-					"[%s] %s %s %d %v %s",
-					method,
-					path,
-					clientIP,
-					statusCode,
-					latency,
-					ctx.Request.UserAgent(),
-				)
+				log.Warnf("[%s] %s %s %d %v %s",
+					method, path, clientIP, statusCode, latency, ctx.Request.UserAgent())
 			}
 		} else {
 			// Success (2xx, 3xx)
-			logger.InfofContext(reqCtx,
-				"[%s] %s %s %d %v %s",
-				method,
-				path,
-				clientIP,
-				statusCode,
-				latency,
-				ctx.Request.UserAgent(),
-			)
+			log.Infof("[%s] %s %s %d %v %s",
+				method, path, clientIP, statusCode, latency, ctx.Request.UserAgent())
 		}
 	}
 }
