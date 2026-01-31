@@ -37,11 +37,47 @@ type sourceLocation struct {
 	Function string `json:"function,omitempty"`
 }
 
+// contextKey is an unexported type for context keys to avoid collisions.
+type contextKey string
+
+const (
+	contextKeyTraceID       contextKey = "trace_id"
+	contextKeyCorrelationID contextKey = "correlation_id"
+)
+
+// WithTraceID returns a copy of ctx with the given trace ID.
+func WithTraceID(ctx context.Context, traceID string) context.Context {
+	return context.WithValue(ctx, contextKeyTraceID, traceID)
+}
+
+// WithCorrelationID returns a copy of ctx with the given correlation ID.
+func WithCorrelationID(ctx context.Context, correlationID string) context.Context {
+	return context.WithValue(ctx, contextKeyCorrelationID, correlationID)
+}
+
+// GetTraceID returns the trace ID from ctx if set, otherwise empty string.
+func GetTraceID(ctx context.Context) string {
+	if v, ok := ctx.Value(contextKeyTraceID).(string); ok {
+		return v
+	}
+	return ""
+}
+
+// GetCorrelationID returns the correlation ID from ctx if set, otherwise empty string.
+func GetCorrelationID(ctx context.Context) string {
+	if v, ok := ctx.Value(contextKeyCorrelationID).(string); ok {
+		return v
+	}
+	return ""
+}
+
 // gcpLogEntry represents a Google Cloud Logging log entry
 type gcpLogEntry struct {
 	Severity       string                 `json:"severity"`
 	Time           string                 `json:"time"`
 	Message        string                 `json:"message"`
+	TraceID        string                 `json:"trace_id,omitempty"`
+	CorrelationID  string                 `json:"correlation_id,omitempty"`
 	SourceLocation *sourceLocation        `json:"sourceLocation,omitempty"`
 	Fields         map[string]interface{} `json:"fields,omitempty"`
 }
@@ -65,9 +101,11 @@ func (h *gcpHandler) Enabled(ctx context.Context, level slog.Level) bool {
 
 func (h *gcpHandler) Handle(ctx context.Context, record slog.Record) error {
 	entry := gcpLogEntry{
-		Severity: gcpSeverity(record.Level),
-		Time:     record.Time.Format(time.RFC3339Nano),
-		Message:  record.Message,
+		Severity:      gcpSeverity(record.Level),
+		Time:          record.Time.Format(time.RFC3339Nano),
+		Message:       record.Message,
+		TraceID:       GetTraceID(ctx),
+		CorrelationID: GetCorrelationID(ctx),
 	}
 
 	// Collect attributes; extract file/line/function into sourceLocation (from *f caller)
@@ -91,6 +129,8 @@ func (h *gcpHandler) Handle(ctx context.Context, record slog.Record) error {
 			if s, ok := a.Value.Any().(string); ok {
 				locFromAttrs.Function = s
 			}
+		case "trace_id", "correlation_id":
+			// Use context for these; do not duplicate in fields
 		default:
 			fields[a.Key] = a.Value.Any()
 		}
@@ -152,6 +192,90 @@ func SetLogLevel(level slog.Level) {
 
 // Fields is a map of key-value pairs for structured logging
 type Fields map[string]interface{}
+
+// DebugfContext logs a message at level Debug with the given context (trace_id/correlation_id from ctx are included in JSON).
+func DebugfContext(ctx context.Context, format string, args ...interface{}) {
+	if logger.Enabled(ctx, slog.LevelDebug) {
+		pc, file, line, ok := runtime.Caller(1)
+		if ok {
+			fn := runtime.FuncForPC(pc)
+			var fnName string
+			if fn != nil {
+				fnName = fn.Name()
+			}
+			logger.Log(ctx, slog.LevelDebug, fmt.Sprintf(format, args...),
+				slog.String("file", filepath.Base(file)),
+				slog.Int("line", line),
+				slog.String("function", fnName),
+			)
+		} else {
+			logger.Log(ctx, slog.LevelDebug, fmt.Sprintf(format, args...))
+		}
+	}
+}
+
+// InfofContext logs a message at level Info with the given context (trace_id/correlation_id from ctx are included in JSON).
+func InfofContext(ctx context.Context, format string, args ...interface{}) {
+	if logger.Enabled(ctx, slog.LevelInfo) {
+		pc, file, line, ok := runtime.Caller(1)
+		if ok {
+			fn := runtime.FuncForPC(pc)
+			var fnName string
+			if fn != nil {
+				fnName = fn.Name()
+			}
+			logger.Log(ctx, slog.LevelInfo, fmt.Sprintf(format, args...),
+				slog.String("file", filepath.Base(file)),
+				slog.Int("line", line),
+				slog.String("function", fnName),
+			)
+		} else {
+			logger.Log(ctx, slog.LevelInfo, fmt.Sprintf(format, args...))
+		}
+	}
+}
+
+// WarnfContext logs a message at level Warn with the given context (trace_id/correlation_id from ctx are included in JSON).
+func WarnfContext(ctx context.Context, format string, args ...interface{}) {
+	if logger.Enabled(ctx, slog.LevelWarn) {
+		pc, file, line, ok := runtime.Caller(1)
+		if ok {
+			fn := runtime.FuncForPC(pc)
+			var fnName string
+			if fn != nil {
+				fnName = fn.Name()
+			}
+			logger.Log(ctx, slog.LevelWarn, fmt.Sprintf(format, args...),
+				slog.String("file", filepath.Base(file)),
+				slog.Int("line", line),
+				slog.String("function", fnName),
+			)
+		} else {
+			logger.Log(ctx, slog.LevelWarn, fmt.Sprintf(format, args...))
+		}
+	}
+}
+
+// ErrorfContext logs a message at level Error with the given context (trace_id/correlation_id from ctx are included in JSON).
+func ErrorfContext(ctx context.Context, format string, args ...interface{}) {
+	if logger.Enabled(ctx, slog.LevelError) {
+		pc, file, line, ok := runtime.Caller(1)
+		if ok {
+			fn := runtime.FuncForPC(pc)
+			var fnName string
+			if fn != nil {
+				fnName = fn.Name()
+			}
+			logger.Log(ctx, slog.LevelError, fmt.Sprintf(format, args...),
+				slog.String("file", filepath.Base(file)),
+				slog.Int("line", line),
+				slog.String("function", fnName),
+			)
+		} else {
+			logger.Log(ctx, slog.LevelError, fmt.Sprintf(format, args...))
+		}
+	}
+}
 
 // Debugf logs a message at level Debug on the standard logger.
 func Debugf(format string, args ...interface{}) {

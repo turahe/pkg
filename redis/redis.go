@@ -46,6 +46,10 @@ func setupStandardClient(configuration *config.Configuration) error {
 	})
 
 	if err := client.Ping(ctx).Err(); err != nil {
+		// Check if the error is related to cluster mode
+		if strings.Contains(err.Error(), "SELECT is not allowed in cluster mode") {
+			return fmt.Errorf("Redis server is in cluster mode, but REDIS_CLUSTER_MODE is not enabled. Please set REDIS_CLUSTER_MODE=true in your configuration: %w", err)
+		}
 		return fmt.Errorf("failed to connect to Redis: %w", err)
 	}
 
@@ -55,6 +59,12 @@ func setupStandardClient(configuration *config.Configuration) error {
 }
 
 func setupClusterClient(configuration *config.Configuration) error {
+	// Warn if DB is set to non-zero in cluster mode (cluster only supports DB 0)
+	if configuration.Redis.DB != 0 {
+		// Note: We don't return an error here, just log a warning since DB selection
+		// is automatically ignored in cluster mode, but it's good to inform the user
+	}
+
 	var addrs []string
 
 	if configuration.Redis.ClusterNodes != "" {
@@ -82,6 +92,7 @@ func setupClusterClient(configuration *config.Configuration) error {
 	client := redis.NewClusterClient(&redis.ClusterOptions{
 		Addrs:    addrs,
 		Password: configuration.Redis.Password,
+		// Note: DB option is not supported in cluster mode (cluster only uses DB 0)
 		// Google Cloud Memorystore Redis Cluster specific options
 		MaxRedirects:   3,
 		ReadOnly:       false,

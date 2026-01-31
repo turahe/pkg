@@ -34,13 +34,13 @@ func LoggerMiddleware() gin.HandlerFunc {
 			path = path + "?" + raw
 		}
 
-		// Log request details
-		// Use appropriate log level based on status code
+		// Log request details (use request context so trace_id/correlation_id appear in JSON)
+		reqCtx := ctx.Request.Context()
 		errorMsg := ctx.Errors.String()
 		if statusCode >= 500 {
 			// Server errors
 			if errorMsg != "" {
-				logger.Errorf(
+				logger.ErrorfContext(reqCtx,
 					"[%s] %s %s %d %v %s - Error: %s",
 					method,
 					path,
@@ -51,7 +51,7 @@ func LoggerMiddleware() gin.HandlerFunc {
 					errorMsg,
 				)
 			} else {
-				logger.Errorf(
+				logger.ErrorfContext(reqCtx,
 					"[%s] %s %s %d %v %s",
 					method,
 					path,
@@ -64,7 +64,7 @@ func LoggerMiddleware() gin.HandlerFunc {
 		} else if statusCode >= 400 {
 			// Client errors
 			if errorMsg != "" {
-				logger.Warnf(
+				logger.WarnfContext(reqCtx,
 					"[%s] %s %s %d %v %s - Error: %s",
 					method,
 					path,
@@ -75,7 +75,7 @@ func LoggerMiddleware() gin.HandlerFunc {
 					errorMsg,
 				)
 			} else {
-				logger.Warnf(
+				logger.WarnfContext(reqCtx,
 					"[%s] %s %s %d %v %s",
 					method,
 					path,
@@ -87,7 +87,7 @@ func LoggerMiddleware() gin.HandlerFunc {
 			}
 		} else {
 			// Success (2xx, 3xx)
-			logger.Infof(
+			logger.InfofContext(reqCtx,
 				"[%s] %s %s %d %v %s",
 				method,
 				path,

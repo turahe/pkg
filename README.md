@@ -5,7 +5,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/turahe/pkg)](https://goreportcard.com/report/github.com/turahe/pkg)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A collection of reusable Go packages for common functionality including database connections, Redis, JWT, crypto, GCS, logging, and utilities.
+A collection of reusable Go packages for common functionality including database connections, Redis (with cluster support), JWT, crypto, GCS, logging, middleware, and utilities.
 
 ## Packages
 
@@ -60,11 +60,13 @@ Structured logging with Google Cloud Logging format support.
 - `SetLogLevel(level slog.Level)` - Set log level
 
 ### `redis`
-Redis client wrapper with common operations.
+Redis client wrapper with common operations. Supports both standard Redis and Redis Cluster (Google Cloud Memorystore).
 
 **Functions:**
-- `Setup() error` - Initialize Redis client
-- `GetRedis() *redis.Client` - Get Redis client
+- `Setup() error` - Initialize Redis client (standard or cluster)
+- `GetRedis() *redis.Client` - Get standard Redis client
+- `GetRedisCluster() *redis.ClusterClient` - Get Redis cluster client
+- `GetUniversalClient() redis.Cmdable` - Get universal client (works with both modes)
 - `IsAlive() bool` - Check if Redis is alive
 - String operations: `Get`, `Set`, `Delete`, `MGet`, `MSet`
 - Hash operations: `HGet`, `HGetAll`, `HSet`, `HSetMap`
@@ -73,7 +75,7 @@ Redis client wrapper with common operations.
 - Lock operations: `AcquireLock`, `ExtendLock`, `ReleaseLock`
 - Pipeline operations: `Pipeline`, `PipelineSet`
 - Pub/Sub: `PublishMessage`, `SubscribeToChannel`
-- `ScanKeys(pattern string, count int64) ([]string, error)` - Scan keys
+- `ScanKeys(pattern string, count int64) ([]string, error)` - Scan keys (cluster-aware)
 
 ### `util`
 Utility functions for common operations.
@@ -97,6 +99,32 @@ Common type definitions.
 
 **Types:**
 - `TimeRange` - Time range with start and end times
+
+### `middlewares`
+Gin framework middleware collection for common HTTP operations.
+
+**Middleware Functions:**
+- `LoggerMiddleware() gin.HandlerFunc` - HTTP request logging middleware
+- `AuthMiddleware() gin.HandlerFunc` - JWT authentication middleware
+- `CORS() gin.HandlerFunc` - CORS middleware
+- `RateLimiter() gin.HandlerFunc` - Rate limiting middleware (requires Redis)
+- `NoMethodHandler() gin.HandlerFunc` - Handle unsupported HTTP methods
+- `NoRouteHandler() gin.HandlerFunc` - Handle 404 routes
+- `RecoveryHandler(ctx *gin.Context)` - Panic recovery middleware
+
+### `response`
+Response code management and standardized API responses.
+
+**Service Codes:**
+- `ServiceCodeCommon` - Common/General services
+- `ServiceCodeAuth` - Authentication service
+- `ServiceCodeTransaction` - Transaction service
+- `ServiceCodeWallet` - Wallet service
+- And more...
+
+**Functions:**
+- `BuildResponseCode(httpStatus int, serviceCode, caseCode string) int` - Build response code
+- `ParseResponseCode(code int) (httpStatus int, serviceCode, caseCode string)` - Parse response code
 
 ## Installation
 
@@ -145,6 +173,8 @@ db := database.GetDB()
 
 ### Redis
 
+**Standard Redis:**
+
 ```go
 import "github.com/turahe/pkg/redis"
 
@@ -156,6 +186,48 @@ if err != nil {
 
 // Use Redis
 val, err := redis.Get("key")
+err = redis.Set("key", "value", 10*time.Second)
+```
+
+**Redis Cluster (Google Cloud Memorystore):**
+
+```go
+import "github.com/turahe/pkg/redis"
+
+// Setup Redis cluster connection
+err := redis.Setup()
+if err != nil {
+    log.Fatal(err)
+}
+
+// Use universal client (works with both standard and cluster)
+client := redis.GetUniversalClient()
+val, err := client.Get(ctx, "key").Result()
+
+// Or use cluster-specific client
+clusterClient := redis.GetRedisCluster()
+```
+
+### Middlewares
+
+```go
+import (
+    "github.com/gin-gonic/gin"
+    "github.com/turahe/pkg/middlewares"
+)
+
+router := gin.Default()
+
+// Add middleware
+router.Use(middlewares.LoggerMiddleware())
+router.Use(middlewares.CORS())
+router.Use(middlewares.AuthMiddleware()) // Requires JWT setup
+router.Use(middlewares.RateLimiter())    // Requires Redis setup
+
+// Setup error handlers
+router.NoMethod(middlewares.NoMethodHandler())
+router.NoRoute(middlewares.NoRouteHandler())
+router.Use(middlewares.RecoveryHandler)
 ```
 
 ### JWT
@@ -192,14 +264,25 @@ The package supports configuration via environment variables:
 - `DATABASE_USERNAME` - Database username
 - `DATABASE_PASSWORD` - Database password
 - `DATABASE_DBNAME` - Database name
+- `DATABASE_CLOUD_SQL_INSTANCE` - Cloud SQL instance (format: project:region:instance)
 - `REDIS_ENABLED` - Enable Redis (true/false)
 - `REDIS_HOST` - Redis host
 - `REDIS_PORT` - Redis port
+- `REDIS_PASSWORD` - Redis password
+- `REDIS_DB` - Redis database number
+- `REDIS_CLUSTER_MODE` - Enable Redis cluster mode (true/false)
+- `REDIS_CLUSTER_NODES` - Comma-separated cluster node addresses
+- `RATE_LIMITER_ENABLED` - Enable rate limiter (true/false)
+- `RATE_LIMITER_REQUESTS` - Number of requests allowed per window
+- `RATE_LIMITER_WINDOW` - Time window in seconds
+- `RATE_LIMITER_KEY_BY` - Key strategy: "ip" or "user"
+- `RATE_LIMITER_SKIP_PATHS` - Comma-separated paths to skip rate limiting
 - `GCS_ENABLED` - Enable GCS (true/false)
 - `GCS_BUCKET_NAME` - GCS bucket name
 - `SERVER_SECRET` - JWT secret key
 - `SERVER_ACCESS_TOKEN_EXPIRY` - Access token expiry in hours
 - `SERVER_REFRESH_TOKEN_EXPIRY` - Refresh token expiry in days
+- `SERVER_TIMEZONE` - Server timezone (IANA format, e.g., "Asia/Jakarta")
 
 ### Example .env
 
@@ -250,6 +333,16 @@ REDIS_HOST=127.0.0.1
 REDIS_PORT=6379
 REDIS_PASSWORD=
 REDIS_DB=1
+# Redis Cluster (for Google Cloud Memorystore Redis Cluster)
+REDIS_CLUSTER_MODE=false
+REDIS_CLUSTER_NODES=10.0.0.1:6379,10.0.0.2:6379,10.0.0.3:6379
+
+# Rate Limiter (requires Redis)
+RATE_LIMITER_ENABLED=true
+RATE_LIMITER_REQUESTS=100
+RATE_LIMITER_WINDOW=60
+RATE_LIMITER_KEY_BY=ip
+RATE_LIMITER_SKIP_PATHS=/health,/metrics
 
 # GCS
 GCS_ENABLED=false
@@ -296,7 +389,7 @@ go test ./...
 
 Integration tests skip automatically when services are not available. CI uses the same `docker-compose.yml` services (Redis, MySQL, Postgres) via GitHub Actions.
 
-Tests cover: `crypto`, `util`, `config`, `jwt`, `logger`, `redis`, `database`, `gcs`, and `types`. Packages that require external services (Redis, GCS, MySQL/Postgres) use disabled or in-memory/sqlite config where possible so tests can run without those services.
+Tests cover: `crypto`, `util`, `config`, `jwt`, `logger`, `redis`, `database`, `gcs`, `types`, `middlewares`, `response`, and `handler`. Packages that require external services (Redis, GCS, MySQL/Postgres) use disabled or in-memory/sqlite config where possible so tests can run without those services.
 
 ## License
 
