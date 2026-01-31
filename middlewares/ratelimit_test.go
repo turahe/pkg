@@ -43,15 +43,16 @@ func setupTestConfig(t *testing.T, rateLimiterEnabled, redisEnabled bool) {
 	}
 }
 
-// cleanupTestRedis cleans up test keys from Redis
+// cleanupTestRedis cleans up test keys from Redis (works with standard and cluster mode)
 func cleanupTestRedis(t *testing.T) {
-	rdb := redis.GetRedis()
-	if rdb != nil {
-		ctx := context.Background()
-		keys, _ := rdb.Keys(ctx, "rate_limit:*").Result()
-		for _, key := range keys {
-			_ = rdb.Del(ctx, key).Err()
-		}
+	rdb := redis.GetUniversalClient()
+	if rdb == nil {
+		return
+	}
+	ctx := context.Background()
+	keys, _ := rdb.Keys(ctx, "rate_limit:*").Result()
+	for _, key := range keys {
+		_ = rdb.Del(ctx, key).Err()
 	}
 }
 

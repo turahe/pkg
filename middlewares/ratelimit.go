@@ -51,10 +51,10 @@ func RateLimiter() gin.HandlerFunc {
 		}
 
 		redisKey := fmt.Sprintf("rate_limit:%s", key)
-		rdb := redis.GetRedis()
+		rdb := redis.GetUniversalClient()
 
 		// Use Redis INCR with expiration for sliding window rate limiting
-		current, err := rdb.Incr(ctx, redisKey).Result()
+		current, err := rdb.Incr(ctx.Request.Context(), redisKey).Result()
 		if err != nil {
 			// If Redis fails, allow the request (fail open)
 			ctx.Next()
@@ -63,7 +63,7 @@ func RateLimiter() gin.HandlerFunc {
 
 		// Set expiration on first request
 		if current == 1 {
-			rdb.Expire(ctx, redisKey, window)
+			rdb.Expire(ctx.Request.Context(), redisKey, window)
 		}
 
 		// Set rate limit headers
@@ -71,7 +71,7 @@ func RateLimiter() gin.HandlerFunc {
 		ctx.Header("X-RateLimit-Remaining", fmt.Sprintf("%d", max(0, requests-int(current))))
 
 		// Get TTL to calculate reset time
-		ttl, _ := rdb.TTL(ctx, redisKey).Result()
+		ttl, _ := rdb.TTL(ctx.Request.Context(), redisKey).Result()
 		resetTime := time.Now().Add(ttl).Unix()
 		ctx.Header("X-RateLimit-Reset", fmt.Sprintf("%d", resetTime))
 
