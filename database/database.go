@@ -167,6 +167,43 @@ func GetDBSite() *gorm.DB {
 	return GetDB()
 }
 
+// IsAlive returns true if the main database connection is healthy (ping succeeds).
+func IsAlive() bool {
+	if DB == nil {
+		return false
+	}
+	sqlDB, err := DB.DB()
+	if err != nil {
+		return false
+	}
+	return sqlDB.Ping() == nil
+}
+
+// HealthCheck pings the main database (and site database if configured) and returns an error if any connection is unhealthy.
+// Use context for timeout, e.g. context.WithTimeout(ctx, 3*time.Second).
+func HealthCheck(ctx context.Context) error {
+	if DB == nil {
+		return fmt.Errorf("database not initialized")
+	}
+	sqlDB, err := DB.DB()
+	if err != nil {
+		return fmt.Errorf("main db: %w", err)
+	}
+	if err := sqlDB.PingContext(ctx); err != nil {
+		return fmt.Errorf("main db ping: %w", err)
+	}
+	if DBSite != nil {
+		sqlSite, err := DBSite.DB()
+		if err != nil {
+			return fmt.Errorf("site db: %w", err)
+		}
+		if err := sqlSite.PingContext(ctx); err != nil {
+			return fmt.Errorf("site db ping: %w", err)
+		}
+	}
+	return nil
+}
+
 func configureConnectionPool(sqlDB *sql.DB) {
 	sqlDB.SetMaxIdleConns(5)
 	sqlDB.SetMaxOpenConns(10)
