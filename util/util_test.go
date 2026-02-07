@@ -91,91 +91,91 @@ func TestRemoveDuplicates(t *testing.T) {
 
 func TestFormatPhoneNumber(t *testing.T) {
 	t.Run("nil phone returns nil", func(t *testing.T) {
-		got := formatPhoneNumber(nil, nil)
+		got := FormatPhoneNumber(nil, nil)
 		if got != nil {
-			t.Errorf("formatPhoneNumber(nil, nil) = %v, want nil", got)
+			t.Errorf("FormatPhoneNumber(nil, nil) = %v, want nil", got)
 		}
 	})
 
 	t.Run("empty phone returns same pointer", func(t *testing.T) {
 		empty := ""
-		got := formatPhoneNumber(&empty, nil)
+		got := FormatPhoneNumber(&empty, nil)
 		if got != &empty {
-			t.Errorf("formatPhoneNumber(&empty, nil) should return same pointer for empty string")
+			t.Errorf("FormatPhoneNumber(&empty, nil) should return same pointer for empty string")
 		}
 		if got == nil || *got != "" {
-			t.Errorf("formatPhoneNumber(&empty, nil) = %v, want \"\"", got)
+			t.Errorf("FormatPhoneNumber(&empty, nil) = %v, want \"\"", got)
 		}
 	})
 
 	t.Run("valid US number with no country code formats to E164", func(t *testing.T) {
 		phone := "6502530000"
-		got := formatPhoneNumber(&phone, nil)
+		got := FormatPhoneNumber(&phone, nil)
 		if got == nil {
-			t.Fatal("formatPhoneNumber returned nil")
+			t.Fatal("FormatPhoneNumber returned nil")
 		}
 		// E.164 for US (650) 253-0000
 		if *got != "+16502530000" {
-			t.Errorf("formatPhoneNumber(%q, nil) = %q, want +16502530000", phone, *got)
+			t.Errorf("FormatPhoneNumber(%q, nil) = %q, want +16502530000", phone, *got)
 		}
 	})
 
 	t.Run("valid US number with country US formats to E164", func(t *testing.T) {
 		phone := "(650) 253-0000"
 		country := "US"
-		got := formatPhoneNumber(&phone, &country)
+		got := FormatPhoneNumber(&phone, &country)
 		if got == nil {
-			t.Fatal("formatPhoneNumber returned nil")
+			t.Fatal("FormatPhoneNumber returned nil")
 		}
 		if *got != "+16502530000" {
-			t.Errorf("formatPhoneNumber(%q, US) = %q, want +16502530000", phone, *got)
+			t.Errorf("FormatPhoneNumber(%q, US) = %q, want +16502530000", phone, *got)
 		}
 	})
 
 	t.Run("valid number with explicit region", func(t *testing.T) {
 		phone := "08123456789"
 		country := "ID"
-		got := formatPhoneNumber(&phone, &country)
+		got := FormatPhoneNumber(&phone, &country)
 		if got == nil {
-			t.Fatal("formatPhoneNumber returned nil")
+			t.Fatal("FormatPhoneNumber returned nil")
 		}
 		// Indonesian mobile in E.164
 		if *got != "+628123456789" {
-			t.Errorf("formatPhoneNumber(%q, ID) = %q, want +628123456789", phone, *got)
+			t.Errorf("FormatPhoneNumber(%q, ID) = %q, want +628123456789", phone, *got)
 		}
 	})
 
 	t.Run("invalid number returns original phone", func(t *testing.T) {
 		phone := "123"
-		got := formatPhoneNumber(&phone, nil)
+		got := FormatPhoneNumber(&phone, nil)
 		if got != &phone {
-			t.Errorf("formatPhoneNumber should return original pointer when invalid")
+			t.Errorf("FormatPhoneNumber should return original pointer when invalid")
 		}
 		if *got != "123" {
-			t.Errorf("formatPhoneNumber(123) = %q, want 123 (original)", *got)
+			t.Errorf("FormatPhoneNumber(123) = %q, want 123 (original)", *got)
 		}
 	})
 
 	t.Run("unparseable returns original phone", func(t *testing.T) {
 		phone := "not-a-number"
-		got := formatPhoneNumber(&phone, nil)
+		got := FormatPhoneNumber(&phone, nil)
 		if got != &phone {
-			t.Errorf("formatPhoneNumber should return original pointer when parse fails")
+			t.Errorf("FormatPhoneNumber should return original pointer when parse fails")
 		}
 		if *got != "not-a-number" {
-			t.Errorf("formatPhoneNumber(not-a-number) = %q, want not-a-number (original)", *got)
+			t.Errorf("FormatPhoneNumber(not-a-number) = %q, want not-a-number (original)", *got)
 		}
 	})
 
 	t.Run("empty country code uses US default", func(t *testing.T) {
 		phone := "6502530000"
 		emptyCountry := ""
-		got := formatPhoneNumber(&phone, &emptyCountry)
+		got := FormatPhoneNumber(&phone, &emptyCountry)
 		if got == nil {
-			t.Fatal("formatPhoneNumber returned nil")
+			t.Fatal("FormatPhoneNumber returned nil")
 		}
 		if *got != "+16502530000" {
-			t.Errorf("formatPhoneNumber(%q, &\"\") = %q, want +16502530000 (US default)", phone, *got)
+			t.Errorf("FormatPhoneNumber(%q, &\"\") = %q, want +16502530000 (US default)", phone, *got)
 		}
 	})
 }

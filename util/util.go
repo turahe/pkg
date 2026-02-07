@@ -49,10 +49,10 @@ func RemoveDuplicates[T comparable](haystack []T) []T {
 	return result
 }
 
-// formatPhoneNumber formats a phone number using the nyaruka/phonenumbers library
-// If country code is provided, it will be used for parsing; otherwise, it will try to detect the country
-// Returns the formatted phone number in E.164 format, or the original phone if formatting fails
-func formatPhoneNumber(phone *string, countryCode *string) *string {
+// FormatPhoneNumber formats a phone number using the nyaruka/phonenumbers library.
+// If country code is provided, it will be used for parsing; otherwise, US is used as default region.
+// Returns the formatted phone number in E.164 format, or the original phone if formatting fails.
+func FormatPhoneNumber(phone *string, countryCode *string) *string {
 	if phone == nil || *phone == "" {
 		return phone
 	}
