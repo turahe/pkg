@@ -2,8 +2,6 @@ package util
 
 import (
 	"testing"
-
-	"github.com/turahe/pkg/types"
 )
 
 func TestIsEmpty(t *testing.T) {
@@ -91,31 +89,93 @@ func TestRemoveDuplicates(t *testing.T) {
 	})
 }
 
-func TestGetCurrentTimeRange(t *testing.T) {
-	tr := GetCurrentTimeRange()
-	// Either nil (outside 07:30–18:30) or valid *TimeRange
-	if tr != nil {
-		if tr.Start == "" || tr.End == "" {
-			t.Error("TimeRange should have Start and End when non-nil")
+func TestFormatPhoneNumber(t *testing.T) {
+	t.Run("nil phone returns nil", func(t *testing.T) {
+		got := formatPhoneNumber(nil, nil)
+		if got != nil {
+			t.Errorf("formatPhoneNumber(nil, nil) = %v, want nil", got)
 		}
-		// ensure it's a copy of one of the defined ranges
-		valid := map[string]bool{
-			"07:30": true, "08:30": true, "09:30": true, "10:30": true,
-			"11:30": true, "13:30": true, "14:30": true, "15:30": true,
-			"16:30": true, "17:30": true, "18:30": true,
-		}
-		if !valid[tr.Start] || !valid[tr.End] {
-			t.Errorf("unexpected TimeRange %+v", tr)
-		}
-	}
-}
+	})
 
-func TestGetCurrentTimeRange_ReturnsTimeRangeOrNil(t *testing.T) {
-	// Just ensure it doesn't panic
-	_ = GetCurrentTimeRange()
-}
+	t.Run("empty phone returns same pointer", func(t *testing.T) {
+		empty := ""
+		got := formatPhoneNumber(&empty, nil)
+		if got != &empty {
+			t.Errorf("formatPhoneNumber(&empty, nil) should return same pointer for empty string")
+		}
+		if got == nil || *got != "" {
+			t.Errorf("formatPhoneNumber(&empty, nil) = %v, want \"\"", got)
+		}
+	})
 
-// Test types import and struct
-func TestTypesTimeRange(t *testing.T) {
-	_ = types.TimeRange{Start: "09:00", End: "10:00"}
+	t.Run("valid US number with no country code formats to E164", func(t *testing.T) {
+		phone := "6502530000"
+		got := formatPhoneNumber(&phone, nil)
+		if got == nil {
+			t.Fatal("formatPhoneNumber returned nil")
+		}
+		// E.164 for US (650) 253-0000
+		if *got != "+16502530000" {
+			t.Errorf("formatPhoneNumber(%q, nil) = %q, want +16502530000", phone, *got)
+		}
+	})
+
+	t.Run("valid US number with country US formats to E164", func(t *testing.T) {
+		phone := "(650) 253-0000"
+		country := "US"
+		got := formatPhoneNumber(&phone, &country)
+		if got == nil {
+			t.Fatal("formatPhoneNumber returned nil")
+		}
+		if *got != "+16502530000" {
+			t.Errorf("formatPhoneNumber(%q, US) = %q, want +16502530000", phone, *got)
+		}
+	})
+
+	t.Run("valid number with explicit region", func(t *testing.T) {
+		phone := "08123456789"
+		country := "ID"
+		got := formatPhoneNumber(&phone, &country)
+		if got == nil {
+			t.Fatal("formatPhoneNumber returned nil")
+		}
+		// Indonesian mobile in E.164
+		if *got != "+628123456789" {
+			t.Errorf("formatPhoneNumber(%q, ID) = %q, want +628123456789", phone, *got)
+		}
+	})
+
+	t.Run("invalid number returns original phone", func(t *testing.T) {
+		phone := "123"
+		got := formatPhoneNumber(&phone, nil)
+		if got != &phone {
+			t.Errorf("formatPhoneNumber should return original pointer when invalid")
+		}
+		if *got != "123" {
+			t.Errorf("formatPhoneNumber(123) = %q, want 123 (original)", *got)
+		}
+	})
+
+	t.Run("unparseable returns original phone", func(t *testing.T) {
+		phone := "not-a-number"
+		got := formatPhoneNumber(&phone, nil)
+		if got != &phone {
+			t.Errorf("formatPhoneNumber should return original pointer when parse fails")
+		}
+		if *got != "not-a-number" {
+			t.Errorf("formatPhoneNumber(not-a-number) = %q, want not-a-number (original)", *got)
+		}
+	})
+
+	t.Run("empty country code uses US default", func(t *testing.T) {
+		phone := "6502530000"
+		emptyCountry := ""
+		got := formatPhoneNumber(&phone, &emptyCountry)
+		if got == nil {
+			t.Fatal("formatPhoneNumber returned nil")
+		}
+		if *got != "+16502530000" {
+			t.Errorf("formatPhoneNumber(%q, &\"\") = %q, want +16502530000 (US default)", phone, *got)
+		}
+	})
 }

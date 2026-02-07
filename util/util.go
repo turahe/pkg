@@ -2,9 +2,8 @@ package util
 
 import (
 	"reflect"
-	"time"
 
-	"github.com/turahe/pkg/types"
+	"github.com/nyaruka/phonenumbers"
 )
 
 func IsEmpty(value interface{}) bool {
@@ -50,28 +49,34 @@ func RemoveDuplicates[T comparable](haystack []T) []T {
 	return result
 }
 
-func GetCurrentTimeRange() *types.TimeRange {
-	var timeRange = []types.TimeRange{
-		{Start: "07:30", End: "08:30"},
-		{Start: "08:30", End: "09:30"},
-		{Start: "09:30", End: "10:30"},
-		{Start: "10:30", End: "11:30"},
-		{Start: "11:30", End: "13:30"},
-		{Start: "13:30", End: "14:30"},
-		{Start: "14:30", End: "15:30"},
-		{Start: "15:30", End: "16:30"},
-		{Start: "16:30", End: "17:30"},
-		{Start: "17:30", End: "18:30"},
+// formatPhoneNumber formats a phone number using the nyaruka/phonenumbers library
+// If country code is provided, it will be used for parsing; otherwise, it will try to detect the country
+// Returns the formatted phone number in E.164 format, or the original phone if formatting fails
+func formatPhoneNumber(phone *string, countryCode *string) *string {
+	if phone == nil || *phone == "" {
+		return phone
 	}
 
-	now := time.Now()
-	currentTime := now.Format("15:04")
-
-	for _, tr := range timeRange {
-		if currentTime >= tr.Start && currentTime < tr.End {
-			return &tr
-		}
+	// Default to "US" if no country code is provided
+	defaultRegion := "US"
+	if countryCode != nil && *countryCode != "" {
+		defaultRegion = *countryCode
 	}
 
-	return nil
+	// Parse the phone number
+	num, err := phonenumbers.Parse(*phone, defaultRegion)
+	if err != nil {
+		// If parsing fails, return original phone number
+		return phone
+	}
+
+	// Check if the number is valid
+	if !phonenumbers.IsValidNumber(num) {
+		// If invalid, return original phone number
+		return phone
+	}
+
+	// Format in E.164 format (e.g., +1234567890)
+	formatted := phonenumbers.Format(num, phonenumbers.E164)
+	return &formatted
 }
