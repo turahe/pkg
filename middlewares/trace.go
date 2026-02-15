@@ -13,6 +13,35 @@ const (
 	HeaderRequestID     = "X-Request-Id"
 )
 
+// RequestID returns Gin middleware that ensures a request/correlation ID on every request.
+// It reads X-Request-ID or X-Trace-ID from headers; generates a new UUID if missing.
+// The ID is stored in context (trace_id and correlation_id) so logger.WithContext
+// and LoggerMiddleware include it in structured logs. Response headers X-Request-ID
+// and X-Trace-ID are set for client correlation.
+func RequestID() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		req := c.Request
+		ctx := req.Context()
+
+		requestID := req.Header.Get(HeaderRequestID)
+		if requestID == "" {
+			requestID = req.Header.Get(HeaderTraceID)
+		}
+		if requestID == "" {
+			requestID = uuid.New().String()
+		}
+
+		ctx = logger.WithTraceID(ctx, requestID)
+		ctx = logger.WithCorrelationID(ctx, requestID)
+		c.Request = req.WithContext(ctx)
+
+		c.Header(HeaderRequestID, requestID)
+		c.Header(HeaderTraceID, requestID)
+
+		c.Next()
+	}
+}
+
 // TraceMiddleware injects trace_id and correlation_id into the request context
 // so they appear in structured logs. It reads X-Trace-Id and X-Correlation-Id
 // from incoming headers, or X-Request-Id as fallback for trace ID. If no trace ID

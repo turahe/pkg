@@ -17,14 +17,25 @@ Password hashing and comparison using bcrypt.
 - `ComparePassword(hashedPassword string, plainPassword []byte) bool` - Compare password with hash
 
 ### `database`
-Database connection management with support for multiple drivers (MySQL, PostgreSQL, SQLite, SQL Server) and Cloud SQL.
+Enterprise-grade database layer with dependency injection, Cloud SQL (Postgres/MySQL), IAM auth, Private IP, and production-tuned connection pools.
 
-**Functions:**
-- `Setup() error` - Initialize database connections
-- `CreateDatabaseConnection(configuration *config.DatabaseConfiguration) (*gorm.DB, error)` - Create a database connection
-- `GetDB() *gorm.DB` - Get the main database connection
-- `GetDBSite() *gorm.DB` - Get the site database connection
-- `Cleanup() error` - Cleanup Cloud SQL connections
+**Drivers:** mysql, postgres, sqlite, sqlserver, cloudsql-mysql, cloudsql-postgres
+
+**New API (recommended):**
+- `New(cfg *config.DatabaseConfiguration, opts Options, override ...Option) (*Database, error)` - Create database with options
+- `NewContext(ctx, cfg, opts, override...) (*Database, error)` - Create with context
+- `(d *Database) DB() *gorm.DB` - Get GORM instance
+- `(d *Database) Health(ctx context.Context) error` - Health check with timeout
+- `(d *Database) Close() error` - Graceful shutdown
+
+**Options:** `UseIAM`, `UsePrivateIP`, `LogLevel`, `MaxOpenConns` (default 30), `MaxIdleConns` (default 10), `ConnMaxLife` (30m), `ConnMaxIdle` (10m), `SlowThreshold` (500ms)
+
+**Backward compatibility:**
+- `Setup() error` - Initialize from config (uses env)
+- `GetDB() *gorm.DB` / `GetDBSite() *gorm.DB` - Get connections
+- `CreateDatabaseConnection(cfg) (*gorm.DB, error)` - Create single connection
+- `HealthCheck(ctx) error` / `IsAlive() bool` - Health checks
+- `Cleanup() error` - Shutdown Cloud SQL
 
 ### `gcs`
 Google Cloud Storage client wrapper.
@@ -112,8 +123,9 @@ Common type definitions.
 Gin framework middleware collection for common HTTP operations.
 
 **Middleware Functions:**
+- `RequestID() gin.HandlerFunc` - Ensures a request/correlation ID on every request. Reads `X-Request-ID` or `X-Trace-ID` from headers; generates a new UUID if missing. Injects ID into context so LoggerMiddleware and `logger.WithContext` include it in structured logs.
 - `TraceMiddleware() gin.HandlerFunc` - Injects trace_id and correlation_id from headers (`X-Trace-Id`, `X-Correlation-Id`, or `X-Request-Id`) into request context; generates UUID if missing. Use before LoggerMiddleware so logs include IDs.
-- `LoggerMiddleware() gin.HandlerFunc` - HTTP request logging (method, path, status, latency, IP); includes trace_id/correlation_id in JSON when TraceMiddleware is used
+- `LoggerMiddleware() gin.HandlerFunc` - HTTP request logging (method, path, status, latency, IP); includes trace_id/correlation_id in JSON when RequestID or TraceMiddleware is used
 - `AuthMiddleware() gin.HandlerFunc` - JWT authentication middleware
 - `CORS() gin.HandlerFunc` - CORS middleware
 - `RateLimiter() gin.HandlerFunc` - Rate limiting middleware (requires Redis)
@@ -167,16 +179,39 @@ config.SetConfig(cfg)
 
 ### Database
 
-```go
-import "github.com/turahe/pkg/database"
+**New API (dependency injection):**
 
-// Setup database connection
+```go
+import (
+    "github.com/turahe/pkg/config"
+    "github.com/turahe/pkg/database"
+    "gorm.io/gorm/logger"
+)
+
+cfg := config.GetConfig()
+db, err := database.New(&cfg.Database, database.Options{
+    UseIAM:       true,
+    UsePrivateIP: true,
+    LogLevel:     logger.Warn,
+})
+if err != nil {
+    log.Fatal(err)
+}
+defer db.Close()
+
+gormDB := db.DB()
+if err := db.Health(ctx); err != nil {
+    log.Fatal(err)
+}
+```
+
+**Legacy API (global):**
+
+```go
 err := database.Setup()
 if err != nil {
     log.Fatal(err)
 }
-
-// Get database connection
 db := database.GetDB()
 ```
 
@@ -286,10 +321,12 @@ The package supports configuration via environment variables:
 - `DATABASE_USERNAME` - Database username
 - `DATABASE_PASSWORD` - Database password
 - `DATABASE_DBNAME` - Database name
-- `DATABASE_CLOUD_SQL_INSTANCE` - Cloud SQL instance (format: project:region:instance)
-- `DATABASE_MAX_IDLE_CONNS` - Max idle connections in pool (default: 5)
-- `DATABASE_MAX_OPEN_CONNS` - Max open connections (default: 10)
-- `DATABASE_CONN_MAX_LIFETIME` - Max connection lifetime in minutes (default: 1440 = 24h)
+- `DATABASE_SSLMODE` - Enable SSL (true/false)
+- `DATABASE_LOGMODE` - Enable query logging (true/false)
+- `DATABASE_CLOUD_SQL_INSTANCE` - Cloud SQL instance (format: project:region:instance) for cloudsql-mysql/cloudsql-postgres
+- `DATABASE_MAX_IDLE_CONNS` - Max idle connections in pool (default: 5; production: 10)
+- `DATABASE_MAX_OPEN_CONNS` - Max open connections (default: 10; production: 30)
+- `DATABASE_CONN_MAX_LIFETIME` - Max connection lifetime in minutes (default: 1440; production: 30)
 - `REDIS_ENABLED` - Enable Redis (true/false)
 - `REDIS_HOST` - Redis host
 - `REDIS_PORT` - Redis port
@@ -330,6 +367,7 @@ CORS_GLOBAL=true
 CORS_IPS=
 
 # Database (required: DBNAME, USERNAME, PASSWORD)
+# Drivers: mysql, postgres, sqlite, sqlserver, cloudsql-mysql, cloudsql-postgres
 DATABASE_DRIVER=mysql
 DATABASE_HOST=127.0.0.1
 DATABASE_PORT=3306
@@ -338,11 +376,12 @@ DATABASE_PASSWORD=apppassword
 DATABASE_DBNAME=appdb
 DATABASE_SSLMODE=false
 DATABASE_LOGMODE=true
-# Connection pool (optional; defaults: 5 idle, 10 open, 1440 min lifetime)
-# DATABASE_MAX_IDLE_CONNS=5
-# DATABASE_MAX_OPEN_CONNS=10
-# DATABASE_CONN_MAX_LIFETIME=1440
-# For Cloud SQL: project:region:instance
+# Connection pool (defaults: 5 idle, 10 open, 1440 min lifetime)
+# Production-tuned: 10 idle, 30 open, 30 min lifetime
+DATABASE_MAX_IDLE_CONNS=10
+DATABASE_MAX_OPEN_CONNS=30
+DATABASE_CONN_MAX_LIFETIME=30
+# Cloud SQL: project:region:instance (use database.Options for IAM/Private IP)
 DATABASE_CLOUD_SQL_INSTANCE=
 
 # Database Site (optional; leave DBNAME empty to disable)
