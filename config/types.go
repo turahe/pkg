@@ -34,15 +34,18 @@ type CorsConfiguration struct {
 
 // DatabaseConfiguration holds database-related configuration
 type DatabaseConfiguration struct {
-	Driver           string
-	Dbname           string
-	Username         string
-	Password         string
-	Host             string
-	Port             string
-	Sslmode          bool
-	Logmode          bool
-	CloudSQLInstance string `mapstructure:"cloud_sql_instance"` // Cloud SQL instance connection name (format: project:region:instance)
+	Driver                string
+	Dbname                string
+	Username              string
+	Password              string
+	Host                  string
+	Port                  string
+	Sslmode               bool
+	Logmode               bool
+	CloudSQLInstance      string `mapstructure:"cloud_sql_instance"` // Cloud SQL instance connection name (format: project:region:instance)
+	MaxIdleConns           int // Max idle connections in pool (0 = default 5)
+	MaxOpenConns           int // Max open connections (0 = default 10)
+	ConnMaxLifetimeMinutes int // Max lifetime of a connection in minutes (0 = default 1440 = 24h)
 }
 
 // RedisConfiguration holds Redis-related configuration

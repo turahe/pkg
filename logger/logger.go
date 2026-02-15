@@ -343,6 +343,15 @@ func GetLogger() *slog.Logger {
 	return logger
 }
 
+// GetWriter returns the io.Writer used for logging (file + stderr).
+// Use this when an io.Writer is needed, e.g. for GORM database logger.
+func GetWriter() io.Writer {
+	if cachedWriter == nil {
+		cachedWriter = getWriter()
+	}
+	return cachedWriter
+}
+
 // Ctx is a logger bound to a context. Use WithContext to create it; then Infof, Debugf, etc.
 // automatically include trace_id and correlation_id from that context in the JSON output.
 type Ctx struct {

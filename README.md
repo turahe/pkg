@@ -287,6 +287,9 @@ The package supports configuration via environment variables:
 - `DATABASE_PASSWORD` - Database password
 - `DATABASE_DBNAME` - Database name
 - `DATABASE_CLOUD_SQL_INSTANCE` - Cloud SQL instance (format: project:region:instance)
+- `DATABASE_MAX_IDLE_CONNS` - Max idle connections in pool (default: 5)
+- `DATABASE_MAX_OPEN_CONNS` - Max open connections (default: 10)
+- `DATABASE_CONN_MAX_LIFETIME` - Max connection lifetime in minutes (default: 1440 = 24h)
 - `REDIS_ENABLED` - Enable Redis (true/false)
 - `REDIS_HOST` - Redis host
 - `REDIS_PORT` - Redis port
@@ -335,6 +338,10 @@ DATABASE_PASSWORD=apppassword
 DATABASE_DBNAME=appdb
 DATABASE_SSLMODE=false
 DATABASE_LOGMODE=true
+# Connection pool (optional; defaults: 5 idle, 10 open, 1440 min lifetime)
+# DATABASE_MAX_IDLE_CONNS=5
+# DATABASE_MAX_OPEN_CONNS=10
+# DATABASE_CONN_MAX_LIFETIME=1440
 # For Cloud SQL: project:region:instance
 DATABASE_CLOUD_SQL_INSTANCE=
 

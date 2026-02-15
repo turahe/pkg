@@ -17,5 +17,8 @@ func HashAndSalt(plainPassword []byte) string {
 func ComparePassword(hashedPassword string, plainPassword []byte) bool {
 	byteHash := []byte(hashedPassword)
 	err := bcrypt.CompareHashAndPassword(byteHash, plainPassword)
+	if err != nil {
+		logger.Errorf("Failed to ComparePassword: %v", err)
+	}
 	return err == nil
 }
