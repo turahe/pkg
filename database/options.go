@@ -13,6 +13,10 @@ const (
 	defaultConnMaxIdleTime = 10 * time.Minute
 	defaultSlowThreshold   = 500 * time.Millisecond
 	defaultPingTimeout     = 5 * time.Second
+
+	// Production pool defaults for high RPS (e.g. 1000+). Use with WithProductionPoolDefaults().
+	productionMaxOpenConns = 150
+	productionMaxIdleConns = 50
 )
 
 type Options struct {
@@ -79,4 +83,11 @@ func WithConnMaxLifetime(d time.Duration) Option {
 
 func WithConnMaxIdleTime(d time.Duration) Option {
 	return func(o *Options) { o.ConnMaxIdle = d }
+}
+
+// WithProductionPoolDefaults sets higher connection pool limits for high-throughput production (e.g. 1000+ RPS).
+// Call as an override: database.New(cfg, opts, database.WithProductionPoolDefaults).
+func WithProductionPoolDefaults(o *Options) {
+	o.MaxOpenConns = productionMaxOpenConns
+	o.MaxIdleConns = productionMaxIdleConns
 }

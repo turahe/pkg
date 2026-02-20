@@ -112,19 +112,15 @@ func TestRecoveryHandler(t *testing.T) {
 	// Test panic recovery with other type (will cause a panic in errorToString)
 	// This test verifies that the recovery handler handles panics, even if errorToString panics
 	// Note: The current implementation of errorToString will panic on non-string, non-error types
-	// This is a known limitation - the test documents this behavior
+	// panic with non-error, non-string value is now safely converted via fmt.Sprint
 	router.GET("/panic-int", func(c *gin.Context) {
 		panic(123)
 	})
 
 	req = httptest.NewRequest("GET", "/panic-int", nil)
 	w = httptest.NewRecorder()
-	
-	// This will cause a panic in errorToString, which will be caught by the test framework
-	// The actual middleware will also panic, demonstrating the bug in errorToString
-	assert.Panics(t, func() {
-		router.ServeHTTP(w, req)
-	})
+	router.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
 
 	// Test that handler aborts after panic
 	router.GET("/panic-abort", func(c *gin.Context) {
@@ -167,11 +163,9 @@ func TestErrorToString(t *testing.T) {
 	result = errorToString("test string")
 	assert.Equal(t, "test string", result)
 
-	// Test with int - the current implementation will panic
-	// This documents a bug in the errorToString function
-	assert.Panics(t, func() {
-		errorToString(123)
-	})
+	// Test with int - safely converted via fmt.Sprint (no panic)
+	result = errorToString(123)
+	assert.Equal(t, "123", result)
 }
 
 type testError struct {

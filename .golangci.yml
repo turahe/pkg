@@ -1,0 +1,44 @@
+version: "2"
+
+linters:
+  enable:
+    - errcheck        # unchecked errors
+    - gosimple        # simplification suggestions
+    - govet           # go vet checks
+    - ineffassign     # ineffectual assignments
+    - staticcheck     # advanced static analysis
+    - unused          # unused code
+    - gosec           # security issues
+    - misspell        # spelling mistakes in comments/strings
+    - gofmt           # formatting
+    - goimports       # import ordering
+    - bodyclose       # unclosed HTTP response bodies
+    - noctx           # HTTP requests without context
+    - exhaustive      # missing switch cases on enums
+
+linters-settings:
+  gosec:
+    excludes:
+      - G115  # integer overflow (acceptable in our code)
+  errcheck:
+    check-blank: true
+    check-type-assertions: false
+  govet:
+    enable-all: true
+    disable:
+      - fieldalignment  # not a correctness issue
+
+issues:
+  exclude-rules:
+    # Test files get relaxed rules.
+    - path: "_test\\.go"
+      linters:
+        - errcheck
+        - gosec
+    # Generated or example code.
+    - path: "cmd/example"
+      linters:
+        - gosec  # demo uses log.Fatal which is fine for examples
+
+  max-issues-per-linter: 0
+  max-same-issues: 0

@@ -1,8 +1,10 @@
-package controllers
+package handler
 
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -27,11 +29,11 @@ func setupRouter() *gin.Engine {
 
 func TestBaseController_ValidateReqParams_JSON(t *testing.T) {
 	router := setupRouter()
-	controller := &BaseController{}
+	handler := &BaseHandler{}
 
 	router.POST("/test", func(c *gin.Context) {
 		var req TestRequest
-		err := controller.ValidateReqParams(c, &req)
+		err := handler.ValidateReqParams(c, &req)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
@@ -57,11 +59,11 @@ func TestBaseController_ValidateReqParams_JSON(t *testing.T) {
 
 func TestBaseController_ValidateReqParams_Query(t *testing.T) {
 	router := setupRouter()
-	controller := &BaseController{}
+	handler := &BaseHandler{}
 
 	router.GET("/test", func(c *gin.Context) {
 		var req TestRequest
-		err := controller.ValidateReqParams(c, &req)
+		err := handler.ValidateReqParams(c, &req)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
@@ -79,7 +81,7 @@ func TestBaseController_ValidateReqParams_Query(t *testing.T) {
 
 func TestBaseController_ValidateReqParams_URI(t *testing.T) {
 	router := setupRouter()
-	controller := &BaseController{}
+	handler := &BaseHandler{}
 
 	// Create a request struct that can get ID from URI and other fields from query
 	// Note: ID should not be required in query binding since it comes from URI
@@ -91,7 +93,7 @@ func TestBaseController_ValidateReqParams_URI(t *testing.T) {
 
 	router.GET("/test/:id", func(c *gin.Context) {
 		var req URIRequest
-		err := controller.ValidateReqParams(c, &req)
+		err := handler.ValidateReqParams(c, &req)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
@@ -115,11 +117,11 @@ func TestBaseController_ValidateReqParams_URI(t *testing.T) {
 
 func TestBaseController_ValidateReqParams_InvalidJSON(t *testing.T) {
 	router := setupRouter()
-	controller := &BaseController{}
+	handler := &BaseHandler{}
 
 	router.POST("/test", func(c *gin.Context) {
 		var req TestRequest
-		err := controller.ValidateReqParams(c, &req)
+		err := handler.ValidateReqParams(c, &req)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
@@ -139,13 +141,13 @@ func TestBaseController_ValidateReqParams_InvalidJSON(t *testing.T) {
 
 func TestBaseController_HandleValidationError(t *testing.T) {
 	router := setupRouter()
-	controller := &BaseController{}
+	handler := &BaseHandler{}
 
 	router.POST("/test", func(c *gin.Context) {
 		var req TestRequest
-		err := controller.ValidateReqParams(c, &req)
+		err := handler.ValidateReqParams(c, &req)
 		if err != nil {
-			controller.HandleValidationError(c, response.ServiceCodeCommon, err)
+			handler.HandleValidationError(c, response.ServiceCodeCommon, err)
 			return
 		}
 		c.JSON(http.StatusOK, req)
@@ -166,40 +168,40 @@ func TestBaseController_HandleValidationError(t *testing.T) {
 }
 
 func TestBaseController_NormalizePagination(t *testing.T) {
-	controller := &BaseController{}
+	handler := &BaseHandler{}
 
 	// Test valid pagination
-	page, size := controller.NormalizePagination(2, 20)
+	page, size := handler.NormalizePagination(2, 20)
 	assert.Equal(t, 2, page)
 	assert.Equal(t, 20, size)
 
 	// Test zero values (should default)
-	page, size = controller.NormalizePagination(0, 0)
+	page, size = handler.NormalizePagination(0, 0)
 	assert.Equal(t, 1, page)
 	assert.Equal(t, 10, size)
 
 	// Test negative values (should default)
-	page, size = controller.NormalizePagination(-1, -5)
+	page, size = handler.NormalizePagination(-1, -5)
 	assert.Equal(t, 1, page)
 	assert.Equal(t, 10, size)
 
 	// Test page size exceeding max (should cap at 100)
-	page, size = controller.NormalizePagination(1, 150)
+	page, size = handler.NormalizePagination(1, 150)
 	assert.Equal(t, 1, page)
 	assert.Equal(t, 100, size)
 
 	// Test boundary values
-	page, size = controller.NormalizePagination(1, 100)
+	page, size = handler.NormalizePagination(1, 100)
 	assert.Equal(t, 1, page)
 	assert.Equal(t, 100, size)
 }
 
 func TestBaseController_GetIDFromParam(t *testing.T) {
 	router := setupRouter()
-	controller := &BaseController{}
+	handler := &BaseHandler{}
 
 	router.GET("/test/:id", func(c *gin.Context) {
-		id, ok := controller.GetIDFromParam(c, "id", response.ServiceCodeCommon)
+		id, ok := handler.GetIDFromParam(c, "id", response.ServiceCodeCommon)
 		if !ok {
 			return
 		}
@@ -219,7 +221,7 @@ func TestBaseController_GetIDFromParam(t *testing.T) {
 
 	// Test with missing ID (should return validation error)
 	router.GET("/test2/:id", func(c *gin.Context) {
-		id, ok := controller.GetIDFromParam(c, "missing", response.ServiceCodeCommon)
+		id, ok := handler.GetIDFromParam(c, "missing", response.ServiceCodeCommon)
 		if !ok {
 			return
 		}
@@ -234,12 +236,12 @@ func TestBaseController_GetIDFromParam(t *testing.T) {
 }
 
 func TestBaseController_GetIDFromRequestOrParam(t *testing.T) {
-	controller := &BaseController{}
+	handler := &BaseHandler{}
 
 	router := setupRouter()
 	router.GET("/test/:id", func(c *gin.Context) {
 		reqID := c.Query("req_id")
-		id, ok := controller.GetIDFromRequestOrParam(c, reqID, "id", response.ServiceCodeCommon)
+		id, ok := handler.GetIDFromRequestOrParam(c, reqID, "id", response.ServiceCodeCommon)
 		if !ok {
 			return
 		}
@@ -270,11 +272,11 @@ func TestBaseController_GetIDFromRequestOrParam(t *testing.T) {
 
 func TestBaseController_HandleServiceError(t *testing.T) {
 	router := setupRouter()
-	controller := &BaseController{}
+	handler := &BaseHandler{}
 
 	router.GET("/test", func(c *gin.Context) {
 		err := assert.AnError
-		if controller.HandleServiceError(c, response.ServiceCodeCommon, err, "not found") {
+		if handler.HandleServiceError(c, response.ServiceCodeCommon, err, "not found") {
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
@@ -283,7 +285,7 @@ func TestBaseController_HandleServiceError(t *testing.T) {
 	// Test with not found error
 	router.GET("/test2", func(c *gin.Context) {
 		err := &testError{message: "not found"}
-		if controller.HandleServiceError(c, response.ServiceCodeCommon, err, "not found") {
+		if handler.HandleServiceError(c, response.ServiceCodeCommon, err, "not found") {
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
@@ -295,10 +297,36 @@ func TestBaseController_HandleServiceError(t *testing.T) {
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
 
-	// Test with unauthorized error
+	// Test with sentinel ErrNotFound (errors.Is)
+	router.GET("/test-sentinel-notfound", func(c *gin.Context) {
+		err := fmt.Errorf("user: %w", ErrNotFound)
+		if handler.HandleServiceError(c, response.ServiceCodeCommon, err) {
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	})
+	req = httptest.NewRequest("GET", "/test-sentinel-notfound", nil)
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusNotFound, w.Code)
+
+	// Test with sentinel ErrUnauthorized
+	router.GET("/test-sentinel-unauth", func(c *gin.Context) {
+		err := errors.Join(ErrUnauthorized, fmt.Errorf("invalid token"))
+		if handler.HandleServiceError(c, response.ServiceCodeCommon, err) {
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	})
+	req = httptest.NewRequest("GET", "/test-sentinel-unauth", nil)
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+
+	// Test with unauthorized error (legacy string)
 	router.GET("/test3", func(c *gin.Context) {
 		err := &testError{message: "current password is incorrect"}
-		if controller.HandleServiceError(c, response.ServiceCodeCommon, err) {
+		if handler.HandleServiceError(c, response.ServiceCodeCommon, err) {
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
@@ -320,40 +348,40 @@ func (e *testError) Error() string {
 }
 
 func TestBaseController_BuildPaginationResponse(t *testing.T) {
-	controller := &BaseController{}
+	handler := &BaseHandler{}
 
-	// Test with data
+	// total = 25: page 2, size 10 -> items 11-20, hasNext = (2*10) < 25 = true
 	data := []interface{}{1, 2, 3}
-	response := controller.BuildPaginationResponse(data, 2, 10, 1)
-	assert.Equal(t, data, response.Data)
-	assert.Equal(t, 2, response.PageNumber)
-	assert.Equal(t, 10, response.PageSize)
-	assert.True(t, response.HasNext)
-	assert.True(t, response.HasPrev)
+	resp := handler.BuildPaginationResponse(data, 2, 10, 25)
+	assert.Equal(t, data, resp.Data)
+	assert.Equal(t, 2, resp.PageNumber)
+	assert.Equal(t, 10, resp.PageSize)
+	assert.True(t, resp.HasNext)
+	assert.True(t, resp.HasPrev)
 
-	// Test first page (no previous)
-	response = controller.BuildPaginationResponse(data, 1, 10, 1)
-	assert.False(t, response.HasPrev)
-	assert.True(t, response.HasNext)
+	// First page, total 25: hasNext = (1*10) < 25 = true
+	resp = handler.BuildPaginationResponse(data, 1, 10, 25)
+	assert.False(t, resp.HasPrev)
+	assert.True(t, resp.HasNext)
 
-	// Test last page (no next)
-	response = controller.BuildPaginationResponse(data, 2, 10, 0)
-	assert.False(t, response.HasNext)
-	assert.True(t, response.HasPrev)
+	// Last page: total 20, page 2, size 10 -> (2*10) < 20 = false
+	resp = handler.BuildPaginationResponse(data, 2, 10, 20)
+	assert.False(t, resp.HasNext)
+	assert.True(t, resp.HasPrev)
 
-	// Test empty data
+	// Empty total
 	emptyData := []interface{}{}
-	response = controller.BuildPaginationResponse(emptyData, 1, 10, 0)
-	assert.False(t, response.HasNext)
-	assert.False(t, response.HasPrev)
+	resp = handler.BuildPaginationResponse(emptyData, 1, 10, 0)
+	assert.False(t, resp.HasNext)
+	assert.False(t, resp.HasPrev)
 }
 
 func TestBaseController_GetCurrentUserID(t *testing.T) {
 	router := setupRouter()
-	controller := &BaseController{}
+	handler := &BaseHandler{}
 
 	router.GET("/test", func(c *gin.Context) {
-		userID, ok := controller.GetCurrentUserID(c)
+		userID, ok := handler.GetCurrentUserID(c)
 		if !ok {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "user not found"})
 			return
@@ -371,7 +399,7 @@ func TestBaseController_GetCurrentUserID(t *testing.T) {
 	// Test with user_id in context
 	router.GET("/test2", func(c *gin.Context) {
 		c.Set("user_id", "user123")
-		userID, ok := controller.GetCurrentUserID(c)
+		userID, ok := handler.GetCurrentUserID(c)
 		if !ok {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "user not found"})
 			return
@@ -392,7 +420,7 @@ func TestBaseController_GetCurrentUserID(t *testing.T) {
 	// Test with non-string user_id
 	router.GET("/test3", func(c *gin.Context) {
 		c.Set("user_id", 123)
-		userID, ok := controller.GetCurrentUserID(c)
+		userID, ok := handler.GetCurrentUserID(c)
 		if !ok {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "user not found"})
 			return
@@ -408,46 +436,46 @@ func TestBaseController_GetCurrentUserID(t *testing.T) {
 }
 
 func TestBaseController_CheckUserHasRole(t *testing.T) {
-	controller := &BaseController{}
+	handler := &BaseHandler{}
 
 	// Test with matching role
 	userRoles := []string{"admin", "user"}
 	requiredRoles := []string{"admin", "moderator"}
-	hasRole := controller.CheckUserHasRole(userRoles, requiredRoles)
+	hasRole := handler.CheckUserHasRole(userRoles, requiredRoles)
 	assert.True(t, hasRole)
 
 	// Test without matching role
 	userRoles = []string{"user"}
 	requiredRoles = []string{"admin", "moderator"}
-	hasRole = controller.CheckUserHasRole(userRoles, requiredRoles)
+	hasRole = handler.CheckUserHasRole(userRoles, requiredRoles)
 	assert.False(t, hasRole)
 
 	// Test with empty roles
 	userRoles = []string{}
 	requiredRoles = []string{"admin"}
-	hasRole = controller.CheckUserHasRole(userRoles, requiredRoles)
+	hasRole = handler.CheckUserHasRole(userRoles, requiredRoles)
 	assert.False(t, hasRole)
 
 	// Test with empty required roles
 	userRoles = []string{"admin"}
 	requiredRoles = []string{}
-	hasRole = controller.CheckUserHasRole(userRoles, requiredRoles)
+	hasRole = handler.CheckUserHasRole(userRoles, requiredRoles)
 	assert.False(t, hasRole)
 
 	// Test with multiple matching roles
 	userRoles = []string{"admin", "moderator", "user"}
 	requiredRoles = []string{"admin", "moderator"}
-	hasRole = controller.CheckUserHasRole(userRoles, requiredRoles)
+	hasRole = handler.CheckUserHasRole(userRoles, requiredRoles)
 	assert.True(t, hasRole)
 }
 
 func TestBaseController_ValidateReqParams_XML(t *testing.T) {
 	router := setupRouter()
-	controller := &BaseController{}
+	handler := &BaseHandler{}
 
 	router.POST("/test", func(c *gin.Context) {
 		var req TestRequest
-		err := controller.ValidateReqParams(c, &req)
+		err := handler.ValidateReqParams(c, &req)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
@@ -469,11 +497,11 @@ func TestBaseController_ValidateReqParams_XML(t *testing.T) {
 
 func TestBaseController_ValidateReqParams_POST_Query(t *testing.T) {
 	router := setupRouter()
-	controller := &BaseController{}
+	handler := &BaseHandler{}
 
 	router.POST("/test", func(c *gin.Context) {
 		var req TestRequest
-		err := controller.ValidateReqParams(c, &req)
+		err := handler.ValidateReqParams(c, &req)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return

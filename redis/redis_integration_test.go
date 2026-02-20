@@ -1,6 +1,7 @@
 package redis
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -28,21 +29,22 @@ func TestSetup_RedisEnabled_Integration(t *testing.T) {
 	}
 
 	// Test basic operations
+	ctx := context.Background()
 	key := "pkg:integration:test"
-	if err := Set(key, "value", 10*time.Second); err != nil {
+	if err := Set(ctx, key, "value", 10*time.Second); err != nil {
 		t.Errorf("Set: %v", err)
 	}
-	val, err := Get(key)
+	val, err := Get(ctx, key)
 	if err != nil {
 		t.Errorf("Get: %v", err)
 	}
 	if val != "value" {
 		t.Errorf("Get: got %q, want %q", val, "value")
 	}
-	if err := Delete(key); err != nil {
+	if err := Delete(ctx, key); err != nil {
 		t.Errorf("Delete: %v", err)
 	}
-	val, _ = Get(key)
+	val, _ = Get(ctx, key)
 	if val != "" {
 		t.Errorf("Get after Delete: got %q, want empty", val)
 	}

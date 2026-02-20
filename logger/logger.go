@@ -9,13 +9,25 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sync"
 	"time"
 )
 
 var (
-	logger     *slog.Logger
+	logger      *slog.Logger
 	cachedWriter io.Writer
 )
+
+// lazyWriter defers filesystem I/O until first Write so init() does not block on log dir or file open.
+type lazyWriter struct {
+	once sync.Once
+	real io.Writer
+}
+
+func (w *lazyWriter) Write(p []byte) (n int, err error) {
+	w.once.Do(func() { w.real = getWriter() })
+	return w.real.Write(p)
+}
 
 // getCallerSource returns file, line, and function name for the caller at skip (1 = direct caller).
 func getCallerSource(skip int) (file string, line int, function string) {
@@ -206,7 +218,7 @@ func (h *gcpHandler) WithGroup(name string) slog.Handler {
 }
 
 func init() {
-	cachedWriter = getWriter()
+	cachedWriter = &lazyWriter{}
 	handler := newGCPHandler(cachedWriter, slog.LevelInfo)
 	logger = slog.New(handler)
 }
@@ -214,7 +226,7 @@ func init() {
 // SetLogLevel sets the log level for the logger
 func SetLogLevel(level slog.Level) {
 	if cachedWriter == nil {
-		cachedWriter = getWriter()
+		cachedWriter = &lazyWriter{}
 	}
 	handler := newGCPHandler(cachedWriter, level)
 	logger = slog.New(handler)
@@ -324,7 +336,7 @@ func Error(msg string, fields Fields) {
 
 func getWriter() io.Writer {
 	if _, err := os.Stat("./log"); os.IsNotExist(err) {
-		os.MkdirAll("./log", os.ModePerm)
+		_ = os.MkdirAll("./log", os.ModePerm)
 	}
 
 	file, err := os.OpenFile("log/application.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)

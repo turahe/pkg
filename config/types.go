@@ -50,13 +50,17 @@ type DatabaseConfiguration struct {
 
 // RedisConfiguration holds Redis-related configuration
 type RedisConfiguration struct {
-	Enabled      bool
-	Host         string
-	Port         string
-	Password     string
-	DB           int
-	ClusterMode  bool   // Enable cluster mode for Google Cloud Memorystore Redis Cluster
-	ClusterNodes string // Comma-separated list of cluster node addresses (e.g., "10.0.0.1:6379,10.0.0.2:6379")
+	Enabled          bool
+	Host             string
+	Port             string
+	Password         string
+	DB               int
+	ClusterMode      bool   // Enable cluster mode for Google Cloud Memorystore Redis Cluster
+	ClusterNodes     string // Comma-separated list of cluster node addresses
+	PoolSize         int    // Max connections per node (0 = default, use e.g. 100 for high RPS)
+	MinIdleConns     int    // Min idle connections (0 = default)
+	ReadTimeoutSec   int    // Read timeout in seconds (0 = no timeout)
+	WriteTimeoutSec  int    // Write timeout in seconds (0 = no timeout)
 }
 
 // GCSConfiguration holds Google Cloud Storage-related configuration

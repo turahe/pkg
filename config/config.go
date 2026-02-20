@@ -2,21 +2,25 @@ package config
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/joho/godotenv"
+
+	"github.com/turahe/pkg/logger"
 )
 
 // Config holds the global configuration instance
 var Config *Configuration
 
 // Setup initializes the configuration by loading environment variables
-// and validating required settings.
+// and validating required settings. If configPath is non-empty, it is used as the .env path; otherwise default .env is loaded.
 func Setup(configPath string) error {
-	// Try to load .env file (ignore error if it doesn't exist)
-	_ = godotenv.Load()
+	if configPath != "" {
+		_ = godotenv.Load(configPath)
+	} else {
+		_ = godotenv.Load()
+	}
 
-	log.Println("Config loaded from environment variables")
+	logger.Infof("Config loaded from environment variables")
 
 	cfg := buildConfigFromEnv()
 

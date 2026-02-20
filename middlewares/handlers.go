@@ -1,10 +1,11 @@
 package middlewares
 
 import (
-	"log"
+	"fmt"
 	"net/http"
 	"runtime/debug"
 
+	"github.com/turahe/pkg/logger"
 	"github.com/turahe/pkg/response"
 
 	"github.com/gin-gonic/gin"
@@ -25,8 +26,7 @@ func NoRouteHandler() gin.HandlerFunc {
 func RecoveryHandler(ctx *gin.Context) {
 	defer func() {
 		if err := recover(); err != nil {
-			log.Printf("panic: %v\n", err)
-			debug.PrintStack()
+			logger.Errorf("panic: %v\n%s", err, debug.Stack())
 			response.FailWithDetailed(ctx, http.StatusInternalServerError, response.ServiceCodeCommon, response.CaseCodeInternalError, nil, errorToString(err))
 			ctx.Abort()
 		}
@@ -38,7 +38,9 @@ func errorToString(r interface{}) string {
 	switch v := r.(type) {
 	case error:
 		return v.Error()
+	case string:
+		return v
 	default:
-		return r.(string)
+		return fmt.Sprint(r)
 	}
 }

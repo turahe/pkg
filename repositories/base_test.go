@@ -1,19 +1,19 @@
 package repositories
 
 import (
+	"context"
 	"errors"
 	"os"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/turahe/pkg/config"
 	"github.com/turahe/pkg/database"
 	"github.com/turahe/pkg/types"
 	"gorm.io/gorm"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 var dbMutex sync.Mutex
@@ -144,7 +144,8 @@ func TestBaseRepository_Create(t *testing.T) {
 		Email: "test@example.com",
 	}
 
-	err := repo.Create(model)
+	ctx := context.Background()
+	err := repo.Create(ctx, model)
 	assert.NoError(t, err)
 	assert.NotZero(t, model.ID)
 
@@ -171,8 +172,9 @@ func TestBaseRepository_Save(t *testing.T) {
 	require.NoError(t, err)
 
 	// Update and save
+	ctx := context.Background()
 	model.Name = "Updated Name"
-	err = repo.Save(model)
+	err = repo.Save(ctx, model)
 	assert.NoError(t, err)
 
 	// Verify the update
@@ -200,7 +202,8 @@ func TestBaseRepository_Updates(t *testing.T) {
 	updates := map[string]interface{}{
 		"name": "Updated Name",
 	}
-	err = repo.Updates(model, updates)
+	ctx := context.Background()
+	err = repo.Updates(ctx, model, updates)
 	assert.NoError(t, err)
 
 	// Verify the update
@@ -226,7 +229,8 @@ func TestBaseRepository_Delete(t *testing.T) {
 	conditions := types.Conditions{
 		"id = ?": model1.ID,
 	}
-	count, err := repo.Delete("", &TestModel{}, conditions)
+	ctx := context.Background()
+	count, err := repo.Delete(ctx, "", &TestModel{}, conditions)
 	assert.NoError(t, err)
 	assert.Equal(t, int64(1), count)
 
@@ -252,7 +256,8 @@ func TestBaseRepository_Delete_WithTableName(t *testing.T) {
 	conditions := types.Conditions{
 		"id = ?": model.ID,
 	}
-	count, err := repo.Delete("test_models", nil, conditions)
+	ctx := context.Background()
+	count, err := repo.Delete(ctx, "test_models", nil, conditions)
 	assert.NoError(t, err)
 	assert.Equal(t, int64(1), count)
 }
@@ -269,11 +274,12 @@ func TestBaseRepository_First(t *testing.T) {
 	require.NoError(t, err)
 
 	// Find existing record
+	ctx := context.Background()
 	var found TestModel
 	conditions := types.Conditions{
 		"id = ?": model.ID,
 	}
-	notFound, err := repo.First(&found, conditions)
+	notFound, err := repo.First(ctx, &found, conditions)
 	assert.NoError(t, err)
 	assert.False(t, notFound)
 	assert.Equal(t, model.Name, found.Name)
@@ -284,7 +290,7 @@ func TestBaseRepository_First(t *testing.T) {
 	conditions = types.Conditions{
 		"id = ?": 99999,
 	}
-	notFound, err = repo.First(&notFoundModel, conditions)
+	notFound, err = repo.First(ctx, &notFoundModel, conditions)
 	assert.NoError(t, err)
 	assert.True(t, notFound)
 }
@@ -308,9 +314,10 @@ func TestBaseRepository_Find(t *testing.T) {
 	}
 
 	// Find all records
+	ctx := context.Background()
 	var found []TestModel
 	conditions := types.Conditions{}
-	err := repo.Find(&found, conditions)
+	err := repo.Find(ctx, &found, conditions)
 	assert.NoError(t, err)
 	assert.Len(t, found, 3)
 
@@ -319,14 +326,14 @@ func TestBaseRepository_Find(t *testing.T) {
 	conditions = types.Conditions{
 		"name = ?": "User 1",
 	}
-	err = repo.Find(&filtered, conditions)
+	err = repo.Find(ctx, &filtered, conditions)
 	assert.NoError(t, err)
 	assert.Len(t, filtered, 1)
 	assert.Equal(t, "User 1", filtered[0].Name)
 
 	// Find with order
 	var ordered []TestModel
-	err = repo.Find(&ordered, conditions, "name ASC")
+	err = repo.Find(ctx, &ordered, conditions, "name ASC")
 	assert.NoError(t, err)
 	if len(ordered) > 0 {
 		assert.Equal(t, "User 1", ordered[0].Name)
@@ -345,18 +352,19 @@ func TestBaseRepository_Scan(t *testing.T) {
 	require.NoError(t, err)
 
 	// Scan with model
+	ctx := context.Background()
 	var found TestModel
 	conditions := types.Conditions{
 		"id = ?": model.ID,
 	}
-	notFound, err := repo.Scan("", &TestModel{}, &found, conditions)
+	notFound, err := repo.Scan(ctx, "", &TestModel{}, &found, conditions)
 	assert.NoError(t, err)
 	assert.False(t, notFound)
 	assert.Equal(t, model.Name, found.Name)
 
 	// Scan with table name
 	var foundWithTable TestModel
-	notFound, err = repo.Scan("test_models", nil, &foundWithTable, conditions)
+	notFound, err = repo.Scan(ctx, "test_models", nil, &foundWithTable, conditions)
 	assert.NoError(t, err)
 	assert.False(t, notFound)
 	assert.Equal(t, model.Name, foundWithTable.Name)
@@ -367,7 +375,7 @@ func TestBaseRepository_Scan(t *testing.T) {
 	conditions = types.Conditions{
 		"id = ?": 99999,
 	}
-	notFound, err = repo.Scan("", &TestModel{}, &notFoundModel, conditions)
+	notFound, err = repo.Scan(ctx, "", &TestModel{}, &notFoundModel, conditions)
 	assert.NoError(t, err)
 	// Scan returns notFound=false when no records found (unlike First)
 	// The result will just be empty (zero value)
@@ -387,7 +395,8 @@ func TestBaseRepository_RawSQL(t *testing.T) {
 	require.NoError(t, err)
 
 	// Execute raw SQL
-	result := repo.RawSQL(nil, "SELECT * FROM test_models WHERE id = ?", model.ID)
+	ctx := context.Background()
+	result := repo.RawSQL(ctx, nil, "SELECT * FROM test_models WHERE id = ?", model.ID)
 	assert.NotNil(t, result)
 
 	var found TestModel
@@ -397,7 +406,7 @@ func TestBaseRepository_RawSQL(t *testing.T) {
 
 	// Test with specified DB
 	specifiedDB := database.GetDB()
-	result = repo.RawSQL(specifiedDB, "SELECT COUNT(*) as count FROM test_models")
+	result = repo.RawSQL(ctx, specifiedDB, "SELECT COUNT(*) as count FROM test_models")
 	assert.NotNil(t, result)
 }
 
@@ -413,7 +422,8 @@ func TestBaseRepository_ExecSQL(t *testing.T) {
 	require.NoError(t, err)
 
 	// Execute SQL update
-	err = repo.ExecSQL(nil, "UPDATE test_models SET name = ? WHERE id = ?", "Updated Name", model.ID)
+	ctx := context.Background()
+	err = repo.ExecSQL(ctx, nil, "UPDATE test_models SET name = ? WHERE id = ?", "Updated Name", model.ID)
 	assert.NoError(t, err)
 
 	// Verify update
@@ -423,7 +433,7 @@ func TestBaseRepository_ExecSQL(t *testing.T) {
 	assert.Equal(t, "Updated Name", found.Name)
 
 	// Test with specified DB
-	err = repo.ExecSQL(database.GetDB(), "UPDATE test_models SET name = ? WHERE id = ?", "Updated Again", model.ID)
+	err = repo.ExecSQL(ctx, database.GetDB(), "UPDATE test_models SET name = ? WHERE id = ?", "Updated Again", model.ID)
 	assert.NoError(t, err)
 }
 
@@ -434,7 +444,8 @@ func TestBaseRepository_IsEmpty(t *testing.T) {
 	repo := NewBaseRepository()
 
 	// Should be empty initially
-	isEmpty := repo.IsEmpty(&TestModel{})
+	ctx := context.Background()
+	isEmpty := repo.IsEmpty(ctx, &TestModel{})
 	assert.True(t, isEmpty)
 
 	// Create a model
@@ -443,7 +454,7 @@ func TestBaseRepository_IsEmpty(t *testing.T) {
 	require.NoError(t, err)
 
 	// Should not be empty now
-	isEmpty = repo.IsEmpty(&TestModel{})
+	isEmpty = repo.IsEmpty(ctx, &TestModel{})
 	assert.False(t, isEmpty)
 }
 
@@ -465,28 +476,29 @@ func TestBaseRepository_SimplePagination(t *testing.T) {
 	}
 
 	// Test first page
+	ctx := context.Background()
 	var page1 []TestModel
-	total, err := repo.SimplePagination(&TestModel{}, &page1, 1, 10, types.Conditions{}, []string{})
+	total, err := repo.SimplePagination(ctx, &TestModel{}, &page1, 1, 10, types.Conditions{}, []string{})
 	assert.NoError(t, err)
 	assert.Len(t, page1, 10)
 	assert.Greater(t, total, int64(0)) // Has more pages
 
 	// Test second page
 	var page2 []TestModel
-	total, err = repo.SimplePagination(&TestModel{}, &page2, 2, 10, types.Conditions{}, []string{})
+	total, err = repo.SimplePagination(ctx, &TestModel{}, &page2, 2, 10, types.Conditions{}, []string{})
 	assert.NoError(t, err)
 	assert.Len(t, page2, 5) // Remaining 5 items
 	assert.Equal(t, int64(0), total) // No more pages
 
 	// Test with invalid page number (should default to 1)
 	var pageDefault []TestModel
-	total, err = repo.SimplePagination(&TestModel{}, &pageDefault, 0, 10, types.Conditions{}, []string{})
+	total, err = repo.SimplePagination(ctx, &TestModel{}, &pageDefault, 0, 10, types.Conditions{}, []string{})
 	assert.NoError(t, err)
 	assert.Len(t, pageDefault, 10)
 
 	// Test with page size exceeding max (should cap at 100)
 	var pageLarge []TestModel
-	total, err = repo.SimplePagination(&TestModel{}, &pageLarge, 1, 200, types.Conditions{}, []string{})
+	total, err = repo.SimplePagination(ctx, &TestModel{}, &pageLarge, 1, 200, types.Conditions{}, []string{})
 	assert.NoError(t, err)
 	assert.LessOrEqual(t, len(pageLarge), 15) // Should return all available
 
@@ -495,7 +507,7 @@ func TestBaseRepository_SimplePagination(t *testing.T) {
 	conditions := types.Conditions{
 		"name = ?": "User",
 	}
-	total, err = repo.SimplePagination(&TestModel{}, &filtered, 1, 10, conditions, []string{})
+	total, err = repo.SimplePagination(ctx, &TestModel{}, &filtered, 1, 10, conditions, []string{})
 	assert.NoError(t, err)
 	assert.Greater(t, len(filtered), 0)
 }

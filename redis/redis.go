@@ -4,23 +4,18 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/turahe/pkg/config"
 
 	"github.com/redis/go-redis/v9"
-	"gorm.io/gorm"
 )
 
 var (
 	rdb        *redis.Client
 	rdbCluster *redis.ClusterClient
-	ctx        = context.Background()
 	isCluster  bool
 )
-
-type Database struct {
-	*gorm.DB
-}
 
 func Setup() error {
 	configuration := config.GetConfig()
@@ -39,13 +34,26 @@ func Setup() error {
 }
 
 func setupStandardClient(configuration *config.Configuration) error {
-	client := redis.NewClient(&redis.Options{
+	opts := &redis.Options{
 		Addr:     fmt.Sprintf("%s:%s", configuration.Redis.Host, configuration.Redis.Port),
 		Password: configuration.Redis.Password,
 		DB:       configuration.Redis.DB,
-	})
+	}
+	if configuration.Redis.PoolSize > 0 {
+		opts.PoolSize = configuration.Redis.PoolSize
+	}
+	if configuration.Redis.MinIdleConns > 0 {
+		opts.MinIdleConns = configuration.Redis.MinIdleConns
+	}
+	if configuration.Redis.ReadTimeoutSec > 0 {
+		opts.ReadTimeout = time.Duration(configuration.Redis.ReadTimeoutSec) * time.Second
+	}
+	if configuration.Redis.WriteTimeoutSec > 0 {
+		opts.WriteTimeout = time.Duration(configuration.Redis.WriteTimeoutSec) * time.Second
+	}
+	client := redis.NewClient(opts)
 
-	if err := client.Ping(ctx).Err(); err != nil {
+	if err := client.Ping(context.Background()).Err(); err != nil {
 		// Check if the error is related to cluster mode
 		if strings.Contains(err.Error(), "SELECT is not allowed in cluster mode") {
 			return fmt.Errorf("Redis server is in cluster mode, but REDIS_CLUSTER_MODE is not enabled. Please set REDIS_CLUSTER_MODE=true in your configuration: %w", err)
@@ -59,12 +67,6 @@ func setupStandardClient(configuration *config.Configuration) error {
 }
 
 func setupClusterClient(configuration *config.Configuration) error {
-	// Warn if DB is set to non-zero in cluster mode (cluster only supports DB 0)
-	if configuration.Redis.DB != 0 {
-		// Note: We don't return an error here, just log a warning since DB selection
-		// is automatically ignored in cluster mode, but it's good to inform the user
-	}
-
 	var addrs []string
 
 	if configuration.Redis.ClusterNodes != "" {
@@ -89,20 +91,27 @@ func setupClusterClient(configuration *config.Configuration) error {
 		return fmt.Errorf("no Redis cluster nodes configured")
 	}
 
-	client := redis.NewClusterClient(&redis.ClusterOptions{
-		Addrs:    addrs,
-		Password: configuration.Redis.Password,
-		// Note: DB option is not supported in cluster mode (cluster only uses DB 0)
-		// Google Cloud Memorystore Redis Cluster specific options
-		MaxRedirects:   3,
-		ReadOnly:       false,
-		RouteByLatency: false,
-		RouteRandomly:  false,
-		// Cluster slots will be auto-discovered by the client
-	})
+	clusterOpts := &redis.ClusterOptions{
+		Addrs:        addrs,
+		Password:     configuration.Redis.Password,
+		MaxRedirects: 3,
+	}
+	if configuration.Redis.PoolSize > 0 {
+		clusterOpts.PoolSize = configuration.Redis.PoolSize
+	}
+	if configuration.Redis.MinIdleConns > 0 {
+		clusterOpts.MinIdleConns = configuration.Redis.MinIdleConns
+	}
+	if configuration.Redis.ReadTimeoutSec > 0 {
+		clusterOpts.ReadTimeout = time.Duration(configuration.Redis.ReadTimeoutSec) * time.Second
+	}
+	if configuration.Redis.WriteTimeoutSec > 0 {
+		clusterOpts.WriteTimeout = time.Duration(configuration.Redis.WriteTimeoutSec) * time.Second
+	}
+	client := redis.NewClusterClient(clusterOpts)
 
 	// Test cluster connection
-	if err := client.Ping(ctx).Err(); err != nil {
+	if err := client.Ping(context.Background()).Err(); err != nil {
 		return fmt.Errorf("failed to connect to Redis cluster: %w", err)
 	}
 
@@ -116,14 +125,14 @@ func IsAlive() bool {
 		if rdbCluster == nil {
 			return false
 		}
-		return rdbCluster.Ping(ctx).Err() == nil
+		return rdbCluster.Ping(context.Background()).Err() == nil
 	}
 
 	if rdb == nil {
 		return false
 	}
 
-	return rdb.Ping(ctx).Err() == nil
+	return rdb.Ping(context.Background()).Err() == nil
 }
 
 func GetRedis() *redis.Client {
@@ -150,10 +159,26 @@ func GetRedisCluster() *redis.ClusterClient {
 	return rdbCluster
 }
 
-// GetUniversalClient returns a universal client interface that works with both standard and cluster clients
+// GetUniversalClient returns a universal client interface that works with both standard and cluster clients.
 func GetUniversalClient() redis.Cmdable {
 	if isCluster {
 		return rdbCluster
 	}
 	return rdb
+}
+
+// Close closes the active Redis client and releases all connections.
+// Safe to call even if Redis was never set up (no-op when not enabled).
+func Close() error {
+	if isCluster && rdbCluster != nil {
+		err := rdbCluster.Close()
+		rdbCluster = nil
+		return err
+	}
+	if rdb != nil {
+		err := rdb.Close()
+		rdb = nil
+		return err
+	}
+	return nil
 }

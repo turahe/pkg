@@ -31,53 +31,62 @@ func RateLimiter() gin.HandlerFunc {
 	}
 
 	requests := conf.RateLimiter.Requests
-	window := time.Duration(conf.RateLimiter.Window) * time.Second
 	keyBy := conf.RateLimiter.KeyBy
 	skipPaths := parseSkipPaths(conf.RateLimiter.SkipPaths)
+	windowSec := conf.RateLimiter.Window
+	if windowSec <= 0 {
+		windowSec = 60
+	}
+
+	// One Redis round-trip: INCR + conditional EXPIRE + TTL
+	const rateLimitScript = `local c = redis.call('INCR', KEYS[1])
+if c == 1 then redis.call('EXPIRE', KEYS[1], ARGV[1]) end
+return {c, redis.call('TTL', KEYS[1])}`
 
 	return func(ctx *gin.Context) {
-		// Skip rate limiting for specified paths
 		if shouldSkipPath(ctx.Request.URL.Path, skipPaths) {
 			ctx.Next()
 			return
 		}
 
-		// Determine the key for rate limiting
 		key := getRateLimitKey(ctx, keyBy)
 		if key == "" {
-			// If we can't determine a key, allow the request
 			ctx.Next()
 			return
 		}
 
 		redisKey := fmt.Sprintf("rate_limit:%s", key)
 		rdb := redis.GetUniversalClient()
+		reqCtx := ctx.Request.Context()
 
-		// Use Redis INCR with expiration for sliding window rate limiting
-		current, err := rdb.Incr(ctx.Request.Context(), redisKey).Result()
+		result, err := rdb.Eval(reqCtx, rateLimitScript, []string{redisKey}, windowSec).Result()
 		if err != nil {
-			// If Redis fails, allow the request (fail open)
 			ctx.Next()
 			return
 		}
 
-		// Set expiration on first request
-		if current == 1 {
-			rdb.Expire(ctx.Request.Context(), redisKey, window)
+		arr, _ := result.([]interface{})
+		if len(arr) < 2 {
+			ctx.Next()
+			return
 		}
+		current, _ := arr[0].(int64)
+		ttlSec := int64(0)
+		if v, ok := arr[1].(int64); ok {
+			ttlSec = v
+		}
+		if ttlSec < 0 {
+			ttlSec = 0
+		}
+		ttl := time.Duration(ttlSec) * time.Second
+		resetTime := time.Now().Add(ttl).Unix()
 
-		// Set rate limit headers
 		ctx.Header("X-RateLimit-Limit", fmt.Sprintf("%d", requests))
 		ctx.Header("X-RateLimit-Remaining", fmt.Sprintf("%d", max(0, requests-int(current))))
-
-		// Get TTL to calculate reset time
-		ttl, _ := rdb.TTL(ctx.Request.Context(), redisKey).Result()
-		resetTime := time.Now().Add(ttl).Unix()
 		ctx.Header("X-RateLimit-Reset", fmt.Sprintf("%d", resetTime))
 
-		// Check if rate limit exceeded
 		if current > int64(requests) {
-			ctx.Header("Retry-After", fmt.Sprintf("%d", int(ttl.Seconds())))
+			ctx.Header("Retry-After", fmt.Sprintf("%d", ttlSec))
 			response.FailWithDetailed(
 				ctx,
 				429,

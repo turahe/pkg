@@ -14,20 +14,23 @@ func getClient() redis.Cmdable {
 
 // String
 
-func Get(key string) (string, error) {
+func Get(ctx context.Context, key string) (string, error) {
 	val, err := getClient().Get(ctx, key).Result()
 	if err == redis.Nil {
 		return "", nil
 	}
 	return val, err
 }
-func Set(key string, value interface{}, expiration time.Duration) error {
+
+func Set(ctx context.Context, key string, value interface{}, expiration time.Duration) error {
 	return getClient().Set(ctx, key, value, expiration).Err()
 }
-func Delete(key string) error {
+
+func Delete(ctx context.Context, key string) error {
 	return getClient().Del(ctx, key).Err()
 }
-func MGet(keys ...string) ([]string, error) {
+
+func MGet(ctx context.Context, keys ...string) ([]string, error) {
 	result, err := getClient().MGet(ctx, keys...).Result()
 	if err != nil {
 		return nil, err
@@ -41,64 +44,74 @@ func MGet(keys ...string) ([]string, error) {
 	}
 	return values, nil
 }
-func MSet(pairs map[string]interface{}) error {
+
+func MSet(ctx context.Context, pairs map[string]interface{}) error {
 	return getClient().MSet(ctx, pairs).Err()
 }
 
 // Hash
 
-func HGet(key, field string) (string, error) {
+func HGet(ctx context.Context, key, field string) (string, error) {
 	return getClient().HGet(ctx, key, field).Result()
 }
-func HGetAll(key string) (map[string]string, error) {
+
+func HGetAll(ctx context.Context, key string) (map[string]string, error) {
 	return getClient().HGetAll(ctx, key).Result()
 }
-func HSet(key string, field string, value interface{}) error {
+
+func HSet(ctx context.Context, key string, field string, value interface{}) error {
 	return getClient().HSet(ctx, key, field, value).Err()
 }
-func HSetMap(key string, fields map[string]interface{}) error {
+
+func HSetMap(ctx context.Context, key string, fields map[string]interface{}) error {
 	return getClient().HSet(ctx, key, fields).Err()
 }
 
 // List
 
-func LPush(key string, values ...interface{}) error {
+func LPush(ctx context.Context, key string, values ...interface{}) error {
 	return getClient().LPush(ctx, key, values...).Err()
 }
-func RPop(key string) (string, error) {
+
+func RPop(ctx context.Context, key string) (string, error) {
 	return getClient().RPop(ctx, key).Result()
 }
-func LRange(key string, start, stop int64) ([]string, error) {
+
+func LRange(ctx context.Context, key string, start, stop int64) ([]string, error) {
 	return getClient().LRange(ctx, key, start, stop).Result()
 }
 
 // Set
 
-func SAdd(key string, members ...interface{}) error {
+func SAdd(ctx context.Context, key string, members ...interface{}) error {
 	return getClient().SAdd(ctx, key, members...).Err()
 }
-func SMembers(key string) ([]string, error) {
+
+func SMembers(ctx context.Context, key string) ([]string, error) {
 	return getClient().SMembers(ctx, key).Result()
 }
-func SRem(key string, members ...interface{}) error {
+
+func SRem(ctx context.Context, key string, members ...interface{}) error {
 	return getClient().SRem(ctx, key, members...).Err()
 }
 
 // Lock
 
-func AcquireLock(key string, value interface{}, expiration time.Duration) (bool, error) {
+func AcquireLock(ctx context.Context, key string, value interface{}, expiration time.Duration) (bool, error) {
 	return getClient().SetNX(ctx, key, value, expiration).Result()
 }
-func ExtendLock(key string, expiration time.Duration) error {
+
+func ExtendLock(ctx context.Context, key string, expiration time.Duration) error {
 	return getClient().Expire(ctx, key, expiration).Err()
 }
-func ReleaseLock(key string) error {
+
+func ReleaseLock(ctx context.Context, key string) error {
 	return getClient().Del(ctx, key).Err()
 }
 
 // Pipeline
 
-func Pipeline(f func(pipe redis.Pipeliner)) error {
+func Pipeline(ctx context.Context, f func(pipe redis.Pipeliner)) error {
 	var pipe redis.Pipeliner
 	if isCluster {
 		pipe = rdbCluster.Pipeline()
@@ -109,8 +122,9 @@ func Pipeline(f func(pipe redis.Pipeliner)) error {
 	_, err := pipe.Exec(ctx)
 	return err
 }
-func PipelineSet(keyValues map[string]interface{}, expiration time.Duration) error {
-	return Pipeline(func(pipe redis.Pipeliner) {
+
+func PipelineSet(ctx context.Context, keyValues map[string]interface{}, expiration time.Duration) error {
+	return Pipeline(ctx, func(pipe redis.Pipeliner) {
 		for key, value := range keyValues {
 			pipe.Set(ctx, key, value, expiration)
 		}
@@ -119,10 +133,12 @@ func PipelineSet(keyValues map[string]interface{}, expiration time.Duration) err
 
 // Publish & Subscribe
 
-func PublishMessage(channel, message string) error {
+func PublishMessage(ctx context.Context, channel, message string) error {
 	return getClient().Publish(ctx, channel, message).Err()
 }
-func SubscribeToChannel(channel string, handler func(message string)) error {
+
+// SubscribeToChannel subscribes to a channel and calls handler for each message until ctx is cancelled.
+func SubscribeToChannel(ctx context.Context, channel string, handler func(message string)) error {
 	var sub *redis.PubSub
 	if isCluster {
 		sub = rdbCluster.Subscribe(ctx, channel)
@@ -136,20 +152,17 @@ func SubscribeToChannel(channel string, handler func(message string)) error {
 		if err != nil {
 			return err
 		}
-
 		handler(msg.Payload)
 	}
 }
 
 // Scan
 
-func ScanKeys(pattern string, count int64) ([]string, error) {
+func ScanKeys(ctx context.Context, pattern string, count int64) ([]string, error) {
 	if isCluster {
-		// For cluster mode, scan all nodes
-		return scanClusterKeys(pattern, count)
+		return scanClusterKeys(ctx, pattern, count)
 	}
 
-	// Standard mode
 	cursor := uint64(0)
 	var keys []string
 
@@ -171,7 +184,7 @@ func ScanKeys(pattern string, count int64) ([]string, error) {
 	return keys, nil
 }
 
-func scanClusterKeys(pattern string, count int64) ([]string, error) {
+func scanClusterKeys(ctx context.Context, pattern string, count int64) ([]string, error) {
 	var allKeys []string
 	err := rdbCluster.ForEachShard(ctx, func(ctx context.Context, shard *redis.Client) error {
 		cursor := uint64(0)
@@ -194,9 +207,10 @@ func scanClusterKeys(pattern string, count int64) ([]string, error) {
 
 // Save
 
-func Save() error {
+func Save(ctx context.Context) error {
 	return getClient().Save(ctx).Err()
 }
-func BGSave() error {
+
+func BGSave(ctx context.Context) error {
 	return getClient().BgSave(ctx).Err()
 }

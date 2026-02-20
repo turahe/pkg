@@ -1,6 +1,7 @@
-package controllers
+package handler
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/turahe/pkg/logger"
@@ -9,10 +10,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type BaseController struct {
+type BaseHandler struct {
 }
 
-func (c *BaseController) ValidateReqParams(ctx *gin.Context, requestParams interface{}) error {
+func (c *BaseHandler) ValidateReqParams(ctx *gin.Context, requestParams interface{}) error {
 	var err error
 
 	switch ctx.ContentType() {
@@ -21,18 +22,9 @@ func (c *BaseController) ValidateReqParams(ctx *gin.Context, requestParams inter
 	case "application/xml":
 		err = ctx.ShouldBindXML(requestParams)
 	case "":
-		// For GET requests, bind query parameters first (most common case)
-		// Then try URI parameters for path parameters (e.g., /:id)
-		if ctx.Request.Method == "GET" {
-			err = ctx.ShouldBindQuery(requestParams)
-			// Also try URI binding for path parameters, ignore errors if no URI params
-			_ = ctx.ShouldBindUri(requestParams)
-		} else {
-			// For other methods (POST, PUT, DELETE), try query first, then URI
-			err = ctx.ShouldBindQuery(requestParams)
-			// Also try URI binding for path parameters, ignore errors if no URI params
-			_ = ctx.ShouldBindUri(requestParams)
-		}
+		// No Content-Type: bind query params then URI path params (e.g. /:id).
+		err = ctx.ShouldBindQuery(requestParams)
+		_ = ctx.ShouldBindUri(requestParams)
 	default:
 		err = ctx.ShouldBind(requestParams)
 	}
@@ -45,25 +37,25 @@ func (c *BaseController) ValidateReqParams(ctx *gin.Context, requestParams inter
 }
 
 // HandleValidationError handles validation errors and returns Laravel-style response
-func (c *BaseController) HandleValidationError(ctx *gin.Context, serviceCode string, err error) {
+func (c *BaseHandler) HandleValidationError(ctx *gin.Context, serviceCode string, err error) {
 	response.ValidationError(ctx, serviceCode, err)
 }
 
-// NormalizePagination normalizes pagination parameters with defaults and limits
-func (c *BaseController) NormalizePagination(pageNumber, pageSize int) (int, int) {
+// NormalizePagination normalizes pagination parameters with defaults and limits (uses response.DefaultPageNumber, DefaultPageSize, MaxPageSize).
+func (c *BaseHandler) NormalizePagination(pageNumber, pageSize int) (int, int) {
 	if pageNumber <= 0 {
-		pageNumber = 1
+		pageNumber = response.DefaultPageNumber
 	}
 	if pageSize <= 0 {
-		pageSize = 10
-	} else if pageSize > 100 {
-		pageSize = 100
+		pageSize = response.DefaultPageSize
+	} else if pageSize > response.MaxPageSize {
+		pageSize = response.MaxPageSize
 	}
 	return pageNumber, pageSize
 }
 
 // GetIDFromParam extracts ID from URL parameter, validates it, and returns error response if missing
-func (c *BaseController) GetIDFromParam(ctx *gin.Context, paramName string, serviceCode string) (string, bool) {
+func (c *BaseHandler) GetIDFromParam(ctx *gin.Context, paramName string, serviceCode string) (string, bool) {
 	id := ctx.Param(paramName)
 	if id == "" {
 		logger.Warnf("Missing %s parameter", paramName)
@@ -74,22 +66,34 @@ func (c *BaseController) GetIDFromParam(ctx *gin.Context, paramName string, serv
 }
 
 // GetIDFromRequestOrParam extracts ID from request body or URL parameter
-func (c *BaseController) GetIDFromRequestOrParam(ctx *gin.Context, reqID string, paramName string, serviceCode string) (string, bool) {
+func (c *BaseHandler) GetIDFromRequestOrParam(ctx *gin.Context, reqID string, paramName string, serviceCode string) (string, bool) {
 	if reqID != "" {
 		return reqID, true
 	}
 	return c.GetIDFromParam(ctx, paramName, serviceCode)
 }
 
-// HandleServiceError handles service errors with appropriate HTTP status codes
-func (c *BaseController) HandleServiceError(ctx *gin.Context, serviceCode string, err error, notFoundMessages ...string) bool {
+// HandleServiceError handles service errors with appropriate HTTP status codes.
+// It checks for sentinel errors (ErrNotFound, ErrUnauthorized) via errors.Is, then
+// falls back to notFoundMessages and legacy string matching for backward compatibility.
+func (c *BaseHandler) HandleServiceError(ctx *gin.Context, serviceCode string, err error, notFoundMessages ...string) bool {
 	if err == nil {
 		return false
 	}
 
 	errMsg := err.Error()
 
-	// Check for not found errors
+	if errors.Is(err, ErrNotFound) {
+		logger.Warnf("Resource not found: %s", errMsg)
+		response.NotFoundError(ctx, serviceCode, response.CaseCodeNotFound, errMsg)
+		return true
+	}
+	if errors.Is(err, ErrUnauthorized) {
+		logger.Warnf("Unauthorized: %s", errMsg)
+		response.UnauthorizedError(ctx, errMsg)
+		return true
+	}
+
 	for _, msg := range notFoundMessages {
 		if errMsg == msg {
 			logger.Warnf("Resource not found: %s", errMsg)
@@ -98,22 +102,21 @@ func (c *BaseController) HandleServiceError(ctx *gin.Context, serviceCode string
 		}
 	}
 
-	// Check for unauthorized errors
 	if errMsg == "current password is incorrect" || errMsg == "Unauthorized" {
 		logger.Warnf("Unauthorized: %s", errMsg)
 		response.UnauthorizedError(ctx, errMsg)
 		return true
 	}
 
-	// Default to internal server error
 	logger.Errorf("Service error: %v", err)
 	response.FailWithDetailed(ctx, http.StatusInternalServerError, serviceCode, response.CaseCodeInternalError, nil, errMsg)
 	return true
 }
 
-// BuildPaginationResponse builds a paginated response from data
-func (c *BaseController) BuildPaginationResponse(data []interface{}, pageNumber, pageSize int, total int64) response.SimplePaginationResponse {
-	hasNext := total > 0
+// BuildPaginationResponse builds a paginated response from data.
+// total is the total number of items; hasNext is true when (pageNumber * pageSize) < total.
+func (c *BaseHandler) BuildPaginationResponse(data []interface{}, pageNumber, pageSize int, total int64) response.SimplePaginationResponse {
+	hasNext := int64(pageNumber)*int64(pageSize) < total
 	hasPrev := pageNumber > 1
 
 	return response.SimplePaginationResponse{
@@ -125,8 +128,8 @@ func (c *BaseController) BuildPaginationResponse(data []interface{}, pageNumber,
 	}
 }
 
-// GetCurrentAdminID extracts admin ID from context
-func (c *BaseController) GetCurrentUserID(ctx *gin.Context) (string, bool) {
+// GetCurrentUserID extracts user ID from context (set by auth middleware).
+func (c *BaseHandler) GetCurrentUserID(ctx *gin.Context) (string, bool) {
 	userID, exists := ctx.Get("user_id")
 	if !exists {
 		return "", false
@@ -135,8 +138,8 @@ func (c *BaseController) GetCurrentUserID(ctx *gin.Context) (string, bool) {
 	return id, ok
 }
 
-// CheckAdminHasRole checks if admin has any of the required roles
-func (c *BaseController) CheckUserHasRole(userRoles []string, requiredRoles []string) bool {
+// CheckUserHasRole checks if the user has any of the required roles.
+func (c *BaseHandler) CheckUserHasRole(userRoles []string, requiredRoles []string) bool {
 	for _, roleName := range userRoles {
 		for _, requiredRole := range requiredRoles {
 			if roleName == requiredRole {

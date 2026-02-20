@@ -1,5 +1,12 @@
 package response
 
+// Pagination defaults used by handler and repository layers.
+const (
+	DefaultPageNumber = 1
+	DefaultPageSize   = 10
+	MaxPageSize       = 100
+)
+
 // CursorPaginationResponse represents cursor-based pagination response
 type CursorPaginationResponse struct {
 	Data       interface{} `json:"data"`       // The actual data array

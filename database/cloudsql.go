@@ -105,11 +105,13 @@ func connectCloudSQLMySQL(ctx context.Context, cfg *config.DatabaseConfiguration
 	if cfg.CloudSQLInstance == "" {
 		return nil, nil, fmt.Errorf("cloud_sql_instance required for cloudsql-mysql")
 	}
-	var cleanup func() error
+	var registerErr error
 	mysqlDriverOnce.Do(func() {
-		cleanup, _ = cloudsqlmysql.RegisterDriver("cloudsql-mysql", buildDialerOptions(opts)...)
-		mysqlDriverCleanup = cleanup
+		mysqlDriverCleanup, registerErr = cloudsqlmysql.RegisterDriver("cloudsql-mysql", buildDialerOptions(opts)...)
 	})
+	if registerErr != nil {
+		return nil, nil, fmt.Errorf("register cloudsql-mysql driver: %w", registerErr)
+	}
 	dsn := fmt.Sprintf("%s:%s@cloudsql-mysql(%s)/%s?parseTime=true",
 		cfg.Username, cfg.Password, cfg.CloudSQLInstance, cfg.Dbname)
 	if opts.UseIAM {

@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"errors"
 	"fmt"
 )
 
@@ -30,7 +31,7 @@ func (d *Database) Close() error {
 	}
 	d.cleanups = nil
 	if len(errs) > 0 {
-		return fmt.Errorf("close: %v", errs)
+		return fmt.Errorf("close: %w", errors.Join(errs...))
 	}
 	return nil
 }
