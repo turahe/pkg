@@ -1,0 +1,115 @@
+# docker-compose.test.yml — self-contained unit/integration test runner.
+#
+# Usage:
+#   docker compose -f docker-compose.test.yml up --build --abort-on-container-exit
+#   docker compose -f docker-compose.test.yml down -v
+#
+# Or via Makefile:
+#   make test-docker
+#
+# The `test` service waits for all dependencies to be healthy (via `depends_on`
+# condition: service_healthy), then runs `go test ./...` and exits.
+# The compose process exits with the test runner's exit code.
+
+services:
+  # ── Infrastructure ─────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 3s
+
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: testdb
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: test
+      POSTGRES_PASSWORD: test
+      POSTGRES_DB: testdb
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test -d testdb"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  # ── Test runner ────────────────────────────────────────────────────────────
+  test:
+    image: golang:1.25-alpine
+    working_dir: /app
+
+    # Mount the project source; do NOT copy — changes are reflected instantly.
+    volumes:
+      - .:/app
+      # Named volume keeps the module cache across runs for faster re-runs.
+      - go-mod-cache:/go/pkg/mod
+
+    # All environment variables the test suite reads.
+    environment:
+      # Redis
+      REDIS_ENABLED: "true"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+
+      # Primary database (MySQL)
+      DATABASE_DRIVER: mysql
+      DATABASE_HOST: mysql
+      DATABASE_PORT: "3306"
+      DATABASE_USERNAME: root
+      DATABASE_PASSWORD: root
+      DATABASE_DBNAME: testdb
+
+      # Secondary database for *_SITE tests (Postgres)
+      DATABASE_DRIVER_SITE: postgres
+      DATABASE_HOST_SITE: postgres
+      DATABASE_PORT_SITE: "5432"
+      DATABASE_USERNAME_SITE: test
+      DATABASE_PASSWORD_SITE: test
+      DATABASE_DBNAME_SITE: testdb
+
+      # Stub values required by config validation
+      SERVER_SECRET: test-secret-for-ci-only
+      SERVER_MODE: test
+
+      # CGO is needed for SQLite and the race detector.
+      CGO_ENABLED: "1"
+      GOFLAGS: ""
+
+    # Install gcc (required for CGO / race detector on alpine), then run tests.
+    command: >
+      sh -c "
+        apk add --no-cache gcc musl-dev &&
+        go test -v -race -count=1 -coverprofile=/app/coverage.out ./... 2>&1 |
+        tee /app/test.log ;
+        EXIT=$$? ;
+        echo '' ;
+        echo '──── Coverage summary ────' ;
+        go tool cover -func=/app/coverage.out | tail -1 ;
+        exit $$EXIT
+      "
+
+    # Start only after every dependency is confirmed healthy.
+    depends_on:
+      redis:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+volumes:
+  go-mod-cache:

@@ -1,41 +1,68 @@
-# Binaries for programs and plugins
+# =============================================================================
+# Go
+# =============================================================================
+# Compiled binaries and build output
+/bin/
+/out/
 *.exe
 *.exe~
 *.dll
 *.so
 *.dylib
 
-# Test binary, built with `go test -c`
+# Test binary and coverage output
 *.test
+coverage.out
+coverage.html
+test.log
 
-# Output of the go coverage tool
-*.out
-
-# Dependency directories
-vendor/
-
-# Go workspace file
+# Go workspace file (local only)
 go.work
+go.work.sum
 
-# IDE files
-.idea/
+# SQLite test databases created by database package tests
+*.db
+*.db-shm
+*.db-wal
+
+# Log directories written by the logger package during tests
+**/log/
+
+# =============================================================================
+# Environment & secrets
+# =============================================================================
+.env
+.env.*
+!.env.example
+
+# =============================================================================
+# Editor / IDE
+# =============================================================================
 .vscode/
+.idea/
 *.swp
 *.swo
 *~
+.cursor/
 
-# OS files
+# =============================================================================
+# OS noise
+# =============================================================================
 .DS_Store
 Thumbs.db
+desktop.ini
 
-# Log files
-log/
-*.log
+# =============================================================================
+# Analysis / scratch docs (generated, not part of source)
+# =============================================================================
+ARCHITECTURE_AND_QUALITY_REPORT.md
+CLEAN_ARCHITECTURE_ANALYSIS.md
+PERFORMANCE_ANALYSIS.md
+PUBLISHING.md
 
-# Environment files
-.env
-.env.local
-
-# Build artifacts
-dist/
-build/
+# =============================================================================
+# Docker
+# =============================================================================
+# Don't ignore docker-compose files — they are part of the repo.
+# Ignore any override files created locally.
+docker-compose.override.yml

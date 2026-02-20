@@ -5,147 +5,31 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/turahe/pkg)](https://goreportcard.com/report/github.com/turahe/pkg)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A collection of reusable Go packages for common functionality including database connections, Redis (with cluster support), JWT, crypto, GCS, logging, middleware, and utilities.
+A collection of production-ready Go packages for building web services: database, Redis (standard + cluster), JWT, crypto, GCS, structured logging, HTTP middleware, Prometheus metrics, graceful shutdown, and utilities. Follows clean architecture boundaries — domain, use-case, and infrastructure are separate.
 
-## Packages
+## Contents
 
-### `crypto`
-Password hashing and comparison using bcrypt.
+- [Installation](#installation)
+- [Packages](#packages)
+  - [config](#config)
+  - [database](#database)
+  - [redis](#redis)
+  - [logger](#logger)
+  - [middlewares](#middlewares)
+  - [handler](#handler)
+  - [response](#response)
+  - [jwt](#jwt)
+  - [crypto](#crypto)
+  - [gcs](#gcs)
+  - [types](#types)
+  - [util](#util)
+- [Usage](#usage)
+- [Environment Variables](#environment-variables)
+- [Production Wiring Example](#production-wiring-example)
+- [Testing](#testing)
+- [License](#license)
 
-**Functions:**
-- `HashAndSalt(plainPassword []byte) string` - Hash a password
-- `ComparePassword(hashedPassword string, plainPassword []byte) bool` - Compare password with hash
-
-### `database`
-Enterprise-grade database layer with dependency injection, Cloud SQL (Postgres/MySQL), IAM auth, Private IP, and production-tuned connection pools.
-
-**Drivers:** mysql, postgres, sqlite, sqlserver, cloudsql-mysql, cloudsql-postgres
-
-**New API (recommended):**
-- `New(cfg *config.DatabaseConfiguration, opts Options, override ...Option) (*Database, error)` - Create database with options
-- `NewContext(ctx, cfg, opts, override...) (*Database, error)` - Create with context
-- `(d *Database) DB() *gorm.DB` - Get GORM instance
-- `(d *Database) Health(ctx context.Context) error` - Health check with timeout
-- `(d *Database) Close() error` - Graceful shutdown
-
-**Options:** `UseIAM`, `UsePrivateIP`, `LogLevel`, `MaxOpenConns` (default 30), `MaxIdleConns` (default 10), `ConnMaxLife` (30m), `ConnMaxIdle` (10m), `SlowThreshold` (500ms)
-
-**Backward compatibility:**
-- `Setup() error` - Initialize from config (uses env)
-- `GetDB() *gorm.DB` / `GetDBSite() *gorm.DB` - Get connections
-- `CreateDatabaseConnection(cfg) (*gorm.DB, error)` - Create single connection
-- `HealthCheck(ctx) error` / `IsAlive() bool` - Health checks
-- `Cleanup() error` - Shutdown Cloud SQL
-
-### `gcs`
-Google Cloud Storage client wrapper.
-
-**Functions:**
-- `Setup() error` - Initialize GCS client
-- `GetClient() *storage.Client` - Get GCS client
-- `GetBucket() *storage.BucketHandle` - Get bucket handle
-- `ReadObject(objectName string) ([]byte, error)` - Read object from bucket
-- `WriteObject(objectName string, data []byte, contentType string) error` - Write object to bucket
-- `DeleteObject(objectName string) error` - Delete object from bucket
-- `ObjectExists(objectName string) (bool, error)` - Check if object exists
-- `ListObjects(prefix string) ([]string, error)` - List objects with prefix
-
-### `jwt`
-JWT token generation and validation.
-
-**Functions:**
-- `Init()` - Initialize JWT with secret from config
-- `GenerateToken(id uuid.UUID, email, name string) (string, error)` - Generate access token
-- `GenerateRefreshToken(id uuid.UUID, email, name string) (string, error)` - Generate refresh token
-- `ValidateToken(tokenString string) (*Claims, error)` - Validate and parse token
-
-### `logger`
-Structured logging with Google Cloud Logging format support. Log entries are JSON with `severity`, `time`, `message`, optional `trace_id`/`correlation_id`, `sourceLocation`, and `fields`.
-
-**Functions:**
-- `Debugf(format string, args ...interface{})` - Debug log
-- `Infof(format string, args ...interface{})` - Info log
-- `Warnf(format string, args ...interface{})` - Warning log
-- `Errorf(format string, args ...interface{})` - Error log
-- `Fatalf(format string, args ...interface{})` - Fatal log (exits)
-- `Debug(msg string, fields Fields)` / `Info` / `Warn` / `Error` - Structured log with fields
-- `SetLogLevel(level slog.Level)` - Set log level
-- `GetLogger() *slog.Logger` - Get underlying slog logger
-
-**Trace ID / Correlation ID (for request-scoped logging):**
-- `WithTraceID(ctx, traceID)` / `WithCorrelationID(ctx, correlationID)` - Store IDs in context
-- `GetTraceID(ctx)` / `GetCorrelationID(ctx)` - Read IDs from context
-- `WithContext(ctx) *Ctx` - Context-bound logger; `Infof`/`Debugf`/etc. automatically include trace_id/correlation_id in JSON
-- `DebugfContext(ctx, format, args...)` / `InfofContext` / `WarnfContext` / `ErrorfContext` - Log with context (IDs in JSON)
-
-### `redis`
-Redis client wrapper with common operations. Supports both standard Redis and Redis Cluster (Google Cloud Memorystore).
-
-**Functions:**
-- `Setup() error` - Initialize Redis client (standard or cluster)
-- `GetRedis() *redis.Client` - Get standard Redis client
-- `GetRedisCluster() *redis.ClusterClient` - Get Redis cluster client
-- `GetUniversalClient() redis.Cmdable` - Get universal client (works with both modes)
-- `IsAlive() bool` - Check if Redis is alive
-- String operations: `Get`, `Set`, `Delete`, `MGet`, `MSet`
-- Hash operations: `HGet`, `HGetAll`, `HSet`, `HSetMap`
-- List operations: `LPush`, `RPop`, `LRange`
-- Set operations: `SAdd`, `SMembers`, `SRem`
-- Lock operations: `AcquireLock`, `ExtendLock`, `ReleaseLock`
-- Pipeline operations: `Pipeline`, `PipelineSet`
-- Pub/Sub: `PublishMessage`, `SubscribeToChannel`
-- `ScanKeys(pattern string, count int64) ([]string, error)` - Scan keys (cluster-aware)
-
-### `util`
-Utility functions for common operations.
-
-**Functions:**
-- `IsEmpty(value interface{}) bool` - Check if value is empty
-- `InAnySlice[T comparable](haystack []T, needle T) bool` - Check if value exists in slice
-- `RemoveDuplicates[T comparable](haystack []T) []T` - Remove duplicates from slice
-- `GetCurrentTimeRange() *types.TimeRange` - Get current time range
-
-### `config`
-Configuration management with environment variable support.
-
-**Functions:**
-- `Setup(configPath string) error` - Initialize configuration
-- `GetConfig() *Configuration` - Get global configuration
-- `SetConfig(cfg *Configuration)` - Set global configuration
-
-### `types`
-Common type definitions.
-
-**Types:**
-- `TimeRange` - Time range with start and end times
-
-### `middlewares`
-Gin framework middleware collection for common HTTP operations.
-
-**Middleware Functions:**
-- `RequestID() gin.HandlerFunc` - Ensures a request/correlation ID on every request. Reads `X-Request-ID` or `X-Trace-ID` from headers; generates a new UUID if missing. Injects ID into context so LoggerMiddleware and `logger.WithContext` include it in structured logs.
-- `TraceMiddleware() gin.HandlerFunc` - Injects trace_id and correlation_id from headers (`X-Trace-Id`, `X-Correlation-Id`, or `X-Request-Id`) into request context; generates UUID if missing. Use before LoggerMiddleware so logs include IDs.
-- `LoggerMiddleware() gin.HandlerFunc` - HTTP request logging (method, path, status, latency, IP); includes trace_id/correlation_id in JSON when RequestID or TraceMiddleware is used
-- `AuthMiddleware() gin.HandlerFunc` - JWT authentication middleware
-- `CORS() gin.HandlerFunc` - CORS middleware
-- `RateLimiter() gin.HandlerFunc` - Rate limiting middleware (requires Redis)
-- `NoMethodHandler() gin.HandlerFunc` - Handle unsupported HTTP methods
-- `NoRouteHandler() gin.HandlerFunc` - Handle 404 routes
-- `RecoveryHandler(ctx *gin.Context)` - Panic recovery middleware
-
-### `response`
-Response code management and standardized API responses.
-
-**Service Codes:**
-- `ServiceCodeCommon` - Common/General services
-- `ServiceCodeAuth` - Authentication service
-- `ServiceCodeTransaction` - Transaction service
-- `ServiceCodeWallet` - Wallet service
-- And more...
-
-**Functions:**
-- `BuildResponseCode(httpStatus int, serviceCode, caseCode string) int` - Build response code
-- `ParseResponseCode(code int) (httpStatus int, serviceCode, caseCode string)` - Parse response code
+---
 
 ## Installation
 
@@ -153,301 +37,712 @@ Response code management and standardized API responses.
 go get github.com/turahe/pkg
 ```
 
-## Usage
+Requires Go 1.21+.
 
-### Configuration Setup
+---
 
+## Packages
+
+### `config`
+
+Loads all configuration from environment variables (or a `.env` file via [godotenv](https://github.com/joho/godotenv)). All packages read from the global `Configuration` singleton.
+
+**API:**
 ```go
-import "github.com/turahe/pkg/config"
-
-// Option 1: Setup from environment variables
-err := config.Setup("")
-
-// Option 2: Set configuration manually
-cfg := &config.Configuration{
-    Database: config.DatabaseConfiguration{
-        Driver:   "mysql",
-        Host:     "localhost",
-        Port:     "3306",
-        Username: "user",
-        Password: "pass",
-        Dbname:   "dbname",
-    },
-}
-config.SetConfig(cfg)
+config.Setup(configPath string) error   // load .env; "" uses env vars only
+config.GetConfig() *Configuration       // get global config (builds from env if needed)
+config.SetConfig(cfg *Configuration)    // override config (testing / manual wiring)
 ```
 
-### Database
-
-**New API (dependency injection):**
-
+**Configuration struct (abbreviated):**
 ```go
-import (
-    "github.com/turahe/pkg/config"
-    "github.com/turahe/pkg/database"
-    "gorm.io/gorm/logger"
-)
+type Configuration struct {
+    Server      ServerConfiguration
+    Cors        CorsConfiguration
+    Database    DatabaseConfiguration
+    DatabaseSite DatabaseConfiguration  // optional second DB
+    Redis       RedisConfiguration
+    GCS         GCSConfiguration
+    RateLimiter RateLimiterConfiguration
+    Timezone    TimezoneConfiguration
+}
+```
 
-cfg := config.GetConfig()
+---
+
+### `database`
+
+Enterprise-grade GORM database layer. Supports MySQL, Postgres, SQLite, SQL Server, and Google Cloud SQL (Postgres/MySQL) with IAM auth and Private IP. Includes SQL redaction in logs (passwords, tokens, card numbers).
+
+**Drivers:** `mysql` · `postgres` · `sqlite` · `sqlserver` · `cloudsql-mysql` · `cloudsql-postgres`
+
+**New API (recommended — dependency injection):**
+```go
+db, err := database.New(&cfg.Database, database.Options{
+    LogLevel: logger.Warn,
+})
+// or with Cloud SQL options:
 db, err := database.New(&cfg.Database, database.Options{
     UseIAM:       true,
     UsePrivateIP: true,
     LogLevel:     logger.Warn,
 })
-if err != nil {
-    log.Fatal(err)
-}
-defer db.Close()
 
-gormDB := db.DB()
-if err := db.Health(ctx); err != nil {
-    log.Fatal(err)
-}
+gormDB  := db.DB()                    // *gorm.DB
+err     = db.Health(ctx)             // ping with PingTimeout-bounded context
+err     = db.Close()                  // close connections + Cloud SQL connector
 ```
 
-**Legacy API (global):**
+**Options:**
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `MaxOpenConns` | 30 | Max open DB connections |
+| `MaxIdleConns` | 10 | Max idle DB connections |
+| `ConnMaxLife` | 30 min | Max connection lifetime |
+| `ConnMaxIdle` | 10 min | Max connection idle time |
+| `SlowThreshold` | 500 ms | GORM slow query log threshold |
+| `PingTimeout` | 5 s | Health check ping timeout |
+| `LogLevel` | Warn | GORM log level |
+| `UseIAM` | false | Cloud SQL IAM auth |
+| `UsePrivateIP` | false | Cloud SQL Private IP |
+
+**High-RPS pool preset:**
+```go
+db, err := database.New(&cfg.Database, database.Options{}, database.WithProductionPoolDefaults)
+// sets MaxOpenConns=150, MaxIdleConns=50
+```
+
+**Legacy API (global, backward-compatible):**
+```go
+database.Setup()          // init from config env vars
+database.GetDB()          // *gorm.DB (panics if not initialized)
+database.GetDBSite()      // secondary *gorm.DB (falls back to primary)
+database.HealthCheck(ctx) // check both primary and site DB
+database.IsAlive()        // bool
+database.Cleanup()        // close all connections
+```
+
+---
+
+### `redis`
+
+Redis client wrapper for both standalone Redis and Redis Cluster (Google Cloud Memorystore). Connection pooling, timeouts, and all common commands included.
+
+**Setup:**
+```go
+redis.Setup() error          // reads config; no-op if REDIS_ENABLED=false
+redis.Close() error          // close client; call on shutdown
+redis.IsAlive() bool         // ping check
+redis.GetUniversalClient() redis.Cmdable  // works with both modes
+redis.GetRedis() *redis.Client            // standard mode only
+redis.GetRedisCluster() *redis.ClusterClient  // cluster mode only
+```
+
+**String operations:**
+```go
+redis.Get(key string) (string, error)
+redis.Set(key string, value interface{}, expiration time.Duration) error
+redis.Delete(keys ...string) error
+redis.MGet(keys ...string) ([]interface{}, error)
+redis.MSet(pairs ...interface{}) error
+```
+
+**Hash operations:**
+```go
+redis.HGet(key, field string) (string, error)
+redis.HGetAll(key string) (map[string]string, error)
+redis.HSet(key, field string, value interface{}) error
+redis.HSetMap(key string, fields map[string]interface{}) error
+```
+
+**List operations:**
+```go
+redis.LPush(key string, values ...interface{}) error
+redis.RPop(key string) (string, error)
+redis.LRange(key string, start, stop int64) ([]string, error)
+```
+
+**Set operations:**
+```go
+redis.SAdd(key string, members ...interface{}) error
+redis.SMembers(key string) ([]string, error)
+redis.SRem(key string, members ...interface{}) error
+```
+
+**Distributed lock:**
+```go
+redis.AcquireLock(key string, expiration time.Duration) (bool, error)
+redis.ExtendLock(key string, expiration time.Duration) (bool, error)
+redis.ReleaseLock(key string) error
+```
+
+**Pipeline, Pub/Sub, Scan:**
+```go
+redis.Pipeline(fn func(redis.Pipeliner) error) error
+redis.PipelineSet(pairs map[string]interface{}, expiration time.Duration) error
+redis.PublishMessage(channel string, message interface{}) error
+redis.SubscribeToChannel(channel string) *redis.PubSub
+redis.ScanKeys(pattern string, count int64) ([]string, error)  // cluster-aware
+```
+
+---
+
+### `logger`
+
+Structured logging built on `log/slog`. Outputs Google Cloud Logging-compatible JSON with `severity`, `time`, `message`, `trace_id`, `correlation_id`, `sourceLocation`, and optional `fields`. The underlying writer is lazy-initialized on first log write (no I/O at startup).
+
+**Plain functions:**
+```go
+logger.Debugf(format string, args ...interface{})
+logger.Infof(format string, args ...interface{})
+logger.Warnf(format string, args ...interface{})
+logger.Errorf(format string, args ...interface{})
+logger.Fatalf(format string, args ...interface{})  // calls os.Exit(1)
+```
+
+**Structured fields:**
+```go
+logger.Debug(msg string, fields logger.Fields)
+logger.Info(msg string, fields logger.Fields)
+logger.Warn(msg string, fields logger.Fields)
+logger.Error(msg string, fields logger.Fields)
+```
+
+**Context-bound (includes `trace_id` / `correlation_id` automatically):**
+```go
+// Store IDs in context (done by RequestID / TraceMiddleware):
+ctx = logger.WithTraceID(ctx, traceID)
+ctx = logger.WithCorrelationID(ctx, correlationID)
+
+// Read IDs from context:
+logger.GetTraceID(ctx)
+logger.GetCorrelationID(ctx)
+
+// Context-bound logger — all log calls carry the IDs from ctx:
+log := logger.WithContext(ctx)
+log.Infof("user %s logged in", userID)
+log.Errorf("operation failed: %v", err)
+
+// Or use context-aware free functions:
+logger.InfofContext(ctx, "processed %d records", n)
+logger.ErrorfContext(ctx, "failed: %v", err)
+```
+
+**Configuration:**
+```go
+logger.SetLogLevel(slog.LevelDebug)  // default: Info
+logger.GetLogger() *slog.Logger
+logger.GetWriter() io.Writer         // file + stderr multi-writer
+```
+
+---
+
+### `middlewares`
+
+Gin middleware collection. Designed to be composed in a specific order for correct behaviour.
+
+**Recommended middleware order:**
+```go
+router := gin.New()
+router.Use(
+    middlewares.RecoveryHandler,              // 1. catch panics first
+    middlewares.RequestID(),                  // 2. inject trace/correlation IDs
+    middlewares.LoggerMiddleware(),           // 3. log with IDs in context
+    middlewares.Metrics(),                    // 4. Prometheus instrumentation
+    middlewares.RequestTimeout(10*time.Second), // 5. bound all downstream handlers
+    middlewares.CORS(),                       // 6. CORS headers
+    middlewares.AuthMiddleware(),             // 7. JWT auth (protected routes)
+    middlewares.RateLimiter(),               // 8. rate limit (requires Redis)
+)
+router.NoMethod(middlewares.NoMethodHandler())
+router.NoRoute(middlewares.NoRouteHandler())
+```
+
+**Reference:**
+
+| Middleware | Signature | Description |
+|------------|-----------|-------------|
+| `RecoveryHandler` | `gin.HandlerFunc` | Catches panics; returns structured JSON 500 with stack trace in logs |
+| `RequestID()` | `gin.HandlerFunc` | Reads `X-Request-ID` / `X-Trace-ID` or generates UUID; injects into context and response headers |
+| `TraceMiddleware()` | `gin.HandlerFunc` | Reads `X-Trace-Id`, `X-Correlation-Id`, `X-Request-Id` separately; use when upstream sends distinct trace and correlation IDs |
+| `LoggerMiddleware()` | `gin.HandlerFunc` | Structured request log (method, path, status, latency, IP, user-agent, trace IDs) |
+| `Metrics()` | `gin.HandlerFunc` | Prometheus counters, histogram, and in-flight gauge; uses route pattern to avoid high-cardinality labels |
+| `RequestTimeout(d)` | `gin.HandlerFunc` | Adds `context.WithTimeout` to every request; no-op when `d <= 0` |
+| `CORS()` | `gin.HandlerFunc` | CORS headers; global or per-origin from config |
+| `AuthMiddleware()` | `gin.HandlerFunc` | Validates `Bearer` JWT; sets `user_id` in Gin context |
+| `RateLimiter()` | `gin.HandlerFunc` | Redis Lua single-round-trip rate limiter; sets `X-RateLimit-*` headers; supports IP or user keying and skip-paths |
+| `NoMethodHandler()` | `gin.HandlerFunc` | 405 JSON response |
+| `NoRouteHandler()` | `gin.HandlerFunc` | 404 JSON response |
+
+**Prometheus metrics exposed by `Metrics()`:**
+
+| Metric | Type | Labels |
+|--------|------|--------|
+| `http_requests_total` | Counter | `method`, `path`, `status` |
+| `http_request_duration_seconds` | Histogram | `method`, `path`, `status` |
+| `http_requests_in_flight` | Gauge | — |
+
+Register the scrape endpoint separately:
+```go
+import "github.com/prometheus/client_golang/prometheus/promhttp"
+router.GET("/metrics", gin.WrapH(promhttp.Handler()))
+```
+
+---
+
+### `handler`
+
+Base handler for Gin with binding, pagination, error routing, and role checks.
 
 ```go
-err := database.Setup()
-if err != nil {
-    log.Fatal(err)
-}
-db := database.GetDB()
+type BaseHandler struct{}
+
+// Bind request body / query / URI by content-type and method.
+func (c *BaseHandler) ValidateReqParams(ctx *gin.Context, params interface{}) error
+
+// 422 validation error response (Laravel-style field map).
+func (c *BaseHandler) HandleValidationError(ctx *gin.Context, serviceCode string, err error)
+
+// Clamp page/size to defaults (1, 10) and max (100).
+func (c *BaseHandler) NormalizePagination(pageNumber, pageSize int) (int, int)
+
+// Extract and validate URL param; writes 422 and returns false if missing.
+func (c *BaseHandler) GetIDFromParam(ctx *gin.Context, paramName, serviceCode string) (string, bool)
+
+// Prefer reqID; fall back to URL param.
+func (c *BaseHandler) GetIDFromRequestOrParam(ctx *gin.Context, reqID, paramName, serviceCode string) (string, bool)
+
+// Route domain errors to correct HTTP status. Returns true if handled.
+// Checks errors.Is(ErrNotFound) → 404, errors.Is(ErrUnauthorized) → 401,
+// then notFoundMessages list, then falls back to 500.
+func (c *BaseHandler) HandleServiceError(ctx *gin.Context, serviceCode string, err error, notFoundMessages ...string) bool
+
+// Build SimplePaginationResponse from a slice, page info, and total.
+func (c *BaseHandler) BuildPaginationResponse(data []interface{}, pageNumber, pageSize int, total int64) response.SimplePaginationResponse
+
+// Read "user_id" string from Gin context (set by AuthMiddleware).
+func (c *BaseHandler) GetCurrentUserID(ctx *gin.Context) (string, bool)
+
+// Return true if any userRole matches any requiredRole.
+func (c *BaseHandler) CheckUserHasRole(userRoles, requiredRoles []string) bool
 ```
 
-### Redis
+---
 
-**Standard Redis:**
+### `response`
+
+Standardised JSON responses with a 7-digit composite code (`HTTP(3) + Service(2) + Case(2)`).
+
+**Success responses:**
+```go
+response.Ok(ctx)
+response.OkWithMessage(ctx, message)
+response.OkWithData(ctx, data)
+response.Created(ctx, data)
+response.Updated(ctx, data)
+response.Deleted(ctx)
+```
+
+**Error responses:**
+```go
+response.FailWithMessage(ctx, message)
+response.FailWithDetailed(ctx, httpStatus, serviceCode, caseCode, data, message)
+response.ValidationError(ctx, serviceCode, err)          // 422 with field map
+response.ValidationErrorSimple(ctx, serviceCode, field, message)
+response.NotFoundError(ctx, serviceCode, caseCode, message)   // 404
+response.UnauthorizedError(ctx, message)                       // 401
+response.ForbiddenError(ctx, message)                          // 403
+response.ConflictError(ctx, serviceCode, caseCode, message)    // 409
+```
+
+**Pagination responses:**
+```go
+response.SimplePaginated(ctx, data, pageNumber, pageSize, hasNext, hasPrev)
+response.CursorPaginated(ctx, data, nextCursor, hasNext)
+```
+
+**Service codes:** `ServiceCodeCommon`, `ServiceCodeAuth`, `ServiceCodeTransaction`, `ServiceCodeWallet`, `ServiceCodeUser`, `ServiceCodeAdmin`, `ServiceCodeMerchant`, `ServiceCodeRole`, `ServiceCodePermission`, `ServiceCodeNotification`, `ServiceCodeApiKey`, `ServiceCodeDeposit`, and more.
+
+---
+
+### `jwt`
+
+HS256 JWT tokens with configurable expiry.
 
 ```go
-import "github.com/turahe/pkg/redis"
-
-// Setup Redis connection
-err := redis.Setup()
-if err != nil {
-    log.Fatal(err)
-}
-
-// Use Redis
-val, err := redis.Get("key")
-err = redis.Set("key", "value", 10*time.Second)
+jwt.Init()                                              // reads SERVER_SECRET from config
+jwt.GenerateToken(id uuid.UUID, email, name string) (string, error)
+jwt.GenerateTokenWithExpiry(id uuid.UUID, email, name string, expiry time.Duration) (string, error)
+jwt.GenerateRefreshToken(id uuid.UUID, email, name string) (string, error)
+jwt.ValidateToken(tokenString string) (*Claims, error)  // returns Claims{UUID string}
+jwt.ComparePassword(hashed, plain string) bool          // bcrypt comparison
 ```
 
-**Redis Cluster (Google Cloud Memorystore):**
+---
+
+### `crypto`
+
+bcrypt password hashing.
 
 ```go
-import "github.com/turahe/pkg/redis"
-
-// Setup Redis cluster connection
-err := redis.Setup()
-if err != nil {
-    log.Fatal(err)
-}
-
-// Use universal client (works with both standard and cluster)
-client := redis.GetUniversalClient()
-val, err := client.Get(ctx, "key").Result()
-
-// Or use cluster-specific client
-clusterClient := redis.GetRedisCluster()
+crypto.HashAndSalt(plainPassword []byte) string
+crypto.ComparePassword(hashedPassword string, plainPassword []byte) bool
 ```
 
-### Middlewares
+---
+
+### `gcs`
+
+Google Cloud Storage wrapper. Uses Application Default Credentials (ADC) or an explicit service account JSON file.
+
+```go
+gcs.Setup() error
+gcs.GetClient() *storage.Client
+gcs.GetBucket() *storage.BucketHandle
+gcs.ReadObject(objectName string) ([]byte, error)
+gcs.ReadObjectAsReader(objectName string) (io.ReadCloser, error)
+gcs.WriteObject(objectName string, data []byte, contentType string) error
+gcs.DeleteObject(objectName string) error
+gcs.ObjectExists(objectName string) (bool, error)
+gcs.ListObjects(prefix string) ([]string, error)
+gcs.Close() error
+```
+
+---
+
+### `types`
+
+```go
+// Conditions is the WHERE clause map passed to repository methods.
+type Conditions map[string]interface{}
+
+// TimeRange holds a start/end pair (IANA or RFC3339 strings).
+type TimeRange struct {
+    Start string
+    End   string
+}
+```
+
+---
+
+### `util`
+
+```go
+util.IsEmpty(value interface{}) bool
+util.InAnySlice[T comparable](haystack []T, needle T) bool
+util.RemoveDuplicates[T comparable](haystack []T) []T
+util.FormatPhoneNumber(number, defaultRegion string) (string, error)  // E.164
+```
+
+---
+
+## Usage
+
+### Minimal server
+
+```go
+package main
+
+import (
+    "context"
+    "log"
+    "net/http"
+    "os"
+    "os/signal"
+    "sync/atomic"
+    "syscall"
+    "time"
+
+    "github.com/gin-gonic/gin"
+    "github.com/prometheus/client_golang/prometheus/promhttp"
+    "github.com/turahe/pkg/config"
+    "github.com/turahe/pkg/database"
+    "github.com/turahe/pkg/middlewares"
+    pkgredis "github.com/turahe/pkg/redis"
+    "gorm.io/gorm/logger"
+)
+
+func main() {
+    cfg := config.GetConfig()
+
+    // Database
+    db, err := database.New(&cfg.Database, database.Options{LogLevel: logger.Warn})
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    // Redis (optional)
+    if cfg.Redis.Enabled {
+        if err := pkgredis.Setup(); err != nil {
+            log.Printf("redis: %v", err)
+        }
+    }
+
+    // Readiness gate
+    var ready atomic.Bool
+    ready.Store(true)
+
+    // Router
+    router := gin.New()
+    router.Use(
+        middlewares.RecoveryHandler,
+        middlewares.RequestID(),
+        middlewares.LoggerMiddleware(),
+        middlewares.Metrics(),
+        middlewares.RequestTimeout(10*time.Second),
+    )
+    router.GET("/metrics", gin.WrapH(promhttp.Handler()))
+    router.GET("/live", func(c *gin.Context) {
+        c.JSON(http.StatusOK, gin.H{"status": "ok"})
+    })
+    router.GET("/ready", func(c *gin.Context) {
+        if !ready.Load() {
+            c.JSON(http.StatusServiceUnavailable, gin.H{"status": "shutting_down"})
+            return
+        }
+        if err := db.Health(c.Request.Context()); err != nil {
+            c.JSON(http.StatusServiceUnavailable, gin.H{"status": "degraded", "error": err.Error()})
+            return
+        }
+        c.JSON(http.StatusOK, gin.H{"status": "ok"})
+    })
+
+    // Application routes ...
+    router.NoMethod(middlewares.NoMethodHandler())
+    router.NoRoute(middlewares.NoRouteHandler())
+
+    srv := &http.Server{
+        Addr:              ":" + cfg.Server.Port,
+        Handler:           router,
+        ReadHeaderTimeout: 5 * time.Second,
+        ReadTimeout:       10 * time.Second,
+        WriteTimeout:      10 * time.Second,
+        IdleTimeout:       60 * time.Second,
+    }
+    go func() {
+        if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+            log.Printf("server: %v", err)
+        }
+    }()
+
+    // Graceful shutdown (25 s matches terminationGracePeriodSeconds: 30)
+    sig := make(chan os.Signal, 1)
+    signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
+    <-sig
+    ready.Store(false) // signal readiness probe → 503 immediately
+
+    shutCtx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
+    defer cancel()
+    srv.Shutdown(shutCtx)
+
+    if cfg.Redis.Enabled {
+        pkgredis.Close()
+    }
+    db.Close()
+}
+```
+
+### Repository with dependency injection
 
 ```go
 import (
-    "github.com/gin-gonic/gin"
-    "github.com/turahe/pkg/middlewares"
+    "github.com/turahe/pkg/database"
+    "github.com/turahe/pkg/repositories"
+    "github.com/turahe/pkg/types"
 )
 
-router := gin.Default()
+db, _ := database.New(&cfg.Database, database.Options{})
+repo := repositories.NewBaseRepositoryWithDB(db.DB())
 
-// Trace first so request context has trace_id/correlation_id for logging
-router.Use(middlewares.TraceMiddleware())
-router.Use(middlewares.LoggerMiddleware())
-router.Use(middlewares.CORS())
-router.Use(middlewares.AuthMiddleware()) // Requires JWT setup
-router.Use(middlewares.RateLimiter())    // Requires Redis setup
+// Create
+err := repo.Create(ctx, &myModel)
 
-// Setup error handlers
-router.NoMethod(middlewares.NoMethodHandler())
-router.NoRoute(middlewares.NoRouteHandler())
-router.Use(middlewares.RecoveryHandler)
+// Find with conditions
+var results []MyModel
+err = repo.Find(ctx, &results, types.Conditions{
+    "status = ?": "active",
+    "tenant_id = ?": tenantID,
+})
+
+// Pagination (pass preload names to avoid N+1)
+total, err := repo.SimplePagination(ctx, &MyModel{}, &results, page, size,
+    types.Conditions{"status = ?": "active"},
+    []string{"created_at DESC"},
+    "User", "Items",  // preloads
+)
 ```
 
-### JWT
+### Clean architecture wiring
 
 ```go
-import "github.com/turahe/pkg/jwt"
+// domain/port/repository.go
+type ItemRepository interface {
+    GetByID(ctx context.Context, id string) (*Item, bool, error)
+}
 
-// Initialize JWT
-jwt.Init()
+// infrastructure/repository/item.go
+type itemRepo struct{ base repositories.IBaseRepository }
 
-// Generate token
-token, err := jwt.GenerateToken(userID, email, name)
+func (r *itemRepo) GetByID(ctx context.Context, id string) (*Item, bool, error) {
+    var item Item
+    notFound, err := r.base.First(ctx, &item, types.Conditions{"id = ?": id})
+    return &item, !notFound, err
+}
 
-// Validate token
-claims, err := jwt.ValidateToken(tokenString)
-```
-
-### Logger
-
-```go
-import "github.com/turahe/pkg/logger"
-
-// Package-level (no trace/correlation)
-logger.Infof("Application started")
-logger.Errorf("Error occurred: %v", err)
-
-// With structured fields
-logger.Info("user login", logger.Fields{"user_id": id, "ip": ip})
-
-// Request-scoped: use context-bound logger so trace_id/correlation_id appear in JSON
-// (use after TraceMiddleware so c.Request.Context() has IDs)
-func myHandler(c *gin.Context) {
-    log := logger.WithContext(c.Request.Context())
-    log.Infof("user %s logged in", userID)
-    log.Errorf("operation failed: %v", err)
+// usecase/get_item.go
+func GetItem(ctx context.Context, repo port.ItemRepository, id string) (*Item, error) {
+    item, found, err := repo.GetByID(ctx, id)
+    if err != nil { return nil, err }
+    if !found { return nil, domain.ErrNotFound }
+    return item, nil
 }
 ```
 
+---
+
 ## Environment Variables
 
-The package supports configuration via environment variables:
-
-- `DATABASE_DRIVER` - Database driver (mysql, postgres, sqlite, sqlserver, cloudsql-mysql, cloudsql-postgres)
-- `DATABASE_HOST` - Database host
-- `DATABASE_PORT` - Database port
-- `DATABASE_USERNAME` - Database username
-- `DATABASE_PASSWORD` - Database password
-- `DATABASE_DBNAME` - Database name
-- `DATABASE_SSLMODE` - Enable SSL (true/false)
-- `DATABASE_LOGMODE` - Enable query logging (true/false)
-- `DATABASE_CLOUD_SQL_INSTANCE` - Cloud SQL instance (format: project:region:instance) for cloudsql-mysql/cloudsql-postgres
-- `DATABASE_MAX_IDLE_CONNS` - Max idle connections in pool (default: 5; production: 10)
-- `DATABASE_MAX_OPEN_CONNS` - Max open connections (default: 10; production: 30)
-- `DATABASE_CONN_MAX_LIFETIME` - Max connection lifetime in minutes (default: 1440; production: 30)
-- `REDIS_ENABLED` - Enable Redis (true/false)
-- `REDIS_HOST` - Redis host
-- `REDIS_PORT` - Redis port
-- `REDIS_PASSWORD` - Redis password
-- `REDIS_DB` - Redis database number
-- `REDIS_CLUSTER_MODE` - Enable Redis cluster mode (true/false)
-- `REDIS_CLUSTER_NODES` - Comma-separated cluster node addresses
-- `RATE_LIMITER_ENABLED` - Enable rate limiter (true/false)
-- `RATE_LIMITER_REQUESTS` - Number of requests allowed per window
-- `RATE_LIMITER_WINDOW` - Time window in seconds
-- `RATE_LIMITER_KEY_BY` - Key strategy: "ip" or "user"
-- `RATE_LIMITER_SKIP_PATHS` - Comma-separated paths to skip rate limiting
-- `GCS_ENABLED` - Enable GCS (true/false)
-- `GCS_BUCKET_NAME` - GCS bucket name
-- `SERVER_SECRET` - JWT secret key
-- `SERVER_ACCESS_TOKEN_EXPIRY` - Access token expiry in hours
-- `SERVER_REFRESH_TOKEN_EXPIRY` - Refresh token expiry in days
-- `SERVER_TIMEZONE` - Server timezone (IANA format, e.g., "Asia/Jakarta")
-
-### Example .env
-
-Copy `env.example` to `.env` and adjust for your environment. `config.Setup("")` loads `.env` via [godotenv](https://github.com/joho/godotenv).
+Copy `env.example` to `.env` and call `config.Setup("")`:
 
 ```bash
 cp env.example .env
 ```
 
-```env
-# Server
-SERVER_PORT=8080
-SERVER_SECRET=your-jwt-secret-key-change-in-production
-SERVER_MODE=debug
-SERVER_ACCESS_TOKEN_EXPIRY=1
-SERVER_REFRESH_TOKEN_EXPIRY=7
+### Server
 
-# CORS
-CORS_GLOBAL=true
-CORS_IPS=
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SERVER_PORT` | `8080` | HTTP listen port |
+| `SERVER_SECRET` | — | JWT signing secret (**required**) |
+| `SERVER_MODE` | `debug` | Gin mode: `debug`, `release`, `test` |
+| `SERVER_ACCESS_TOKEN_EXPIRY` | `1` | Access token lifetime (hours) |
+| `SERVER_REFRESH_TOKEN_EXPIRY` | `7` | Refresh token lifetime (days) |
+| `SERVER_SESSION_EXPIRY` | `24` | Session lifetime (hours) |
+| `CORS_GLOBAL` | `true` | Allow all origins |
 
-# Database (required: DBNAME, USERNAME, PASSWORD)
-# Drivers: mysql, postgres, sqlite, sqlserver, cloudsql-mysql, cloudsql-postgres
-DATABASE_DRIVER=mysql
-DATABASE_HOST=127.0.0.1
-DATABASE_PORT=3306
-DATABASE_USERNAME=appuser
-DATABASE_PASSWORD=apppassword
-DATABASE_DBNAME=appdb
-DATABASE_SSLMODE=false
-DATABASE_LOGMODE=true
-# Connection pool (defaults: 5 idle, 10 open, 1440 min lifetime)
-# Production-tuned: 10 idle, 30 open, 30 min lifetime
-DATABASE_MAX_IDLE_CONNS=10
-DATABASE_MAX_OPEN_CONNS=30
-DATABASE_CONN_MAX_LIFETIME=30
-# Cloud SQL: project:region:instance (use database.Options for IAM/Private IP)
-DATABASE_CLOUD_SQL_INSTANCE=
+### Database
 
-# Database Site (optional; leave DBNAME empty to disable)
-DATABASE_DRIVER_SITE=mysql
-DATABASE_HOST_SITE=127.0.0.1
-DATABASE_PORT_SITE=3306
-DATABASE_USERNAME_SITE=
-DATABASE_PASSWORD_SITE=
-DATABASE_DBNAME_SITE=
-DATABASE_SSLMODE_SITE=false
-DATABASE_LOGMODE_SITE=true
-DATABASE_CLOUD_SQL_INSTANCE_SITE=
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DATABASE_DRIVER` | `mysql` | `mysql` · `postgres` · `sqlite` · `sqlserver` · `cloudsql-mysql` · `cloudsql-postgres` |
+| `DATABASE_HOST` | `127.0.0.1` | |
+| `DATABASE_PORT` | `3306` | |
+| `DATABASE_USERNAME` | — | |
+| `DATABASE_PASSWORD` | — | |
+| `DATABASE_DBNAME` | — | |
+| `DATABASE_SSLMODE` | `false` | |
+| `DATABASE_LOGMODE` | `false` | Enable GORM query logging |
+| `DATABASE_MAX_IDLE_CONNS` | `0` (→ 10) | Connection pool idle size |
+| `DATABASE_MAX_OPEN_CONNS` | `0` (→ 30) | Connection pool max open |
+| `DATABASE_CONN_MAX_LIFETIME` | `0` (→ 30 min) | Connection lifetime (minutes) |
+| `DATABASE_CLOUD_SQL_INSTANCE` | — | `project:region:instance` for Cloud SQL |
+| `DATABASE_*_SITE` | — | Same keys with `_SITE` suffix for secondary DB |
 
-# Redis
-REDIS_ENABLED=false
-REDIS_HOST=127.0.0.1
-REDIS_PORT=6379
-REDIS_PASSWORD=
-REDIS_DB=1
-# Redis Cluster (for Google Cloud Memorystore Redis Cluster)
-REDIS_CLUSTER_MODE=false
-REDIS_CLUSTER_NODES=10.0.0.1:6379,10.0.0.2:6379,10.0.0.3:6379
+### Redis
 
-# Rate Limiter (requires Redis)
-RATE_LIMITER_ENABLED=true
-RATE_LIMITER_REQUESTS=100
-RATE_LIMITER_WINDOW=60
-RATE_LIMITER_KEY_BY=ip
-RATE_LIMITER_SKIP_PATHS=/health,/metrics
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `REDIS_ENABLED` | `false` | |
+| `REDIS_HOST` | `127.0.0.1` | |
+| `REDIS_PORT` | `6379` | |
+| `REDIS_PASSWORD` | — | |
+| `REDIS_DB` | `0` | Database index (ignored in cluster mode) |
+| `REDIS_CLUSTER_MODE` | `false` | Enable cluster client |
+| `REDIS_CLUSTER_NODES` | — | Comma-separated `host:port` list |
+| `REDIS_POOL_SIZE` | `0` (client default) | Max connections per node |
+| `REDIS_MIN_IDLE_CONNS` | `0` | Min idle connections |
+| `REDIS_READ_TIMEOUT_SEC` | `0` (no timeout) | Read timeout |
+| `REDIS_WRITE_TIMEOUT_SEC` | `0` (no timeout) | Write timeout |
 
-# GCS
-GCS_ENABLED=false
-GCS_BUCKET_NAME=
-GCS_CREDENTIALS_FILE=
+### Rate Limiter
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `RATE_LIMITER_ENABLED` | `false` | Requires Redis |
+| `RATE_LIMITER_REQUESTS` | `100` | Requests allowed per window |
+| `RATE_LIMITER_WINDOW` | `60` | Window size (seconds) |
+| `RATE_LIMITER_KEY_BY` | `ip` | `ip` or `user` |
+| `RATE_LIMITER_SKIP_PATHS` | — | Comma-separated paths (e.g. `/health,/metrics`) |
+
+### GCS
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `GCS_ENABLED` | `false` | |
+| `GCS_BUCKET_NAME` | — | |
+| `GCS_CREDENTIALS_FILE` | — | Path to service account JSON; omit to use ADC |
+
+---
+
+## Production Wiring Example
+
+See [`cmd/example/main.go`](cmd/example/main.go) for a complete wiring of:
+
+- Dependency-injected database with health check
+- Optional Redis setup and graceful `Close()`
+- `gin.New()` with explicit middleware stack (recovery → trace → logging → metrics → timeout)
+- `/live` (liveness), `/ready` (readiness with component checks), `/metrics` (Prometheus)
+- HTTP server with all timeouts set
+- Graceful shutdown: readiness gate → `srv.Shutdown(25s)` → Redis close → DB close
+
+### Kubernetes probes
+
+```yaml
+livenessProbe:
+  httpGet:
+    path: /live
+    port: 8080
+  initialDelaySeconds: 5
+  periodSeconds: 10
+
+readinessProbe:
+  httpGet:
+    path: /ready
+    port: 8080
+  initialDelaySeconds: 5
+  periodSeconds: 5
+
+terminationGracePeriodSeconds: 30
 ```
+
+### Docker
+
+```bash
+docker build -t myapp .
+docker run --env-file .env -p 8080:8080 myapp
+```
+
+The multi-stage `Dockerfile` uses `golang:1.25-alpine` to build and `gcr.io/distroless/base-debian12:nonroot` as the runtime image. Runs as UID 65532 (non-root).
+
+---
 
 ## Testing
 
 Run all tests:
-
 ```bash
 go test ./...
 ```
 
-Run with verbose output:
-
+With race detector (requires CGO):
 ```bash
-go test ./... -v
+CGO_ENABLED=1 go test -race ./...
 ```
 
-Run with race detector:
-
+With coverage:
 ```bash
-go test ./... -race
+go test -coverprofile=coverage.out ./...
+go tool cover -func=coverage.out
 ```
 
-### Integration tests (Redis, MySQL, Postgres)
+### Integration tests (Redis · MySQL · Postgres)
 
-To run integration tests against real Redis, MySQL, and Postgres, start the services with Docker Compose:
-
+Start services with Docker Compose:
 ```bash
 docker compose up -d
 ```
 
-Then run tests with:
-
+Run with environment variables:
 ```bash
 REDIS_ENABLED=true REDIS_HOST=127.0.0.1 REDIS_PORT=6379 \
 DATABASE_DRIVER=mysql DATABASE_HOST=127.0.0.1 DATABASE_PORT=3306 \
@@ -455,9 +750,11 @@ DATABASE_USERNAME=root DATABASE_PASSWORD=root DATABASE_DBNAME=testdb \
 go test ./...
 ```
 
-Integration tests skip automatically when services are not available. CI uses the same `docker-compose.yml` services (Redis, MySQL, Postgres) via GitHub Actions.
+Integration tests skip automatically when services are unavailable. CI runs the full matrix (Go 1.21–1.25.4) with these services via GitHub Actions.
 
-Tests cover: `crypto`, `util`, `config`, `jwt`, `logger`, `redis`, `database`, `gcs`, `types`, `middlewares`, `response`, and `handler`. Packages that require external services (Redis, GCS, MySQL/Postgres) use disabled or in-memory/sqlite config where possible so tests can run without those services.
+**Packages with tests:** `config`, `crypto`, `database`, `gcs`, `handler`, `jwt`, `logger`, `middlewares`, `redis`, `repositories`, `response`, `types`, `util`.
+
+---
 
 ## License
 
