@@ -4,6 +4,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/turahe/pkg/config"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -142,4 +143,23 @@ func ValidateToken(tokenString string) (*Claims, error) {
 func ComparePassword(hashedPassword, plainPassword string) bool {
 	err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(plainPassword))
 	return err == nil
+}
+
+func GetCurrentUserUUID(ctx *gin.Context) (uuid.UUID, bool) {
+	userID, exists := ctx.Get("user_id")
+	if !exists {
+		return uuid.Nil, false
+	}
+	switch v := userID.(type) {
+	case string:
+		parsed, err := uuid.Parse(v)
+		if err != nil {
+			return uuid.Nil, false
+		}
+		return parsed, true
+	case uuid.UUID:
+		return v, true
+	default:
+		return uuid.Nil, false
+	}
 }
