@@ -19,6 +19,9 @@ const (
 	ServiceCodeApiKey                      = "14" // API Key service
 	ServiceCodeDeposit                     = "15" // Deposit service
 	ServiceCodeWallet                      = "16" // Wallet service
+	ServiceCodePhone                       = "17" // Phone / phone verification service
+	ServiceCodeEmail                       = "18" // Email / email verification service
+	ServiceCodeTwoFactor                   = "19" // Two-factor authentication service
 )
 
 // Case codes (2 digits: 01-99)
@@ -105,6 +108,32 @@ const (
 	CaseCodeConcurrentModification = "67" // Concurrent modification
 	CaseCodeVersionMismatch        = "68" // Version mismatch
 	CaseCodeStateConflict          = "69" // State conflict
+
+	// Email change (70-74)
+	CaseCodeEmailChangeRequested   = "70" // Email change OTP sent
+	CaseCodeEmailChangeVerified    = "71" // Email change confirmed
+	CaseCodeEmailChangeCancelled   = "72" // Email change cancelled
+	CaseCodeEmailAlreadyUsed       = "73" // Email already registered to another account
+	CaseCodeEmailVerificationFailed = "74" // Email OTP verification failed
+
+	// Phone change (75-79)
+	CaseCodePhoneChangeRequested   = "75" // Phone change OTP sent
+	CaseCodePhoneChangeVerified    = "76" // Phone change confirmed
+	CaseCodePhoneChangeCancelled   = "77" // Phone change cancelled
+	CaseCodePhoneAlreadyUsed       = "78" // Phone already registered to another account
+	CaseCodePhoneVerificationFailed = "79" // Phone OTP verification failed
+
+	// Two-factor authentication (80-89)
+	CaseCode2FAEnabled             = "80" // 2FA enabled
+	CaseCode2FADisabled            = "81" // 2FA disabled
+	CaseCode2FASetupInitiated      = "82" // 2FA setup started (secret + QR generated)
+	CaseCode2FASetupVerified       = "83" // 2FA setup confirmed with valid OTP
+	CaseCode2FAInvalidCode         = "84" // 2FA code invalid or expired
+	CaseCode2FACodeRequired        = "85" // 2FA code missing from request
+	CaseCode2FANotEnabled          = "86" // 2FA not enabled on account
+	CaseCode2FAAlreadyEnabled      = "87" // 2FA already enabled
+	CaseCode2FARecoveryCodeUsed    = "88" // 2FA bypass via recovery code
+	CaseCode2FARecoveryCodeInvalid = "89" // Recovery code invalid or already used
 )
 
 // BuildResponseCode builds a response code from HTTP status, service code, and case code
