@@ -22,6 +22,8 @@ const (
 	ServiceCodePhone                       = "17" // Phone / phone verification service
 	ServiceCodeEmail                       = "18" // Email / email verification service
 	ServiceCodeTwoFactor                   = "19" // Two-factor authentication service
+	ServiceCodeBank                        = "20" // Bank service
+	ServiceCodeBankAccount                 = "21" // Bank account service
 )
 
 // Case codes (2 digits: 01-99)
@@ -134,6 +136,20 @@ const (
 	CaseCode2FAAlreadyEnabled      = "87" // 2FA already enabled
 	CaseCode2FARecoveryCodeUsed    = "88" // 2FA bypass via recovery code
 	CaseCode2FARecoveryCodeInvalid = "89" // Recovery code invalid or already used
+
+	// Bank (90-94)
+	CaseCodeBankNotFound       = "90" // Bank not found
+	CaseCodeBankInactive       = "91" // Bank is inactive / not available
+	CaseCodeBankAlreadyExists  = "92" // Bank already registered
+	CaseCodeBankCreated        = "93" // Bank created
+	CaseCodeBankUpdated        = "94" // Bank updated
+
+	// Bank account (95-99)
+	CaseCodeBankAccountNotFound      = "95" // Bank account not found
+	CaseCodeBankAccountInvalid       = "96" // Bank account number invalid or unverifiable
+	CaseCodeBankAccountAlreadyExists = "97" // Bank account already registered
+	CaseCodeBankAccountCreated       = "98" // Bank account created
+	CaseCodeBankAccountDeleted       = "99" // Bank account deleted
 )
 
 // BuildResponseCode builds a response code from HTTP status, service code, and case code

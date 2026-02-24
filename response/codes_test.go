@@ -62,6 +62,20 @@ func TestBuildResponseCode(t *testing.T) {
 		{"409 2FA already enabled", http.StatusConflict, ServiceCodeTwoFactor, CaseCode2FAAlreadyEnabled, 4091987},
 		{"200 2FA recovery code used", http.StatusOK, ServiceCodeTwoFactor, CaseCode2FARecoveryCodeUsed, 2001988},
 		{"401 2FA recovery code invalid", http.StatusUnauthorized, ServiceCodeTwoFactor, CaseCode2FARecoveryCodeInvalid, 4011989},
+
+		// Bank service (new)
+		{"404 bank not found", http.StatusNotFound, ServiceCodeBank, CaseCodeBankNotFound, 4042090},
+		{"422 bank inactive", http.StatusUnprocessableEntity, ServiceCodeBank, CaseCodeBankInactive, 4222091},
+		{"409 bank already exists", http.StatusConflict, ServiceCodeBank, CaseCodeBankAlreadyExists, 4092092},
+		{"201 bank created", http.StatusCreated, ServiceCodeBank, CaseCodeBankCreated, 2012093},
+		{"200 bank updated", http.StatusOK, ServiceCodeBank, CaseCodeBankUpdated, 2002094},
+
+		// Bank account service (new)
+		{"404 bank account not found", http.StatusNotFound, ServiceCodeBankAccount, CaseCodeBankAccountNotFound, 4042195},
+		{"422 bank account invalid", http.StatusUnprocessableEntity, ServiceCodeBankAccount, CaseCodeBankAccountInvalid, 4222196},
+		{"409 bank account already exists", http.StatusConflict, ServiceCodeBankAccount, CaseCodeBankAccountAlreadyExists, 4092197},
+		{"201 bank account created", http.StatusCreated, ServiceCodeBankAccount, CaseCodeBankAccountCreated, 2012198},
+		{"200 bank account deleted", http.StatusOK, ServiceCodeBankAccount, CaseCodeBankAccountDeleted, 2002199},
 	}
 
 	for _, tt := range tests {
@@ -99,6 +113,12 @@ func TestParseResponseCode(t *testing.T) {
 		{"2FA enabled", 2001980, 200, "19", "80"},
 		{"2FA invalid code", 4011984, 401, "19", "84"},
 		{"2FA recovery invalid", 4011989, 401, "19", "89"},
+		// Bank
+		{"bank not found", 4042090, 404, "20", "90"},
+		{"bank created", 2012093, 201, "20", "93"},
+		// Bank account
+		{"bank account not found", 4042195, 404, "21", "95"},
+		{"bank account created", 2012198, 201, "21", "98"},
 	}
 
 	for _, tt := range tests {
@@ -154,6 +174,14 @@ func TestBuildParseRoundTrip(t *testing.T) {
 		{http.StatusOK, ServiceCodeTwoFactor, CaseCode2FASetupInitiated},
 		{http.StatusUnauthorized, ServiceCodeTwoFactor, CaseCode2FAInvalidCode},
 		{http.StatusUnauthorized, ServiceCodeTwoFactor, CaseCode2FARecoveryCodeInvalid},
+		// Bank
+		{http.StatusNotFound, ServiceCodeBank, CaseCodeBankNotFound},
+		{http.StatusCreated, ServiceCodeBank, CaseCodeBankCreated},
+		{http.StatusConflict, ServiceCodeBank, CaseCodeBankAlreadyExists},
+		// Bank account
+		{http.StatusNotFound, ServiceCodeBankAccount, CaseCodeBankAccountNotFound},
+		{http.StatusCreated, ServiceCodeBankAccount, CaseCodeBankAccountCreated},
+		{http.StatusConflict, ServiceCodeBankAccount, CaseCodeBankAccountAlreadyExists},
 	}
 
 	for _, c := range cases {
@@ -193,6 +221,8 @@ func TestServiceCodeConstants(t *testing.T) {
 		"Phone":                       ServiceCodePhone,
 		"Email":                       ServiceCodeEmail,
 		"TwoFactor":                   ServiceCodeTwoFactor,
+		"Bank":                        ServiceCodeBank,
+		"BankAccount":                 ServiceCodeBankAccount,
 	}
 	for name, code := range codes {
 		if prev, exists := seen[code]; exists {
