@@ -47,6 +47,36 @@ func TestGenerateTokenWithExpiry_and_ValidateToken(t *testing.T) {
 	}
 }
 
+func TestGenerateImpersonationToken_Claims(t *testing.T) {
+	initTestJWT(t)
+
+	adminID := uuid.MustParse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
+	targetID := uuid.MustParse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")
+
+	token, err := GenerateImpersonationToken(adminID, "admin", targetID, 15*time.Minute)
+	require.NoError(t, err)
+	require.NotEmpty(t, token)
+
+	claims, err := ValidateToken(token)
+	require.NoError(t, err)
+
+	// Active context is impersonated user
+	assert.Equal(t, targetID.String(), claims.UUID)
+	assert.Equal(t, targetID.String(), claims.Subject)
+
+	// Impersonation fields
+	assert.True(t, claims.IsImpersonating)
+	assert.Equal(t, adminID.String(), claims.ImpersonatorID)
+	assert.Equal(t, "admin", claims.ImpersonatorRole)
+	assert.Equal(t, adminID.String(), claims.OriginalSub)
+
+	// TTL is clamped to a safe maximum (<= 30 minutes)
+	require.NotNil(t, claims.ExpiresAt)
+	require.NotNil(t, claims.IssuedAt)
+	ttl := claims.ExpiresAt.Time.Sub(claims.IssuedAt.Time)
+	assert.LessOrEqual(t, ttl, 30*time.Minute+5*time.Second)
+}
+
 func TestValidateToken_Invalid(t *testing.T) {
 	initTestJWT(t)
 

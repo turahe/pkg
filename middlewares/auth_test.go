@@ -225,3 +225,49 @@ func TestAuthMiddleware_ContextValue(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, userID.String(), resp["user_id"])
 }
+
+func TestAuthMiddleware_ImpersonationContext(t *testing.T) {
+	initTestJWT(t)
+
+	adminID := uuid.MustParse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
+	targetID := uuid.MustParse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")
+
+	router := setupRouter()
+	router.Use(AuthMiddleware())
+	router.GET("/impersonation", func(c *gin.Context) {
+		userID, _ := c.Get("user_id")
+		originalUserID, _ := c.Get("original_user_id")
+		isImpersonating, _ := c.Get("is_impersonating")
+		impersonatorID, _ := c.Get("impersonator_id")
+		impersonatorRole, _ := c.Get("impersonator_role")
+
+		c.JSON(http.StatusOK, gin.H{
+			"user_id":          userID,
+			"original_user_id": originalUserID,
+			"is_impersonating": isImpersonating,
+			"impersonator_id":  impersonatorID,
+			"impersonator_role": impersonatorRole,
+		})
+	})
+
+	token, err := jwt.GenerateImpersonationToken(adminID, "admin", targetID, 15*time.Minute)
+	require.NoError(t, err)
+
+	req := httptest.NewRequest("GET", "/impersonation", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var resp map[string]interface{}
+	err = json.Unmarshal(w.Body.Bytes(), &resp)
+	require.NoError(t, err)
+
+	assert.Equal(t, targetID.String(), resp["user_id"])
+	assert.Equal(t, adminID.String(), resp["original_user_id"])
+	assert.Equal(t, true, resp["is_impersonating"])
+	assert.Equal(t, adminID.String(), resp["impersonator_id"])
+	assert.Equal(t, "admin", resp["impersonator_role"])
+}
+

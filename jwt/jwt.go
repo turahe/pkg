@@ -18,10 +18,24 @@ var (
 	refreshTokenExpiry time.Duration
 )
 
-// Claims is the JWT payload: UUID (string) plus jwt.RegisteredClaims (exp, iat, nbf).
+// Claims is the JWT payload. It embeds jwt.RegisteredClaims (exp, iat, nbf, sub, jti)
+// and adds:
+//   - UUID: active user context (matches sub for new tokens)
+//   - ImpersonatorID / ImpersonatorRole: admin identity when impersonating
+//   - IsImpersonating: true when this token was issued for impersonation
+//   - OriginalSub: original login identity (admin) when impersonating
+//
+// For non-impersonation tokens, only UUID and RegisteredClaims are populated;
+// other fields use zero values for full backward compatibility.
 type Claims struct {
 	UUID string `json:"uuid"`
+
 	jwt.RegisteredClaims
+
+	ImpersonatorID   string `json:"impersonator_id,omitempty"`
+	ImpersonatorRole string `json:"impersonator_role,omitempty"`
+	IsImpersonating  bool   `json:"is_impersonating,omitempty"`
+	OriginalSub      string `json:"original_sub,omitempty"`
 }
 
 // Init loads the JWT secret and token expiry from config.GetConfig() and panics if config is nil or Server.Secret is empty.
@@ -80,12 +94,16 @@ func GenerateTokenWithExpiry(id uuid.UUID, expiry time.Duration) (string, error)
 		Init()
 	}
 
+	now := time.Now()
+
 	claims := Claims{
 		UUID: id.String(),
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(expiry)),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			NotBefore: jwt.NewNumericDate(time.Now().Add(-30 * time.Second)),
+			ExpiresAt: jwt.NewNumericDate(now.Add(expiry)),
+			IssuedAt:  jwt.NewNumericDate(now),
+			NotBefore: jwt.NewNumericDate(now.Add(-30 * time.Second)),
+			Subject:   id.String(),
+			ID:        uuid.NewString(), // jti for revocation / audit
 		},
 	}
 
@@ -99,6 +117,45 @@ func GenerateRefreshToken(id uuid.UUID) (string, error) {
 		Init()
 	}
 	return GenerateTokenWithExpiry(id, refreshTokenExpiry)
+}
+
+// GenerateImpersonationToken issues a signed JWT representing an administrator
+// temporarily impersonating another user. The active user context (sub/UUID)
+// is the impersonated user. The original admin identity is preserved in
+// ImpersonatorID / ImpersonatorRole / OriginalSub and IsImpersonating is true.
+//
+// The requestedTTL is clamped to a safe maximum (30 minutes). If requestedTTL
+// is zero or negative, the maximum is used.
+func GenerateImpersonationToken(adminID uuid.UUID, adminRole string, targetUserID uuid.UUID, requestedTTL time.Duration) (string, error) {
+	if len(jwtSecret) == 0 {
+		Init()
+	}
+
+	maxTTL := 30 * time.Minute
+	ttl := requestedTTL
+	if ttl <= 0 || ttl > maxTTL {
+		ttl = maxTTL
+	}
+
+	now := time.Now()
+
+	claims := Claims{
+		UUID: targetUserID.String(),
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(now.Add(ttl)),
+			IssuedAt:  jwt.NewNumericDate(now),
+			NotBefore: jwt.NewNumericDate(now.Add(-30 * time.Second)),
+			Subject:   targetUserID.String(),
+			ID:        uuid.NewString(),
+		},
+		ImpersonatorID:   adminID.String(),
+		ImpersonatorRole: adminRole,
+		IsImpersonating:  true,
+		OriginalSub:      adminID.String(),
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString(jwtSecret)
 }
 
 // ValidateToken parses the token string, verifies signature and expiry, and returns Claims or an error.
