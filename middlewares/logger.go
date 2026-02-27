@@ -8,7 +8,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// LoggerMiddleware logs HTTP request details including method, path, status code, latency, and client IP
+// LoggerMiddleware returns a Gin middleware that logs each request after Next(): method, path, status,
+// latency, client IP, user-agent. Uses logger.WithContext(ctx) so trace_id and correlation_id appear
+// in JSON when RequestID or TraceMiddleware is used. Log level: 5xx Error, 4xx Warn, 2xx/3xx Info.
 func LoggerMiddleware() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		// Start timer

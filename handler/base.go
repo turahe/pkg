@@ -10,9 +10,14 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// BaseHandler provides shared methods for binding, validation, error handling, and pagination.
+// Embed or use as a struct; no fields required.
 type BaseHandler struct {
 }
 
+// ValidateReqParams binds the request into requestParams based on Content-Type and method.
+// For application/json uses ShouldBindJSON; for application/xml uses ShouldBindXML;
+// for empty Content-Type binds query and URI params. Returns the first binding error if any.
 func (c *BaseHandler) ValidateReqParams(ctx *gin.Context, requestParams interface{}) error {
 	var err error
 
@@ -36,12 +41,13 @@ func (c *BaseHandler) ValidateReqParams(ctx *gin.Context, requestParams interfac
 	return nil
 }
 
-// HandleValidationError handles validation errors and returns Laravel-style response
+// HandleValidationError writes a 422 response with Laravel-style field errors using response.ValidationError.
 func (c *BaseHandler) HandleValidationError(ctx *gin.Context, serviceCode string, err error) {
 	response.ValidationError(ctx, serviceCode, err)
 }
 
-// NormalizePagination normalizes pagination parameters with defaults and limits (uses response.DefaultPageNumber, DefaultPageSize, MaxPageSize).
+// NormalizePagination clamps pageNumber and pageSize to response.DefaultPageNumber, response.DefaultPageSize,
+// and response.MaxPageSize. Returns the normalized (pageNumber, pageSize).
 func (c *BaseHandler) NormalizePagination(pageNumber, pageSize int) (int, int) {
 	if pageNumber <= 0 {
 		pageNumber = response.DefaultPageNumber
@@ -54,7 +60,8 @@ func (c *BaseHandler) NormalizePagination(pageNumber, pageSize int) (int, int) {
 	return pageNumber, pageSize
 }
 
-// GetIDFromParam extracts ID from URL parameter, validates it, and returns error response if missing
+// GetIDFromParam returns the URL parameter value for paramName. If empty, writes a 422 validation
+// response and returns ("", false); otherwise returns (id, true).
 func (c *BaseHandler) GetIDFromParam(ctx *gin.Context, paramName string, serviceCode string) (string, bool) {
 	id := ctx.Param(paramName)
 	if id == "" {
@@ -65,7 +72,7 @@ func (c *BaseHandler) GetIDFromParam(ctx *gin.Context, paramName string, service
 	return id, true
 }
 
-// GetIDFromRequestOrParam extracts ID from request body or URL parameter
+// GetIDFromRequestOrParam returns reqID if non-empty; otherwise returns the result of GetIDFromParam.
 func (c *BaseHandler) GetIDFromRequestOrParam(ctx *gin.Context, reqID string, paramName string, serviceCode string) (string, bool) {
 	if reqID != "" {
 		return reqID, true
@@ -73,9 +80,9 @@ func (c *BaseHandler) GetIDFromRequestOrParam(ctx *gin.Context, reqID string, pa
 	return c.GetIDFromParam(ctx, paramName, serviceCode)
 }
 
-// HandleServiceError handles service errors with appropriate HTTP status codes.
-// It checks for sentinel errors (ErrNotFound, ErrUnauthorized) via errors.Is, then
-// falls back to notFoundMessages and legacy string matching for backward compatibility.
+// HandleServiceError maps err to an HTTP response and writes it. Returns true if a response was written.
+// Checks errors.Is(ErrNotFound) -> 404, errors.Is(ErrUnauthorized) -> 401, then notFoundMessages exact match -> 404,
+// then legacy strings "current password is incorrect" / "Unauthorized" -> 401; otherwise 500.
 func (c *BaseHandler) HandleServiceError(ctx *gin.Context, serviceCode string, err error, notFoundMessages ...string) bool {
 	if err == nil {
 		return false
@@ -113,8 +120,8 @@ func (c *BaseHandler) HandleServiceError(ctx *gin.Context, serviceCode string, e
 	return true
 }
 
-// BuildPaginationResponse builds a paginated response from data.
-// total is the total number of items; hasNext is true when (pageNumber * pageSize) < total.
+// BuildPaginationResponse builds a SimplePaginationResponse from data and pagination state.
+// hasNext is derived from (pageNumber * pageSize) < total; hasPrev is pageNumber > 1.
 func (c *BaseHandler) BuildPaginationResponse(data []interface{}, pageNumber, pageSize int, total int64) response.SimplePaginationResponse {
 	hasNext := int64(pageNumber)*int64(pageSize) < total
 	hasPrev := pageNumber > 1
@@ -128,7 +135,7 @@ func (c *BaseHandler) BuildPaginationResponse(data []interface{}, pageNumber, pa
 	}
 }
 
-// GetCurrentUserID extracts user ID from context (set by auth middleware).
+// GetCurrentUserID returns the "user_id" value from the Gin context (set by auth middleware). Second return is false if missing or not a string.
 func (c *BaseHandler) GetCurrentUserID(ctx *gin.Context) (string, bool) {
 	userID, exists := ctx.Get("user_id")
 	if !exists {
@@ -138,7 +145,7 @@ func (c *BaseHandler) GetCurrentUserID(ctx *gin.Context) (string, bool) {
 	return id, ok
 }
 
-// CheckUserHasRole checks if the user has any of the required roles.
+// CheckUserHasRole returns true if any element of userRoles equals any element of requiredRoles.
 func (c *BaseHandler) CheckUserHasRole(userRoles []string, requiredRoles []string) bool {
 	for _, roleName := range userRoles {
 		for _, requiredRole := range requiredRoles {

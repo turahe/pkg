@@ -1,38 +1,40 @@
 package config
 
-// Configuration holds all application configuration
+// Configuration holds the full application configuration. All sections are
+// populated from environment variables by buildConfigFromEnv (see parser.go).
 type Configuration struct {
 	Server       ServerConfiguration
 	Cors         CorsConfiguration
 	Database     DatabaseConfiguration
-	DatabaseSite DatabaseConfiguration // Site database connection
+	DatabaseSite DatabaseConfiguration // Optional second database; leave Dbname empty to disable.
 	Redis        RedisConfiguration
 	GCS          GCSConfiguration
 	RateLimiter  RateLimiterConfiguration
 	Timezone     TimezoneConfiguration
 }
 
-// ServerConfiguration holds server-related configuration
+// ServerConfiguration holds server and session settings (port, secret, mode, token and session expiry).
 type ServerConfiguration struct {
-	Port               string
-	Secret             string
-	Mode               string
-	AccessTokenExpiry  int // hours
-	RefreshTokenExpiry int // days
-	SessionExpiry      int // hours, default 24
+	Port               string // Listen port; default "8080"
+	Secret             string // JWT signing secret; required for auth
+	Mode               string // Gin mode: "debug", "release", "test"
+	AccessTokenExpiry  int    // Access token lifetime in hours
+	RefreshTokenExpiry int    // Refresh token lifetime in days
+	SessionExpiry      int    // Session lifetime in hours; default 24
 	SessionCookieName  string
-	SessionSecure      bool   // Set Secure flag for cookies (HTTPS only)
-	SessionHttpOnly    bool   // Set HttpOnly flag for cookies (default true)
-	SessionSameSite    string // SameSite cookie attribute: "strict", "lax", "none"
+	SessionSecure      bool   // Secure flag for cookies (HTTPS only)
+	SessionHttpOnly    bool   // HttpOnly flag; default true
+	SessionSameSite    string // "strict", "lax", or "none"
 }
 
-// CorsConfiguration holds CORS-related configuration
+// CorsConfiguration holds CORS settings. Global true allows all origins; Ips is used when Global is false.
 type CorsConfiguration struct {
-	Global bool
-	Ips    string
+	Global bool   // If true, allow all origins
+	Ips    string // Comma-separated allowed IPs when Global is false
 }
 
-// DatabaseConfiguration holds database-related configuration
+// DatabaseConfiguration holds database connection and pool settings. Required: Dbname, Username, Password.
+// For Cloud SQL drivers (cloudsql-mysql, cloudsql-postgres), CloudSQLInstance (project:region:instance) is required.
 type DatabaseConfiguration struct {
 	Driver                string
 	Dbname                string
@@ -42,44 +44,44 @@ type DatabaseConfiguration struct {
 	Port                  string
 	Sslmode               bool
 	Logmode               bool
-	CloudSQLInstance      string `mapstructure:"cloud_sql_instance"` // Cloud SQL instance connection name (format: project:region:instance)
-	MaxIdleConns           int // Max idle connections in pool (0 = default 5)
-	MaxOpenConns           int // Max open connections (0 = default 10)
-	ConnMaxLifetimeMinutes int // Max lifetime of a connection in minutes (0 = default 1440 = 24h)
+	CloudSQLInstance      string `mapstructure:"cloud_sql_instance"` // project:region:instance for Cloud SQL
+	MaxIdleConns          int    // 0 = default 5
+	MaxOpenConns          int    // 0 = default 10
+	ConnMaxLifetimeMinutes int   // 0 = default 1440 (24h)
 }
 
-// RedisConfiguration holds Redis-related configuration
+// RedisConfiguration holds Redis connection and pool settings. Set Enabled true to use Redis.
 type RedisConfiguration struct {
 	Enabled          bool
 	Host             string
 	Port             string
 	Password         string
-	DB               int
-	ClusterMode      bool   // Enable cluster mode for Google Cloud Memorystore Redis Cluster
-	ClusterNodes     string // Comma-separated list of cluster node addresses
-	PoolSize         int    // Max connections per node (0 = default, use e.g. 100 for high RPS)
-	MinIdleConns     int    // Min idle connections (0 = default)
-	ReadTimeoutSec   int    // Read timeout in seconds (0 = no timeout)
-	WriteTimeoutSec  int    // Write timeout in seconds (0 = no timeout)
+	DB               int    // Database index; ignored in cluster mode
+	ClusterMode      bool   // Use cluster client (e.g. Google Cloud Memorystore)
+	ClusterNodes     string // Comma-separated host:port when ClusterMode is true
+	PoolSize         int    // 0 = client default; use e.g. 100 for high RPS
+	MinIdleConns     int    // 0 = default
+	ReadTimeoutSec   int    // 0 = no timeout
+	WriteTimeoutSec  int    // 0 = no timeout
 }
 
-// GCSConfiguration holds Google Cloud Storage-related configuration
+// GCSConfiguration holds Google Cloud Storage settings. BucketName required when Enabled is true.
 type GCSConfiguration struct {
 	Enabled         bool
 	BucketName      string
-	CredentialsFile string // Path to service account JSON file (optional, uses ADC if not provided)
+	CredentialsFile string // Optional; omit to use Application Default Credentials
 }
 
-// RateLimiterConfiguration holds rate limiter-related configuration
+// RateLimiterConfiguration holds rate limiter settings. Requires Redis when Enabled is true.
 type RateLimiterConfiguration struct {
 	Enabled   bool
-	Requests  int    // Number of requests allowed per window
-	Window    int    // Time window in seconds
-	KeyBy     string // Key strategy: "ip" (default) or "user" (requires auth)
-	SkipPaths string // Comma-separated list of paths to skip rate limiting (e.g., "/health,/metrics")
+	Requests  int    // Max requests per window
+	Window    int    // Window size in seconds
+	KeyBy     string // "ip" or "user" (user requires auth middleware)
+	SkipPaths string // Comma-separated paths to skip (e.g. "/health,/metrics")
 }
 
-// TimezoneConfiguration holds timezone-related configuration
+// TimezoneConfiguration holds the server timezone (IANA name, e.g. "Asia/Jakarta", "UTC").
 type TimezoneConfiguration struct {
-	Timezone string // IANA timezone identifier (e.g., "Asia/Jakarta", "UTC", "America/New_York")
+	Timezone string
 }

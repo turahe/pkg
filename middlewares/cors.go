@@ -6,6 +6,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// CORS returns a Gin middleware that sets Access-Control-* headers from config. If Cors.Global is true
+// it sets Allow-Origin to "*"; otherwise to Cors.Ips. Responds to OPTIONS with 204.
 func CORS() gin.HandlerFunc {
 	conf := config.GetConfig()
 

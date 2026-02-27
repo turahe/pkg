@@ -5,7 +5,8 @@ import (
 	"strings"
 )
 
-// validateDatabaseConfig validates that required database configuration is present
+// validateDatabaseConfig checks that required database fields are set and not placeholders.
+// For Cloud SQL drivers it also requires CloudSQLInstance. Returns an error listing missing env vars.
 func validateDatabaseConfig(dbConfig *DatabaseConfiguration) error {
 	var missingFields []string
 
@@ -34,7 +35,7 @@ func validateDatabaseConfig(dbConfig *DatabaseConfiguration) error {
 	return nil
 }
 
-// isEmptyOrPlaceholder checks if a value is empty or a known placeholder
+// isEmptyOrPlaceholder returns true if value is empty or matches a known placeholder (e.g. "your_database_password").
 func isEmptyOrPlaceholder(value string) bool {
 	return value == "" || invalidPlaceholders[value]
 }

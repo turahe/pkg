@@ -6,13 +6,14 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// CommonResponse is the standard JSON body: code (7-digit composite), message, data.
 type CommonResponse struct {
 	Code    int         `json:"code"` // Custom response code: HTTP_STATUS + SERVICE_CODE + CASE_CODE (e.g., 2000401)
 	Message string      `json:"message"`
 	Data    interface{} `json:"data"`
 }
 
-// Result creates a response with custom code system
+// Result writes a JSON response with the given HTTP status and composite code (BuildResponseCode(httpStatus, serviceCode, caseCode)).
 func Result(ctx *gin.Context, httpStatus int, serviceCode, caseCode string, data interface{}, message string) {
 	responseCode := BuildResponseCode(httpStatus, serviceCode, caseCode)
 	ctx.JSON(httpStatus, CommonResponse{
@@ -22,7 +23,7 @@ func Result(ctx *gin.Context, httpStatus int, serviceCode, caseCode string, data
 	})
 }
 
-// ResultWithCode creates a response with explicit response code
+// ResultWithCode writes a JSON response with explicit responseCode (no BuildResponseCode).
 func ResultWithCode(ctx *gin.Context, httpStatus int, responseCode int, data interface{}, message string) {
 	ctx.JSON(httpStatus, CommonResponse{
 		Code:    responseCode,
@@ -46,7 +47,7 @@ func OkWithData(ctx *gin.Context, data interface{}) {
 	Result(ctx, http.StatusOK, ServiceCodeCommon, CaseCodeRetrieved, data, "success")
 }
 
-// CursorPaginatedResponse represents a cursor-based pagination response with fields at the top level
+// CursorPaginatedResponse is the top-level JSON shape for cursor-based pagination (code, message, data, nextCursor, hasNext).
 type CursorPaginatedResponse struct {
 	Code       int         `json:"code"`       // Custom response code
 	Message    string      `json:"message"`    // Response message
@@ -55,7 +56,7 @@ type CursorPaginatedResponse struct {
 	HasNext    bool        `json:"hasNext"`    // Whether there are more items available
 }
 
-// CursorPaginated returns a cursor-based paginated response with fields at the top level
+// CursorPaginated writes a cursor-based paginated JSON response using the given pagination payload.
 func CursorPaginated(ctx *gin.Context, httpStatus int, serviceCode, caseCode string, pagination CursorPaginationResponse, message string) {
 	responseCode := BuildResponseCode(httpStatus, serviceCode, caseCode)
 	ctx.JSON(httpStatus, CursorPaginatedResponse{
@@ -67,7 +68,7 @@ func CursorPaginated(ctx *gin.Context, httpStatus int, serviceCode, caseCode str
 	})
 }
 
-// SimplePaginatedResponse represents a simple pagination response with fields at the top level
+// SimplePaginatedResponse is the top-level JSON shape for offset pagination (code, message, data, pageNumber, pageSize, hasNext, hasPrev).
 type SimplePaginatedResponse struct {
 	Code       int         `json:"code"`       // Custom response code
 	Message    string      `json:"message"`    // Response message

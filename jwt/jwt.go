@@ -18,13 +18,13 @@ var (
 	refreshTokenExpiry time.Duration
 )
 
-// Claims represents JWT claims
+// Claims is the JWT payload: UUID (string) plus jwt.RegisteredClaims (exp, iat, nbf).
 type Claims struct {
 	UUID string `json:"uuid"`
 	jwt.RegisteredClaims
 }
 
-// Init initializes JWT with secret from config
+// Init loads the JWT secret and token expiry from config.GetConfig() and panics if config is nil or Server.Secret is empty.
 func Init() {
 	conf := config.GetConfig()
 	if conf != nil {
@@ -69,12 +69,12 @@ func GetAccessTokenExpiry() time.Duration {
 	return accessTokenExpiry
 }
 
-// GenerateToken generates a JWT token for admin
+// GenerateToken issues a signed JWT with the given UUID and default access token expiry.
 func GenerateToken(id uuid.UUID) (string, error) {
 	return GenerateTokenWithExpiry(id, accessTokenExpiry) // Default: 1 hour
 }
 
-// GenerateTokenWithExpiry generates a JWT token with custom expiration time
+// GenerateTokenWithExpiry issues a signed JWT with the given UUID and custom expiry duration.
 func GenerateTokenWithExpiry(id uuid.UUID, expiry time.Duration) (string, error) {
 	if len(jwtSecret) == 0 {
 		Init()
@@ -93,7 +93,7 @@ func GenerateTokenWithExpiry(id uuid.UUID, expiry time.Duration) (string, error)
 	return token.SignedString(jwtSecret)
 }
 
-// GenerateRefreshToken generates a refresh token with longer expiration
+// GenerateRefreshToken issues a signed JWT with the given UUID and refresh token expiry from config.
 func GenerateRefreshToken(id uuid.UUID) (string, error) {
 	if refreshTokenExpiry == 0 {
 		Init()
@@ -101,7 +101,7 @@ func GenerateRefreshToken(id uuid.UUID) (string, error) {
 	return GenerateTokenWithExpiry(id, refreshTokenExpiry)
 }
 
-// ValidateToken validates a JWT token and returns the claims
+// ValidateToken parses the token string, verifies signature and expiry, and returns Claims or an error.
 func ValidateToken(tokenString string) (*Claims, error) {
 	if len(jwtSecret) == 0 {
 		Init()
@@ -139,12 +139,13 @@ func ValidateToken(tokenString string) (*Claims, error) {
 	return nil, errors.New("invalid token claims")
 }
 
-// ComparePassword compares a hashed password with a plain password
+// ComparePassword returns true if plainPassword matches the bcrypt hash hashedPassword.
 func ComparePassword(hashedPassword, plainPassword string) bool {
 	err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(plainPassword))
 	return err == nil
 }
 
+// GetCurrentUserUUID reads "user_id" from the Gin context (set by auth middleware). Supports string or uuid.UUID; returns (uuid.Nil, false) if missing or invalid.
 func GetCurrentUserUUID(ctx *gin.Context) (uuid.UUID, bool) {
 	userID, exists := ctx.Get("user_id")
 	if !exists {

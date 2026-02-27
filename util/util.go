@@ -1,11 +1,16 @@
 package util
 
 import (
+	"fmt"
 	"reflect"
 
 	"github.com/nyaruka/phonenumbers"
+	"golang.org/x/text/currency"
+	"golang.org/x/text/language"
+	"golang.org/x/text/message"
 )
 
+// IsEmpty returns true if value is zero, nil, or empty (e.g. empty string, zero number, nil slice, empty map).
 func IsEmpty(value interface{}) bool {
 	v := reflect.ValueOf(value)
 	switch v.Kind() {
@@ -26,6 +31,7 @@ func IsEmpty(value interface{}) bool {
 	}
 }
 
+// InAnySlice returns true if needle is equal to any element of haystack.
 func InAnySlice[T comparable](haystack []T, needle T) bool {
 	for _, v := range haystack {
 		if v == needle {
@@ -35,6 +41,7 @@ func InAnySlice[T comparable](haystack []T, needle T) bool {
 	return false
 }
 
+// RemoveDuplicates returns a new slice with duplicate elements removed; elements satisfying IsEmpty are omitted.
 func RemoveDuplicates[T comparable](haystack []T) []T {
 	encountered := map[T]bool{}
 	result := []T{}
@@ -49,9 +56,8 @@ func RemoveDuplicates[T comparable](haystack []T) []T {
 	return result
 }
 
-// FormatPhoneNumber formats a phone number using the nyaruka/phonenumbers library.
-// If country code is provided, it will be used for parsing; otherwise, US is used as default region.
-// Returns the formatted phone number in E.164 format, or the original phone if formatting fails.
+// FormatPhoneNumber parses phone with optional countryCode as default region and returns E.164-formatted string.
+// Uses nyaruka/phonenumbers. If parsing or validation fails, returns the original phone unchanged.
 func FormatPhoneNumber(phone *string, countryCode *string) *string {
 	if phone == nil || *phone == "" {
 		return phone
@@ -79,4 +85,52 @@ func FormatPhoneNumber(phone *string, countryCode *string) *string {
 	// Format in E.164 format (e.g., +1234567890)
 	formatted := phonenumbers.Format(num, phonenumbers.E164)
 	return &formatted
+}
+
+// FormatCurrency formats a numeric amount with the given currency code (e.g., "USD", "EUR", "GBP").
+// Returns a formatted currency string with the currency symbol and proper locale formatting.
+// If formatting fails, returns a basic formatted string with currency code suffix.
+func FormatCurrency(amount float64, currencyCode string) string {
+	if currencyCode == "" {
+		return fmt.Sprintf("%.2f", amount)
+	}
+
+	// Parse currency code
+	curr, err := currency.ParseISO(currencyCode)
+	if err != nil {
+		// Fallback: simple format with currency code
+		return fmt.Sprintf("%.2f %s", amount, currencyCode)
+	}
+
+	// Determine language based on currency
+	// Try common locales for the currency
+	langTag := language.English // Default to English
+
+	// Map common currency codes to preferred locales
+	switch currencyCode {
+	case "EUR":
+		langTag = language.German // or language.French, language.Italian
+	case "GBP":
+		langTag = language.English
+	case "JPY":
+		langTag = language.Japanese
+	case "CNY":
+		langTag = language.Chinese
+	case "INR":
+		langTag = language.Hindi
+	case "BRL":
+		langTag = language.Portuguese
+	case "MXN":
+		langTag = language.Spanish
+	case "CAD":
+		langTag = language.English
+	case "AUD":
+		langTag = language.English
+	case "IDR":
+		langTag = language.Indonesian
+	}
+
+	// Create a printer for the language and format with currency
+	printer := message.NewPrinter(langTag)
+	return printer.Sprintf("%v %v", curr, amount)
 }

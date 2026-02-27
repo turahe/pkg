@@ -3,6 +3,7 @@ package redis
 import (
 	"context"
 	"fmt"
+	"net"
 	"strings"
 	"time"
 
@@ -17,6 +18,7 @@ var (
 	isCluster  bool
 )
 
+// Setup initializes the Redis client from config: standard client or cluster client when Redis.ClusterMode is true. No-op if Redis.Enabled is false. Returns error on connect or ping failure.
 func Setup() error {
 	configuration := config.GetConfig()
 
@@ -120,6 +122,20 @@ func setupClusterClient(configuration *config.Configuration) error {
 	return nil
 }
 
+// Available reports whether a Redis server is reachable at host:port within timeout.
+// It uses a TCP dial only (no Redis client), so it does not trigger go-redis connection logs.
+// Useful for tests or health checks before calling Setup().
+func Available(host, port string, timeout time.Duration) bool {
+	addr := net.JoinHostPort(host, port)
+	conn, err := net.DialTimeout("tcp", addr, timeout)
+	if err != nil {
+		return false
+	}
+	conn.Close()
+	return true
+}
+
+// IsAlive returns true if the active client responds to Ping; false if not initialized or ping fails.
 func IsAlive() bool {
 	if isCluster {
 		if rdbCluster == nil {
@@ -135,6 +151,7 @@ func IsAlive() bool {
 	return rdb.Ping(context.Background()).Err() == nil
 }
 
+// GetRedis returns the standard Redis client. Panics if cluster mode is enabled or Setup was not called. Panics if cluster mode is enabled or Setup was not called.
 func GetRedis() *redis.Client {
 	if isCluster {
 		panic("Redis is in cluster mode. Use GetRedisCluster() instead.")
@@ -147,6 +164,7 @@ func GetRedis() *redis.Client {
 	return rdb
 }
 
+// GetRedisCluster returns the cluster Redis client. Panics if not in cluster mode or Setup was not called.
 func GetRedisCluster() *redis.ClusterClient {
 	if !isCluster {
 		panic("Redis is not in cluster mode. Use GetRedis() instead.")

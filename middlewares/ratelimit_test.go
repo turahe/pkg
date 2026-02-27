@@ -17,7 +17,8 @@ import (
 	"github.com/turahe/pkg/response"
 )
 
-// setupTestConfig sets up test configuration for rate limiter
+// setupTestConfig sets up test configuration for rate limiter. When redisEnabled is true,
+// Redis must be available at 127.0.0.1:6379 or the test fails (start Redis or run: make test-docker).
 func setupTestConfig(t *testing.T, rateLimiterEnabled, redisEnabled bool) {
 	config.Config = &config.Configuration{
 		RateLimiter: config.RateLimiterConfiguration{
@@ -36,9 +37,12 @@ func setupTestConfig(t *testing.T, rateLimiterEnabled, redisEnabled bool) {
 	}
 
 	if redisEnabled {
+		if !redis.Available("127.0.0.1", "6379", 500*time.Millisecond) {
+			t.Fatalf("Redis is required for this test but 127.0.0.1:6379 is unreachable. Start Redis (e.g. docker compose up -d) or run: make test-docker")
+		}
 		err := redis.Setup()
 		if err != nil {
-			t.Skipf("Redis not available for rate limiter tests: %v", err)
+			t.Fatalf("Redis setup failed: %v", err)
 		}
 	}
 }

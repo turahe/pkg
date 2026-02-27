@@ -8,11 +8,19 @@ import (
 	"github.com/turahe/pkg/logger"
 )
 
-// Config holds the global configuration instance
+// Config holds the global configuration instance. It is set by Setup or lazily
+// built from environment variables by GetConfig. Tests may set it directly.
 var Config *Configuration
 
-// Setup initializes the configuration by loading environment variables
-// and validating required settings. If configPath is non-empty, it is used as the .env path; otherwise default .env is loaded.
+// Setup loads configuration from the environment and validates required database settings.
+//
+// If configPath is non-empty, godotenv loads that file (e.g. ".env"); otherwise
+// godotenv.Load() is used (current directory .env). After loading, buildConfigFromEnv
+// reads all supported variables and validateDatabaseConfig is run for the primary
+// database and, if DatabaseSite.Dbname is set, for the site database.
+//
+// Setup returns an error if database validation fails (missing Dbname, Username,
+// Password, or CloudSQLInstance when driver is cloudsql-mysql/cloudsql-postgres).
 func Setup(configPath string) error {
 	if configPath != "" {
 		_ = godotenv.Load(configPath)
@@ -40,11 +48,11 @@ func Setup(configPath string) error {
 	return nil
 }
 
-// GetConfig returns the global configuration instance
-// If no config is set, it will attempt to build from environment variables
+// GetConfig returns the global configuration. If Config is nil, it builds configuration
+// from the current environment via buildConfigFromEnv and assigns it to Config.
+// No validation is performed on this path; call Setup at startup for validation.
 func GetConfig() *Configuration {
 	if Config == nil {
-		// Try to build from environment variables as fallback
 		Config = buildConfigFromEnv()
 	}
 	return Config

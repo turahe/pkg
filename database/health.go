@@ -6,6 +6,7 @@ import (
 	"fmt"
 )
 
+// Health pings the database using a context with timeout d.opts.PingTimeout. Returns an error if db is nil, *sql.DB cannot be obtained, or ping fails.
 func (d *Database) Health(ctx context.Context) error {
 	if d.db == nil {
 		return fmt.Errorf("database not initialized")
@@ -22,6 +23,7 @@ func (d *Database) Health(ctx context.Context) error {
 	return nil
 }
 
+// Close runs all registered cleanup functions (e.g. Cloud SQL connector close) and clears the list. Returns the first error if any cleanup fails.
 func (d *Database) Close() error {
 	var errs []error
 	for _, fn := range d.cleanups {

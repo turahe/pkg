@@ -10,6 +10,9 @@
 # The `test` service waits for all dependencies to be healthy (via `depends_on`
 # condition: service_healthy), then runs `go test ./...` and exits.
 # The compose process exits with the test runner's exit code.
+#
+# Redis and Valkey are both started so redis package integration tests can
+# use either (REDIS_HOST/REDIS_PORT and VALKEY_HOST/VALKEY_PORT).
 
 services:
   # ── Infrastructure ─────────────────────────────────────────────────────────
@@ -17,6 +20,15 @@ services:
     image: redis:7-alpine
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 3s
+
+  valkey:
+    image: valkey/valkey:7-alpine
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -60,10 +72,14 @@ services:
 
     # All environment variables the test suite reads.
     environment:
-      # Redis
+      # Redis (used by app and by redis integration tests when in Docker)
       REDIS_ENABLED: "true"
       REDIS_HOST: redis
       REDIS_PORT: "6379"
+
+      # Valkey (used by redis integration tests to try Redis or Valkey)
+      VALKEY_HOST: valkey
+      VALKEY_PORT: "6379"
 
       # Primary database (MySQL)
       DATABASE_DRIVER: mysql
@@ -105,6 +121,8 @@ services:
     # Start only after every dependency is confirmed healthy.
     depends_on:
       redis:
+        condition: service_healthy
+      valkey:
         condition: service_healthy
       mysql:
         condition: service_healthy

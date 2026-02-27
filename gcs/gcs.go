@@ -18,7 +18,7 @@ var (
 	ctx        = context.Background()
 )
 
-// Setup initializes the Google Cloud Storage client
+// Setup initializes the GCS client from config (credentials file or ADC) and optionally verifies bucket access. No-op if GCS.Enabled is false.
 func Setup() error {
 	configuration := config.GetConfig()
 
@@ -59,7 +59,7 @@ func Setup() error {
 	return nil
 }
 
-// GetClient returns the GCS client instance
+// GetClient returns the storage client. Panics if Setup was not called or client is nil.
 func GetClient() *storage.Client {
 	if client == nil {
 		panic("GCS client is not initialized. Call Setup() first.")
@@ -67,7 +67,7 @@ func GetClient() *storage.Client {
 	return client
 }
 
-// GetBucket returns a bucket handle
+// GetBucket returns the default bucket handle. Panics if bucket name is not configured.
 func GetBucket() *storage.BucketHandle {
 	if bucketName == "" {
 		panic("GCS bucket name is not configured")
@@ -75,7 +75,7 @@ func GetBucket() *storage.BucketHandle {
 	return GetClient().Bucket(bucketName)
 }
 
-// GetBucketName returns the configured bucket name
+// GetBucketName returns the configured bucket name (may be empty if not set).
 func GetBucketName() string {
 	return bucketName
 }

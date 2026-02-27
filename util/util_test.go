@@ -1,6 +1,7 @@
 package util
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -176,6 +177,33 @@ func TestFormatPhoneNumber(t *testing.T) {
 		}
 		if *got != "+16502530000" {
 			t.Errorf("FormatPhoneNumber(%q, &\"\") = %q, want +16502530000 (US default)", phone, *got)
+		}
+	})
+
+	// currency formatting tests
+	t.Run("format currency", func(t *testing.T) {
+		cases := []struct {
+			code string
+			want string
+		}{
+			{"USD", "$"},
+			{"IDR", "Rp"},
+			{"EUR", "€"},
+		}
+		for _, c := range cases {
+			t.Run(c.code, func(t *testing.T) {
+				got := FormatCurrency(1234.56, c.code)
+				if !(strings.Contains(got, c.want) || strings.Contains(got, c.code)) {
+					t.Errorf("FormatCurrency(%v, %q) = %q, want contains symbol or code %q", 1234.56, c.code, got, c.want)
+				}
+			})
+		}
+	})
+
+	t.Run("format currency empty code", func(t *testing.T) {
+		got := FormatCurrency(987.65, "")
+		if got != "987.65" {
+			t.Errorf("FormatCurrency with empty code = %q, want 987.65", got)
 		}
 	})
 }

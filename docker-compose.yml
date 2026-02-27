@@ -1,4 +1,4 @@
-# Docker Compose for integration tests (Redis, MySQL, Postgres)
+# Docker Compose for integration tests (Redis, Valkey, MySQL, Postgres)
 # Usage: docker compose up -d
 # Then run: go test ./... with:
 #   REDIS_ENABLED=true REDIS_HOST=127.0.0.1 REDIS_PORT=6379
@@ -12,6 +12,16 @@ services:
       - "6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  valkey:
+    image: valkey/valkey:7-alpine
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
       interval: 5s
       timeout: 3s
       retries: 5

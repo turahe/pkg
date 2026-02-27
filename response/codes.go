@@ -178,7 +178,7 @@ func BuildResponseCode(httpStatus int, serviceCode, caseCode string) int {
 	return code
 }
 
-// ParseResponseCode parses a response code into its components
+// ParseResponseCode splits a 7-digit code into httpStatus (first 3 digits), serviceCode (next 2), caseCode (last 2). Codes shorter than 7 digits return zero values.
 func ParseResponseCode(code int) (httpStatus int, serviceCode, caseCode string) {
 	codeStr := ""
 	temp := code

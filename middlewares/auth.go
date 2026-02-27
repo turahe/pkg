@@ -9,7 +9,11 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// AuthMiddleware validates JWT token from Authorization header
+// AuthMiddleware returns a Gin middleware that validates the Authorization: Bearer <token> header,
+// calls jwt.ValidateToken, and sets "user_id" (claims.UUID) in the Gin context. On missing or invalid
+// token it aborts with 401 and does not call Next.
+//
+// Requires jwt.Init() and config.Server.Secret to be set before use.
 func AuthMiddleware() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		authHeader := ctx.GetHeader("Authorization")

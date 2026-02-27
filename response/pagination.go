@@ -1,20 +1,20 @@
 package response
 
-// Pagination defaults used by handler and repository layers.
+// DefaultPageNumber, DefaultPageSize, and MaxPageSize are the pagination defaults and cap used by handler and repository.
 const (
 	DefaultPageNumber = 1
 	DefaultPageSize   = 10
 	MaxPageSize       = 100
 )
 
-// CursorPaginationResponse represents cursor-based pagination response
+// CursorPaginationResponse holds data, nextCursor, and hasNext for cursor-based pagination (used with CursorPaginated).
 type CursorPaginationResponse struct {
 	Data       interface{} `json:"data"`       // The actual data array
 	NextCursor *string     `json:"nextCursor"` // Cursor for the next page (null if no more pages)
 	HasNext    bool        `json:"hasNext"`    // Whether there are more items available
 }
 
-// SimplePaginationResponse represents simple offset-based pagination response
+// SimplePaginationResponse holds data and pagination state for offset-based pagination (used with SimplePaginated).
 type SimplePaginationResponse struct {
 	Data       interface{} `json:"data"`       // The actual data array
 	PageNumber int         `json:"pageNumber"` // Current page number

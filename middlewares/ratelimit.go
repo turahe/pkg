@@ -12,7 +12,11 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// RateLimiter returns a rate limiting middleware
+// RateLimiter returns a Gin middleware that enforces a fixed-window rate limit using Redis.
+// Key is per IP or per user (from "user_id" or "admin_id" in context when KeyBy is "user").
+// SkipPaths (comma-separated) are not counted. On exceed returns 429 with Retry-After and X-RateLimit-* headers.
+// If config.RateLimiter.Enabled or config.Redis.Enabled is false, returns a no-op middleware. On Redis
+// error allows the request (fail open).
 func RateLimiter() gin.HandlerFunc {
 	conf := config.GetConfig()
 

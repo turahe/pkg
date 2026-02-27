@@ -23,6 +23,10 @@ A collection of production-ready Go packages for building web services: database
   - [gcs](#gcs)
   - [types](#types)
   - [util](#util)
+  - [domain](#domain)
+  - [usecase](#usecase)
+  - [repositories](#repositories)
+- [Documentation](#documentation)
 - [Usage](#usage)
 - [Environment Variables](#environment-variables)
 - [Production Wiring Example](#production-wiring-example)
@@ -362,21 +366,22 @@ response.SimplePaginated(ctx, data, pageNumber, pageSize, hasNext, hasPrev)
 response.CursorPaginated(ctx, data, nextCursor, hasNext)
 ```
 
-**Service codes:** `ServiceCodeCommon`, `ServiceCodeAuth`, `ServiceCodeTransaction`, `ServiceCodeWallet`, `ServiceCodeUser`, `ServiceCodeAdmin`, `ServiceCodeMerchant`, `ServiceCodeRole`, `ServiceCodePermission`, `ServiceCodeNotification`, `ServiceCodeApiKey`, `ServiceCodeDeposit`, and more.
+**Service codes:** `ServiceCodeCommon`, `ServiceCodeAuth`, `ServiceCodeTransaction`, `ServiceCodeWithdrawal`, `ServiceCodeUser`, `ServiceCodeAdmin`, `ServiceCodeMerchant`, `ServiceCodeSetting`, `ServiceCodeRole`, `ServiceCodePermission`, `ServiceCodeNotification`, `ServiceCodeIPWhitelist`, `ServiceCodeApiKey`, `ServiceCodeDeposit`, `ServiceCodeWallet`, `ServiceCodePhone`, `ServiceCodeEmail`, `ServiceCodeTwoFactor`, `ServiceCodeBank`, `ServiceCodeBankAccount`, and more. Case codes cover success, validation, auth, not-found, business logic, server errors, conflicts, email/phone change, 2FA, and bank/bank-account flows (see [response/codes.go](response/codes.go)).
 
 ---
 
 ### `jwt`
 
-HS256 JWT tokens with configurable expiry.
+HS256 JWT tokens with configurable expiry. Uses `config.Server.Secret` and expiry settings.
 
 ```go
-jwt.Init()                                              // reads SERVER_SECRET from config
-jwt.GenerateToken(id uuid.UUID, email, name string) (string, error)
-jwt.GenerateTokenWithExpiry(id uuid.UUID, email, name string, expiry time.Duration) (string, error)
-jwt.GenerateRefreshToken(id uuid.UUID, email, name string) (string, error)
-jwt.ValidateToken(tokenString string) (*Claims, error)  // returns Claims{UUID string}
-jwt.ComparePassword(hashed, plain string) bool          // bcrypt comparison
+jwt.Init()                                                    // load secret from config; panic if missing
+jwt.GenerateToken(id uuid.UUID) (string, error)               // access token with default expiry
+jwt.GenerateTokenWithExpiry(id uuid.UUID, expiry time.Duration) (string, error)
+jwt.GenerateRefreshToken(id uuid.UUID) (string, error)        // refresh token with config expiry
+jwt.ValidateToken(tokenString string) (*Claims, error)        // Claims.UUID is the subject
+jwt.ComparePassword(hashed, plain string) bool               // bcrypt comparison
+jwt.GetCurrentUserUUID(ctx *gin.Context) (uuid.UUID, bool)    // read user_id from context (string or uuid.UUID)
 ```
 
 ---
@@ -413,14 +418,22 @@ gcs.Close() error
 
 ### `types`
 
+Shared types for handlers and repositories (no infrastructure dependencies).
+
 ```go
 // Conditions is the WHERE clause map passed to repository methods.
 type Conditions map[string]interface{}
 
+// PageInfo holds offset-based pagination request (pageNumber, pageSize) with form/json tags.
+type PageInfo struct {
+    PageNumber int `form:"pageNumber" json:"pageNumber"`
+    PageSize   int `form:"pageSize" json:"pageSize"`
+}
+
 // TimeRange holds a start/end pair (IANA or RFC3339 strings).
 type TimeRange struct {
-    Start string
-    End   string
+    Start string `json:"start"`
+    End   string `json:"end"`
 }
 ```
 
@@ -432,12 +445,69 @@ type TimeRange struct {
 util.IsEmpty(value interface{}) bool
 util.InAnySlice[T comparable](haystack []T, needle T) bool
 util.RemoveDuplicates[T comparable](haystack []T) []T
-util.FormatPhoneNumber(number, defaultRegion string) (string, error)  // E.164
+util.FormatPhoneNumber(phone *string, countryCode *string) *string  // E.164 via nyaruka/phonenumbers
 ```
 
 ---
 
-## Usage
+### `domain`
+
+Domain errors and port interfaces. No dependencies on infrastructure.
+
+```go
+// Sentinel errors for handlers and use cases (use with errors.Is).
+var (
+    ErrNotFound     = errors.New("not found")
+    ErrUnauthorized = errors.New("unauthorized")
+)
+```
+
+### `domain/port`
+
+Port interfaces implemented by infrastructure (e.g. repositories).
+
+```go
+type GetByID interface {
+    GetByID(ctx context.Context, id string) (interface{}, bool, error)
+}
+```
+
+### `usecase`
+
+Application service layer. Use cases depend only on domain and ports.
+
+```go
+type Runner interface { Run(ctx context.Context) error }
+type Func func(ctx context.Context) error  // adapts func to Runner
+
+// Example: get item by ID; returns domain.ErrNotFound when not found.
+func GetItemByID(ctx context.Context, repo port.GetByID, id string) (interface{}, error)
+```
+
+### `repositories`
+
+GORM-based base repository: CRUD, First, Find, Scan, SimplePagination, RawSQL, ExecSQL. Use with dependency injection (`NewBaseRepositoryWithDB`) or global DB (`NewBaseRepository`). Implements `IBaseRepository`; adapt to `domain/port` in your app.
+
+```go
+repo := repositories.NewBaseRepositoryWithDB(db.DB())
+repo.Create(ctx, &model)
+repo.First(ctx, &out, types.Conditions{"id = ?": id})
+repo.SimplePagination(ctx, &model, &out, page, size, conditions, orders, "User", "Items")
+```
+
+---
+
+## Documentation
+
+All packages follow GoDoc conventions:
+
+- Each package has a **`doc.go`** describing its role, responsibilities, constraints, and what it must not do.
+- Exported symbols have comments that start with the symbol name and describe behavior clearly.
+- Repository, adapter, and domain packages document contracts, error behavior, and context use.
+
+Run `go doc` or view [pkg.go.dev](https://pkg.go.dev/github.com/turahe/pkg) for the full API.
+
+---
 
 ### Minimal server
 
@@ -603,10 +673,10 @@ func GetItem(ctx context.Context, repo port.ItemRepository, id string) (*Item, e
 
 ## Environment Variables
 
-Copy `env.example` to `.env` and call `config.Setup("")`:
+Copy `.env.example` to `.env` and call `config.Setup("")`:
 
 ```bash
-cp env.example .env
+cp .env.example .env
 ```
 
 ### Server
@@ -735,7 +805,24 @@ go test -coverprofile=coverage.out ./...
 go tool cover -func=coverage.out
 ```
 
-### Integration tests (Redis · MySQL · Postgres)
+### Run tests with Docker Compose
+
+Run the full test suite (including integration tests) without local Go or databases:
+
+```bash
+make test-docker
+```
+
+Or with docker compose directly:
+
+```bash
+docker compose -f docker-compose.test.yml up --build --abort-on-container-exit --exit-code-from test
+docker compose -f docker-compose.test.yml down -v
+```
+
+The test runner waits for Redis, MySQL, and Postgres to be healthy, then runs `go test -v -race -count=1 ./...`. Coverage is written to `coverage.out` and a summary is printed.
+
+### Integration tests (Redis · MySQL · Postgres) — local
 
 Start services with Docker Compose:
 ```bash

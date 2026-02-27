@@ -8,14 +8,14 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
-// ValidationErrorResponse represents Laravel-style validation error response
+// ValidationErrorResponse is the JSON shape for 422 validation errors (code, message, errors map).
 type ValidationErrorResponse struct {
 	Code    int                 `json:"code"`    // Custom response code
 	Message string              `json:"message"` // General error message
 	Errors  map[string][]string `json:"errors"`  // Field-specific errors
 }
 
-// FormatValidationError formats validation errors in Laravel style
+// FormatValidationError converts err into a map of field names to error message slices. If err is validator.ValidationErrors, fields are mapped; otherwise returns {"general": [err.Error()]}.
 func FormatValidationError(err error) map[string][]string {
 	errors := make(map[string][]string)
 
