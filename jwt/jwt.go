@@ -165,17 +165,14 @@ func (s *Signer) loadSignKeyFromEnvOrFiles(conf *config.Configuration, alg strin
 	switch alg {
 	case "HS256":
 		if conf.Server.Secret == "" {
-			return errors.New("JWT secret is not configured (required for HS256). Set SERVER_SECRET or use JWT Secret Manager")
+			return errors.New("JWT secret is not configured (required for HS256). Set SERVER_SECRET")
 		}
 		s.signingMethod = jwt.SigningMethodHS256
 		s.signKey = []byte(conf.Server.Secret)
 	case "RS256":
-		if conf.Server.JWTPrivateKeyPath == "" {
-			return errors.New("JWT_PRIVATE_KEY_PATH is required for RS256")
-		}
-		key, err := loadPrivateKey(conf.Server.JWTPrivateKeyPath)
+		key, err := getPrivateKey(conf)
 		if err != nil {
-			return fmt.Errorf("JWT RS256 private key: %w", err)
+			return err
 		}
 		if _, ok := key.(*rsa.PrivateKey); !ok {
 			return errors.New("JWT RS256 private key is not RSA")
@@ -183,12 +180,9 @@ func (s *Signer) loadSignKeyFromEnvOrFiles(conf *config.Configuration, alg strin
 		s.signingMethod = jwt.SigningMethodRS256
 		s.signKey = key
 	case "ES256":
-		if conf.Server.JWTPrivateKeyPath == "" {
-			return errors.New("JWT_PRIVATE_KEY_PATH is required for ES256")
-		}
-		key, err := loadPrivateKey(conf.Server.JWTPrivateKeyPath)
+		key, err := getPrivateKey(conf)
 		if err != nil {
-			return fmt.Errorf("JWT ES256 private key: %w", err)
+			return err
 		}
 		if _, ok := key.(*ecdsa.PrivateKey); !ok {
 			return errors.New("JWT ES256 private key is not ECDSA")
@@ -231,12 +225,9 @@ func (v *Verifier) loadVerifyKeyFromEnvOrFiles(conf *config.Configuration, alg s
 		v.signingMethod = jwt.SigningMethodHS256
 		v.verifyKey = []byte(conf.Server.Secret)
 	case "RS256":
-		if conf.Server.JWTPublicKeyPath == "" {
-			return errors.New("JWT_PUBLIC_KEY_PATH is required for RS256")
-		}
-		key, err := loadPublicKey(conf.Server.JWTPublicKeyPath)
+		key, err := getPublicKey(conf)
 		if err != nil {
-			return fmt.Errorf("JWT RS256 public key: %w", err)
+			return err
 		}
 		if _, ok := key.(*rsa.PublicKey); !ok {
 			return errors.New("JWT RS256 public key is not RSA")
@@ -244,12 +235,9 @@ func (v *Verifier) loadVerifyKeyFromEnvOrFiles(conf *config.Configuration, alg s
 		v.signingMethod = jwt.SigningMethodRS256
 		v.verifyKey = key
 	case "ES256":
-		if conf.Server.JWTPublicKeyPath == "" {
-			return errors.New("JWT_PUBLIC_KEY_PATH is required for ES256")
-		}
-		key, err := loadPublicKey(conf.Server.JWTPublicKeyPath)
+		key, err := getPublicKey(conf)
 		if err != nil {
-			return fmt.Errorf("JWT ES256 public key: %w", err)
+			return err
 		}
 		if _, ok := key.(*ecdsa.PublicKey); !ok {
 			return errors.New("JWT ES256 public key is not ECDSA")
@@ -374,20 +362,17 @@ func (m *Manager) loadFromEnvOrFiles(conf *config.Configuration, alg string) err
 		m.signKey = []byte(secret)
 		m.verifyKey = []byte(secret)
 	case "RS256":
-		if conf.Server.JWTPrivateKeyPath == "" || conf.Server.JWTPublicKeyPath == "" {
-			return errors.New("JWT_PRIVATE_KEY_PATH and JWT_PUBLIC_KEY_PATH are required for RS256")
-		}
-		privateKey, err := loadPrivateKey(conf.Server.JWTPrivateKeyPath)
+		privateKey, err := getPrivateKey(conf)
 		if err != nil {
-			return fmt.Errorf("JWT RS256 private key: %w", err)
+			return err
 		}
 		rsaPrivate, ok := privateKey.(*rsa.PrivateKey)
 		if !ok {
 			return errors.New("JWT RS256 private key is not RSA")
 		}
-		publicKey, err := loadPublicKey(conf.Server.JWTPublicKeyPath)
+		publicKey, err := getPublicKey(conf)
 		if err != nil {
-			return fmt.Errorf("JWT RS256 public key: %w", err)
+			return err
 		}
 		rsaPublic, ok := publicKey.(*rsa.PublicKey)
 		if !ok {
@@ -397,20 +382,17 @@ func (m *Manager) loadFromEnvOrFiles(conf *config.Configuration, alg string) err
 		m.signKey = rsaPrivate
 		m.verifyKey = rsaPublic
 	case "ES256":
-		if conf.Server.JWTPrivateKeyPath == "" || conf.Server.JWTPublicKeyPath == "" {
-			return errors.New("JWT_PRIVATE_KEY_PATH and JWT_PUBLIC_KEY_PATH are required for ES256")
-		}
-		privateKey, err := loadPrivateKey(conf.Server.JWTPrivateKeyPath)
+		privateKey, err := getPrivateKey(conf)
 		if err != nil {
-			return fmt.Errorf("JWT ES256 private key: %w", err)
+			return err
 		}
 		ecPrivate, ok := privateKey.(*ecdsa.PrivateKey)
 		if !ok {
 			return errors.New("JWT ES256 private key is not ECDSA")
 		}
-		publicKey, err := loadPublicKey(conf.Server.JWTPublicKeyPath)
+		publicKey, err := getPublicKey(conf)
 		if err != nil {
-			return fmt.Errorf("JWT ES256 public key: %w", err)
+			return err
 		}
 		ecPublic, ok := publicKey.(*ecdsa.PublicKey)
 		if !ok {
@@ -429,6 +411,44 @@ func loadPrivateKey(path string) (any, error) {
 		return nil, err
 	}
 	return parsePrivateKeyPEM(data)
+}
+
+// getPrivateKey returns the private key from config: embedded PEM (JWTPrivateKeyPEM) if set, otherwise from JWTPrivateKey (path or inline PEM).
+func getPrivateKey(conf *config.Configuration) (any, error) {
+	if len(conf.Server.JWTPrivateKeyPEM) > 0 {
+		return parsePrivateKeyPEM(conf.Server.JWTPrivateKeyPEM)
+	}
+	if conf.Server.JWTPrivateKey == "" {
+		return nil, errors.New("JWT private key required for RS256/ES256: set JWT_PRIVATE_KEY or config.Server.JWTPrivateKeyPEM (e.g. from //go:embed)")
+	}
+	return loadPrivateKeyFromString(conf.Server.JWTPrivateKey)
+}
+
+// getPublicKey returns the public key from config: embedded PEM (JWTPublicKeyPEM) if set, otherwise from JWTPublicKey (path or inline PEM).
+func getPublicKey(conf *config.Configuration) (any, error) {
+	if len(conf.Server.JWTPublicKeyPEM) > 0 {
+		return parsePublicKeyPEM(conf.Server.JWTPublicKeyPEM)
+	}
+	if conf.Server.JWTPublicKey == "" {
+		return nil, errors.New("JWT public key required for RS256/ES256: set JWT_PUBLIC_KEY or config.Server.JWTPublicKeyPEM (e.g. from //go:embed)")
+	}
+	return loadPublicKeyFromString(conf.Server.JWTPublicKey)
+}
+
+// loadPrivateKeyFromString loads a private key from s: if s contains "-----BEGIN", parses as PEM; otherwise treats s as file path.
+func loadPrivateKeyFromString(s string) (any, error) {
+	if strings.Contains(s, "-----BEGIN") {
+		return parsePrivateKeyPEM([]byte(s))
+	}
+	return loadPrivateKey(s)
+}
+
+// loadPublicKeyFromString loads a public key from s: if s contains "-----BEGIN", parses as PEM; otherwise treats s as file path.
+func loadPublicKeyFromString(s string) (any, error) {
+	if strings.Contains(s, "-----BEGIN") {
+		return parsePublicKeyPEM([]byte(s))
+	}
+	return loadPublicKey(s)
 }
 
 func parsePrivateKeyPEM(data []byte) (any, error) {

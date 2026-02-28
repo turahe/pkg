@@ -380,7 +380,7 @@ response.CursorPaginated(ctx, data, nextCursor, hasNext)
 
 ### `jwt`
 
-JWT token generation and validation with **HS256**, **RS256** (default), or **ES256**. Keys can come from config (env or file paths) or **Google Cloud Secret Manager** (with a 30s context timeout). No global state: use **Manager** (sign + verify), **Signer** (issue tokens only), or **Verifier** (validate only). Supports issuer, audience, key ID (kid), and token type (access, refresh, impersonation).
+JWT token generation and validation with **HS256**, **RS256** (default), or **ES256**. Keys are loaded from config (env, file paths, or embedded PEM). No global state: use **Manager** (sign + verify), **Signer** (issue tokens only), or **Verifier** (validate only). Supports issuer, audience, key ID (kid), and token type (access, refresh, impersonation).
 
 **All-in-one (single service):**
 ```go
@@ -423,7 +423,25 @@ claims, _ := verifier.ValidateToken(tokenString)
 | `jwt.ComparePassword(hashed, plain)` | bcrypt comparison |
 | `jwt.GetCurrentUserUUID(ctx)` | Read `user_id` from Gin context (set by AuthMiddleware) |
 
-**Config / env:** Default algorithm is **RS256**. For HS256 set `JWT_SIGNING_ALGORITHM=HS256` and `SERVER_SECRET`. For RS256/ES256 set `JWT_PRIVATE_KEY_PATH` and `JWT_PUBLIC_KEY_PATH` (or use Secret Manager: `JWT_SECRET_MANAGER_PROJECT_ID` and secret names). Optional: `JWT_ISSUER`, `JWT_AUDIENCE`, `JWT_KEY_ID`.
+**Config / env:** Default algorithm is **RS256**. For HS256 set `JWT_SIGNING_ALGORITHM=HS256` and `SERVER_SECRET`. For RS256/ES256 set `JWT_PRIVATE_KEY` and `JWT_PUBLIC_KEY` (file path or inline PEM), or embed keys and assign to config before calling `NewManager`/`NewSigner`/`NewVerifier`. Optional: `JWT_ISSUER`, `JWT_AUDIENCE`, `JWT_KEY_ID`.
+
+**Embed keys (no file paths):** Put PEM files in a package (e.g. `keys/`) and embed them; then set config so the JWT package uses the embedded bytes instead of paths:
+
+```go
+//go:embed keys/private.pem
+var privateKeyPEM []byte
+
+//go:embed keys/public.pem
+var publicKeyPEM []byte
+
+func main() {
+    cfg := config.GetConfig()
+    cfg.Server.JWTPrivateKeyPEM = privateKeyPEM
+    cfg.Server.JWTPublicKeyPEM = publicKeyPEM
+    manager, err := jwt.NewManager(ctx, cfg)
+    // ...
+}
+```
 
 ---
 
@@ -737,8 +755,8 @@ cp .env.example .env
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `JWT_SIGNING_ALGORITHM` | **`RS256`** | `HS256` · `RS256` · `ES256` |
-| `JWT_PRIVATE_KEY_PATH` | — | Path to PEM private key (RS256/ES256) |
-| `JWT_PUBLIC_KEY_PATH` | — | Path to PEM public key (RS256/ES256) |
+| `JWT_PRIVATE_KEY` | — | File path or inline PEM private key (RS256/ES256) |
+| `JWT_PUBLIC_KEY` | — | File path or inline PEM public key (RS256/ES256) |
 | `JWT_ISSUER` | — | Issuer (`iss`) claim |
 | `JWT_AUDIENCE` | — | Audience (`aud`), comma-separated |
 | `JWT_KEY_ID` | — | Key ID (`kid`) in JWT header |

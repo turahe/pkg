@@ -27,9 +27,14 @@ type ServerConfiguration struct {
 	SessionSameSite    string // "strict", "lax", or "none"
 
 	// JWT asymmetric signing: "HS256" (default), "RS256", or "ES256"
-	JWTSigningAlgorithm string // When RS256/ES256, use JWT private/public key paths
-	JWTPrivateKeyPath   string // Path to PEM-encoded private key (RS256: RSA, ES256: ECDSA P-256)
-	JWTPublicKeyPath    string // Path to PEM-encoded public key for verification
+	JWTSigningAlgorithm string // When RS256/ES256, use key paths/PEM or embedded PEM (JWTPrivateKeyPEM/JWTPublicKeyPEM)
+	JWTPrivateKey       string // PEM private key: file path, or inline PEM (value contains -----BEGIN); ignored if JWTPrivateKeyPEM is set
+	JWTPublicKey        string // PEM public key: file path, or inline PEM; ignored if JWTPublicKeyPEM is set
+
+	// JWT keys from embed or in-memory PEM (optional). When set, used instead of JWTPrivateKey/JWTPublicKey.
+	// Example: cfg.Server.JWTPrivateKeyPEM = keys.PrivateKey after //go:embed keys/private.pem
+	JWTPrivateKeyPEM []byte
+	JWTPublicKeyPEM  []byte
 
 	// JWT claims: issuer (iss), audience (aud), and key ID (kid) in header
 	JWTIssuer   string // Issuer (iss); optional

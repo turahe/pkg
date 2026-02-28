@@ -242,8 +242,8 @@ func setupRS256Config(t *testing.T) *Manager {
 	cfg := &config.Configuration{
 		Server: config.ServerConfiguration{
 			JWTSigningAlgorithm: "RS256",
-			JWTPrivateKeyPath:   privPath,
-			JWTPublicKeyPath:    pubPath,
+			JWTPrivateKey:        privPath,
+			JWTPublicKey:         pubPath,
 			AccessTokenExpiry:   1,
 			RefreshTokenExpiry:  7,
 		},
@@ -289,8 +289,8 @@ func setupES256Config(t *testing.T) *Manager {
 	cfg := &config.Configuration{
 		Server: config.ServerConfiguration{
 			JWTSigningAlgorithm: "ES256",
-			JWTPrivateKeyPath:   privPath,
-			JWTPublicKeyPath:    pubPath,
+			JWTPrivateKey:        privPath,
+			JWTPublicKey:         pubPath,
 			AccessTokenExpiry:   1,
 			RefreshTokenExpiry:  7,
 		},
@@ -404,5 +404,5 @@ func TestDefaultAlgorithm_RS256(t *testing.T) {
 	}
 	_, err := NewManager(context.Background(), cfg)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "JWT_PRIVATE_KEY_PATH")
+	assert.Contains(t, err.Error(), "JWT_PRIVATE_KEY")
 }
