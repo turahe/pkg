@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.7] - 2026-02-28
+
+### Added
+
+- **JWT keys from config bytes**: `config.Server.JWTPrivateKeyPEM` and `JWTPublicKeyPEM` (optional `[]byte`) for loading keys from embedded or in-memory PEM (e.g. `//go:embed`). When set, used instead of `JWT_PRIVATE_KEY` / `JWT_PUBLIC_KEY`.
+
+### Changed
+
+- **JWT env vars**: Renamed `JWT_PRIVATE_KEY_PATH` and `JWT_PUBLIC_KEY_PATH` to **`JWT_PRIVATE_KEY`** and **`JWT_PUBLIC_KEY`**. Config fields renamed to `JWTPrivateKey` and `JWTPublicKey`.
+- **JWT key value format**: `JWT_PRIVATE_KEY` and `JWT_PUBLIC_KEY` accept either a **file path** or **inline PEM** (string containing `-----BEGIN`); the package detects format automatically.
+- **Docs**: `.env.example`, README, and `jwt/doc.go` updated for new env names and embed usage.
+
 ## [0.3.6] - 2026-02-28
 
 ### Removed
@@ -24,5 +36,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **crypto.ComparePassword**: When the stored hash is empty or shorter than 60 characters (invalid bcrypt), the function now returns `false` without calling bcrypt or logging an error, avoiding `crypto/bcrypt: hashedSecret too short` errors and log noise.
 
-[Unreleased]: https://github.com/turahe/pkg/compare/v0.3.6...HEAD
+[Unreleased]: https://github.com/turahe/pkg/compare/v0.3.7...HEAD
+[0.3.7]: https://github.com/turahe/pkg/releases/tag/v0.3.7
 [0.3.6]: https://github.com/turahe/pkg/releases/tag/v0.3.6
