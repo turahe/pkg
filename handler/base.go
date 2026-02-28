@@ -15,6 +15,11 @@ import (
 type BaseHandler struct {
 }
 
+// GetTraceID returns the trace ID from the request context (set by RequestID or TraceMiddleware). Empty if not set.
+func (c *BaseHandler) GetTraceID(ctx *gin.Context) string {
+	return logger.GetTraceID(ctx.Request.Context())
+}
+
 // ValidateReqParams binds the request into requestParams based on Content-Type and method.
 // For application/json uses ShouldBindJSON; for application/xml uses ShouldBindXML;
 // for empty Content-Type binds query and URI params. Returns the first binding error if any.

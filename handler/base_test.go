@@ -12,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/turahe/pkg/logger"
 	"github.com/turahe/pkg/response"
 )
 
@@ -25,6 +26,38 @@ type TestRequest struct {
 func setupRouter() *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	return gin.New()
+}
+
+func TestBaseController_GetTraceID(t *testing.T) {
+	router := setupRouter()
+	handler := &BaseHandler{}
+
+	router.GET("/test", func(c *gin.Context) {
+		traceID := handler.GetTraceID(c)
+		c.JSON(http.StatusOK, gin.H{"trace_id": traceID})
+	})
+
+	// Test with trace ID in request context
+	req := httptest.NewRequest("GET", "/test", nil)
+	req = req.WithContext(logger.WithTraceID(req.Context(), "trace-abc-123"))
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var resp map[string]interface{}
+	err := json.Unmarshal(w.Body.Bytes(), &resp)
+	assert.NoError(t, err)
+	assert.Equal(t, "trace-abc-123", resp["trace_id"])
+
+	// Test without trace ID in context (should return empty string)
+	req = httptest.NewRequest("GET", "/test", nil)
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	err = json.Unmarshal(w.Body.Bytes(), &resp)
+	assert.NoError(t, err)
+	assert.Equal(t, "", resp["trace_id"])
 }
 
 func TestBaseController_ValidateReqParams_JSON(t *testing.T) {
