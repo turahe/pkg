@@ -7,24 +7,29 @@ import (
 
 // validateDatabaseConfig checks that required database fields are set and not placeholders.
 // For Cloud SQL drivers it also requires CloudSQLInstance. Returns an error listing missing env vars.
-func validateDatabaseConfig(dbConfig *DatabaseConfiguration) error {
+// If forSite is true, missing field names use the _SITE suffix (e.g. DATABASE_PASSWORD_SITE).
+func validateDatabaseConfig(dbConfig *DatabaseConfiguration, forSite bool) error {
 	var missingFields []string
+	suf := ""
+	if forSite {
+		suf = "_SITE"
+	}
 
 	// Check if using Cloud SQL
 	isCloudSQL := dbConfig.Driver == "cloudsql-mysql" || dbConfig.Driver == "cloudsql-postgres"
 	if isCloudSQL && dbConfig.CloudSQLInstance == "" {
-		missingFields = append(missingFields, "DATABASE_CLOUD_SQL_INSTANCE")
+		missingFields = append(missingFields, "DATABASE_CLOUD_SQL_INSTANCE"+suf)
 	}
 
 	// Validate required fields for all database types
 	if isEmptyOrPlaceholder(dbConfig.Dbname) {
-		missingFields = append(missingFields, "DATABASE_DBNAME")
+		missingFields = append(missingFields, "DATABASE_DBNAME"+suf)
 	}
 	if isEmptyOrPlaceholder(dbConfig.Username) {
-		missingFields = append(missingFields, "DATABASE_USERNAME")
+		missingFields = append(missingFields, "DATABASE_USERNAME"+suf)
 	}
 	if isEmptyOrPlaceholder(dbConfig.Password) {
-		missingFields = append(missingFields, "DATABASE_PASSWORD")
+		missingFields = append(missingFields, "DATABASE_PASSWORD"+suf)
 	}
 
 	if len(missingFields) > 0 {

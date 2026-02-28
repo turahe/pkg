@@ -33,13 +33,13 @@ func Setup(configPath string) error {
 	cfg := buildConfigFromEnv()
 
 	// Validate required database configuration
-	if err := validateDatabaseConfig(&cfg.Database); err != nil {
+	if err := validateDatabaseConfig(&cfg.Database, false); err != nil {
 		return fmt.Errorf("database configuration validation failed: %w", err)
 	}
 
 	// Validate site database configuration only if it's configured (optional)
 	if cfg.DatabaseSite.Dbname != "" {
-		if err := validateDatabaseConfig(&cfg.DatabaseSite); err != nil {
+		if err := validateDatabaseConfig(&cfg.DatabaseSite, true); err != nil {
 			return fmt.Errorf("site database configuration validation failed: %w", err)
 		}
 	}

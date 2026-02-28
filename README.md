@@ -249,15 +249,23 @@ Gin middleware collection. Designed to be composed in a specific order for corre
 **Recommended middleware order:**
 ```go
 router := gin.New()
+
+// Create JWT verifier (Manager for sign+verify, or Verifier for verify-only)
+jwtManager, err := jwt.NewManager(context.Background(), config.GetConfig())
+if err != nil {
+    log.Fatal(err)
+}
+// Or for API-only services: jwtVerifier, _ := jwt.NewVerifier(ctx, config.GetConfig())
+
 router.Use(
     middlewares.RecoveryHandler,              // 1. catch panics first
     middlewares.RequestID(),                  // 2. inject trace/correlation IDs
-    middlewares.LoggerMiddleware(),           // 3. log with IDs in context
+    middlewares.LoggerMiddleware(),            // 3. log with IDs in context
     middlewares.Metrics(),                    // 4. Prometheus instrumentation
     middlewares.RequestTimeout(10*time.Second), // 5. bound all downstream handlers
     middlewares.CORS(),                       // 6. CORS headers
-    middlewares.AuthMiddleware(),             // 7. JWT auth (protected routes)
-    middlewares.RateLimiter(),               // 8. rate limit (requires Redis)
+    middlewares.AuthMiddleware(jwtManager),   // 7. JWT auth (pass *Manager or *Verifier)
+    middlewares.RateLimiter(),                // 8. rate limit (requires Redis)
 )
 router.NoMethod(middlewares.NoMethodHandler())
 router.NoRoute(middlewares.NoRouteHandler())
@@ -274,7 +282,7 @@ router.NoRoute(middlewares.NoRouteHandler())
 | `Metrics()` | `gin.HandlerFunc` | Prometheus counters, histogram, and in-flight gauge; uses route pattern to avoid high-cardinality labels |
 | `RequestTimeout(d)` | `gin.HandlerFunc` | Adds `context.WithTimeout` to every request; no-op when `d <= 0` |
 | `CORS()` | `gin.HandlerFunc` | CORS headers; global or per-origin from config |
-| `AuthMiddleware()` | `gin.HandlerFunc` | Validates `Bearer` JWT; sets `user_id` in Gin context |
+| `AuthMiddleware(verifier)` | `jwt.TokenVerifier` → `gin.HandlerFunc` | Validates `Bearer` JWT; sets `user_id`, `original_user_id`, `is_impersonating` in context. Pass *jwt.Manager or *jwt.Verifier. |
 | `RateLimiter()` | `gin.HandlerFunc` | Redis Lua single-round-trip rate limiter; sets `X-RateLimit-*` headers; supports IP or user keying and skip-paths |
 | `NoMethodHandler()` | `gin.HandlerFunc` | 405 JSON response |
 | `NoRouteHandler()` | `gin.HandlerFunc` | 404 JSON response |
@@ -372,17 +380,50 @@ response.CursorPaginated(ctx, data, nextCursor, hasNext)
 
 ### `jwt`
 
-HS256 JWT tokens with configurable expiry. Uses `config.Server.Secret` and expiry settings.
+JWT token generation and validation with **HS256**, **RS256** (default), or **ES256**. Keys can come from config (env or file paths) or **Google Cloud Secret Manager** (with a 30s context timeout). No global state: use **Manager** (sign + verify), **Signer** (issue tokens only), or **Verifier** (validate only). Supports issuer, audience, key ID (kid), and token type (access, refresh, impersonation).
 
+**All-in-one (single service):**
 ```go
-jwt.Init()                                                    // load secret from config; panic if missing
-jwt.GenerateToken(id uuid.UUID) (string, error)               // access token with default expiry
-jwt.GenerateTokenWithExpiry(id uuid.UUID, expiry time.Duration) (string, error)
-jwt.GenerateRefreshToken(id uuid.UUID) (string, error)        // refresh token with config expiry
-jwt.ValidateToken(tokenString string) (*Claims, error)        // Claims.UUID is the subject
-jwt.ComparePassword(hashed, plain string) bool               // bcrypt comparison
-jwt.GetCurrentUserUUID(ctx *gin.Context) (uuid.UUID, bool)    // read user_id from context (string or uuid.UUID)
+manager, err := jwt.NewManager(ctx, config.GetConfig())
+if err != nil {
+    log.Fatal(err)
+}
+router.Use(middlewares.AuthMiddleware(manager))
+
+token, _ := manager.GenerateToken(userID)
+claims, _ := manager.ValidateToken(tokenString)
 ```
+
+**Split services (auth server issues, API server only verifies):**
+```go
+// Auth/login service — needs private key or secret
+signer, err := jwt.NewSigner(ctx, config.GetConfig())
+token, _ := signer.GenerateToken(userID)
+refresh, _ := signer.GenerateRefreshToken(userID)
+impersonation, _ := signer.GenerateImpersonationToken(adminID, "admin", targetID, 15*time.Minute)
+
+// API/gateway service — needs only public key or secret
+verifier, err := jwt.NewVerifier(ctx, config.GetConfig())
+router.Use(middlewares.AuthMiddleware(verifier))  // TokenVerifier interface
+claims, _ := verifier.ValidateToken(tokenString)
+```
+
+**API summary:**
+| Symbol | Description |
+|--------|-------------|
+| `jwt.NewManager(ctx, cfg)` | All-in-one; loads sign + verify keys; returns error |
+| `jwt.NewSigner(ctx, cfg)` | Signing only (private key or secret) |
+| `jwt.NewVerifier(ctx, cfg)` | Verification only (public key or secret) |
+| `jwt.TokenVerifier` | Interface: `ValidateToken(string) (*Claims, error)`; implemented by *Manager and *Verifier |
+| `manager.GenerateToken(id)` | Access token (default expiry) |
+| `manager.GenerateTokenWithExpiry(id, expiry)` | Access token with custom expiry |
+| `manager.GenerateRefreshToken(id)` | Refresh token |
+| `manager.GenerateImpersonationToken(adminID, role, targetID, ttl)` | Short-lived impersonation token (max 30 min) |
+| `manager.ValidateToken(token)` / `verifier.ValidateToken(token)` | Parse and verify; return *Claims or error |
+| `jwt.ComparePassword(hashed, plain)` | bcrypt comparison |
+| `jwt.GetCurrentUserUUID(ctx)` | Read `user_id` from Gin context (set by AuthMiddleware) |
+
+**Config / env:** Default algorithm is **RS256**. For HS256 set `JWT_SIGNING_ALGORITHM=HS256` and `SERVER_SECRET`. For RS256/ES256 set `JWT_PRIVATE_KEY_PATH` and `JWT_PUBLIC_KEY_PATH` (or use Secret Manager: `JWT_SECRET_MANAGER_PROJECT_ID` and secret names). Optional: `JWT_ISSUER`, `JWT_AUDIENCE`, `JWT_KEY_ID`.
 
 ---
 
@@ -684,12 +725,29 @@ cp .env.example .env
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `SERVER_PORT` | `8080` | HTTP listen port |
-| `SERVER_SECRET` | — | JWT signing secret (**required**) |
+| `SERVER_SECRET` | — | JWT secret for **HS256** only; required when `JWT_SIGNING_ALGORITHM=HS256` |
 | `SERVER_MODE` | `debug` | Gin mode: `debug`, `release`, `test` |
 | `SERVER_ACCESS_TOKEN_EXPIRY` | `1` | Access token lifetime (hours) |
 | `SERVER_REFRESH_TOKEN_EXPIRY` | `7` | Refresh token lifetime (days) |
 | `SERVER_SESSION_EXPIRY` | `24` | Session lifetime (hours) |
 | `CORS_GLOBAL` | `true` | Allow all origins |
+
+### JWT
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `JWT_SIGNING_ALGORITHM` | **`RS256`** | `HS256` · `RS256` · `ES256` |
+| `JWT_PRIVATE_KEY_PATH` | — | Path to PEM private key (RS256/ES256) |
+| `JWT_PUBLIC_KEY_PATH` | — | Path to PEM public key (RS256/ES256) |
+| `JWT_ISSUER` | — | Issuer (`iss`) claim |
+| `JWT_AUDIENCE` | — | Audience (`aud`), comma-separated |
+| `JWT_KEY_ID` | — | Key ID (`kid`) in JWT header |
+| `JWT_SECRET_MANAGER_PROJECT_ID` | — | GCP project for Secret Manager (optional) |
+| `JWT_SECRET_MANAGER_SECRET_NAME` | — | Secret name for HS256 secret value |
+| `JWT_SECRET_MANAGER_PRIVATE_KEY_SECRET_NAME` | — | Secret name for RS256/ES256 private key PEM |
+| `JWT_SECRET_MANAGER_PUBLIC_KEY_SECRET_NAME` | — | Secret name for RS256/ES256 public key PEM |
+
+Secret Manager calls use a 30s context timeout.
 
 ### Database
 

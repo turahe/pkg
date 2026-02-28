@@ -7,6 +7,7 @@ Role in architecture:
 
 Responsibilities:
   - Load and parse environment variables into typed structs (Configuration and nested types).
+  - Server includes JWT settings: algorithm (default RS256), key paths or Secret Manager names, issuer, audience, key ID.
   - Validate required database configuration (Dbname, Username, Password; CloudSQLInstance when driver is cloudsql-*).
   - Expose global configuration via GetConfig(); lazy-build from env when Config is nil.
   - Strip surrounding quotes from env values; treat known placeholders as invalid.

@@ -16,7 +16,7 @@ type Configuration struct {
 // ServerConfiguration holds server and session settings (port, secret, mode, token and session expiry).
 type ServerConfiguration struct {
 	Port               string // Listen port; default "8080"
-	Secret             string // JWT signing secret; required for auth
+	Secret             string // JWT signing secret (used when JWTSigningAlgorithm is HS256)
 	Mode               string // Gin mode: "debug", "release", "test"
 	AccessTokenExpiry  int    // Access token lifetime in hours
 	RefreshTokenExpiry int    // Refresh token lifetime in days
@@ -25,6 +25,16 @@ type ServerConfiguration struct {
 	SessionSecure      bool   // Secure flag for cookies (HTTPS only)
 	SessionHttpOnly    bool   // HttpOnly flag; default true
 	SessionSameSite    string // "strict", "lax", or "none"
+
+	// JWT asymmetric signing: "HS256" (default), "RS256", or "ES256"
+	JWTSigningAlgorithm string // When RS256/ES256, use JWT private/public key paths
+	JWTPrivateKeyPath   string // Path to PEM-encoded private key (RS256: RSA, ES256: ECDSA P-256)
+	JWTPublicKeyPath    string // Path to PEM-encoded public key for verification
+
+	// JWT claims: issuer (iss), audience (aud), and key ID (kid) in header
+	JWTIssuer   string // Issuer (iss); optional
+	JWTAudience string // Audience (aud); optional, comma-separated for multiple
+	JWTKeyID    string // Key ID (kid) in JWT header; optional, for key rotation
 }
 
 // CorsConfiguration holds CORS settings. Global true allows all origins; Ips is used when Global is false.

@@ -1,6 +1,7 @@
 package middlewares
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -17,22 +18,26 @@ import (
 	"github.com/turahe/pkg/response"
 )
 
-func initTestJWT(t *testing.T) {
+func initTestJWT(t *testing.T) *jwt.Manager {
+	t.Helper()
 	config.Config = &config.Configuration{
 		Server: config.ServerConfiguration{
-			Secret:             "test-secret-key-for-auth-middleware-tests",
-			AccessTokenExpiry:  1,
-			RefreshTokenExpiry: 7,
+			JWTSigningAlgorithm: "HS256",
+			Secret:              "test-secret-key-for-auth-middleware-tests",
+			AccessTokenExpiry:    1,
+			RefreshTokenExpiry:   7,
 		},
 	}
-	jwt.Init()
+	manager, err := jwt.NewManager(context.Background(), config.Config)
+	require.NoError(t, err)
+	return manager
 }
 
 func TestAuthMiddleware_ValidToken(t *testing.T) {
-	initTestJWT(t)
+	manager := initTestJWT(t)
 
 	router := setupRouter()
-	router.Use(AuthMiddleware())
+	router.Use(AuthMiddleware(manager))
 	router.GET("/test", func(c *gin.Context) {
 		userID, exists := c.Get("user_id")
 		if !exists {
@@ -42,9 +47,8 @@ func TestAuthMiddleware_ValidToken(t *testing.T) {
 		c.JSON(http.StatusOK, gin.H{"user_id": userID})
 	})
 
-	// Generate a valid token
 	userID := uuid.MustParse("550e8400-e29b-41d4-a716-446655440000")
-	token, err := jwt.GenerateToken(userID)
+	token, err := manager.GenerateToken(userID)
 	require.NoError(t, err)
 
 	req := httptest.NewRequest("GET", "/test", nil)
@@ -61,10 +65,10 @@ func TestAuthMiddleware_ValidToken(t *testing.T) {
 }
 
 func TestAuthMiddleware_MissingHeader(t *testing.T) {
-	initTestJWT(t)
+	manager := initTestJWT(t)
 
 	router := setupRouter()
-	router.Use(AuthMiddleware())
+	router.Use(AuthMiddleware(manager))
 	router.GET("/test", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
@@ -82,10 +86,10 @@ func TestAuthMiddleware_MissingHeader(t *testing.T) {
 }
 
 func TestAuthMiddleware_InvalidFormat(t *testing.T) {
-	initTestJWT(t)
+	manager := initTestJWT(t)
 
 	router := setupRouter()
-	router.Use(AuthMiddleware())
+	router.Use(AuthMiddleware(manager))
 	router.GET("/test", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
@@ -121,10 +125,10 @@ func TestAuthMiddleware_InvalidFormat(t *testing.T) {
 }
 
 func TestAuthMiddleware_InvalidToken(t *testing.T) {
-	initTestJWT(t)
+	manager := initTestJWT(t)
 
 	router := setupRouter()
-	router.Use(AuthMiddleware())
+	router.Use(AuthMiddleware(manager))
 	router.GET("/test", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
@@ -144,17 +148,16 @@ func TestAuthMiddleware_InvalidToken(t *testing.T) {
 }
 
 func TestAuthMiddleware_ExpiredToken(t *testing.T) {
-	initTestJWT(t)
+	manager := initTestJWT(t)
 
 	router := setupRouter()
-	router.Use(AuthMiddleware())
+	router.Use(AuthMiddleware(manager))
 	router.GET("/test", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
 
-	// Generate an expired token
 	userID := uuid.MustParse("550e8400-e29b-41d4-a716-446655440000")
-	token, err := jwt.GenerateTokenWithExpiry(userID, -time.Hour) // Expired 1 hour ago
+	token, err := manager.GenerateTokenWithExpiry(userID, -time.Hour)
 	require.NoError(t, err)
 
 	req := httptest.NewRequest("GET", "/test", nil)
@@ -171,10 +174,10 @@ func TestAuthMiddleware_ExpiredToken(t *testing.T) {
 }
 
 func TestAuthMiddleware_AbortsOnError(t *testing.T) {
-	initTestJWT(t)
+	manager := initTestJWT(t)
 
 	router := setupRouter()
-	router.Use(AuthMiddleware())
+	router.Use(AuthMiddleware(manager))
 	router.GET("/test", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "should not reach here"})
 	})
@@ -190,17 +193,16 @@ func TestAuthMiddleware_AbortsOnError(t *testing.T) {
 }
 
 func TestAuthMiddleware_ContextValue(t *testing.T) {
-	initTestJWT(t)
+	manager := initTestJWT(t)
 
 	router := setupRouter()
-	router.Use(AuthMiddleware())
+	router.Use(AuthMiddleware(manager))
 	router.GET("/test", func(c *gin.Context) {
 		userID, exists := c.Get("user_id")
 		if !exists {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "user_id not found"})
 			return
 		}
-		// Verify it's a string
 		userIDStr, ok := userID.(string)
 		if !ok {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "user_id is not a string"})
@@ -210,7 +212,7 @@ func TestAuthMiddleware_ContextValue(t *testing.T) {
 	})
 
 	userID := uuid.MustParse("550e8400-e29b-41d4-a716-446655440000")
-	token, err := jwt.GenerateToken(userID)
+	token, err := manager.GenerateToken(userID)
 	require.NoError(t, err)
 
 	req := httptest.NewRequest("GET", "/test", nil)
@@ -227,13 +229,13 @@ func TestAuthMiddleware_ContextValue(t *testing.T) {
 }
 
 func TestAuthMiddleware_ImpersonationContext(t *testing.T) {
-	initTestJWT(t)
+	manager := initTestJWT(t)
 
 	adminID := uuid.MustParse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
 	targetID := uuid.MustParse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")
 
 	router := setupRouter()
-	router.Use(AuthMiddleware())
+	router.Use(AuthMiddleware(manager))
 	router.GET("/impersonation", func(c *gin.Context) {
 		userID, _ := c.Get("user_id")
 		originalUserID, _ := c.Get("original_user_id")
@@ -250,7 +252,7 @@ func TestAuthMiddleware_ImpersonationContext(t *testing.T) {
 		})
 	})
 
-	token, err := jwt.GenerateImpersonationToken(adminID, "admin", targetID, 15*time.Minute)
+	token, err := manager.GenerateImpersonationToken(adminID, "admin", targetID, 15*time.Minute)
 	require.NoError(t, err)
 
 	req := httptest.NewRequest("GET", "/impersonation", nil)

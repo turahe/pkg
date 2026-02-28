@@ -18,8 +18,9 @@ import (
 )
 
 // setupTestConfig sets up test configuration for rate limiter. When redisEnabled is true,
-// Redis must be available at 127.0.0.1:6379 or the test fails (start Redis or run: make test-docker).
+// Redis must be available at 127.0.0.1:6379 or the test is skipped (start Redis or run: make test-docker).
 func setupTestConfig(t *testing.T, rateLimiterEnabled, redisEnabled bool) {
+	t.Helper()
 	config.Config = &config.Configuration{
 		RateLimiter: config.RateLimiterConfiguration{
 			Enabled:   rateLimiterEnabled,
@@ -38,7 +39,7 @@ func setupTestConfig(t *testing.T, rateLimiterEnabled, redisEnabled bool) {
 
 	if redisEnabled {
 		if !redis.Available("127.0.0.1", "6379", 500*time.Millisecond) {
-			t.Fatalf("Redis is required for this test but 127.0.0.1:6379 is unreachable. Start Redis (e.g. docker compose up -d) or run: make test-docker")
+			t.Skip("Redis is required for this test but 127.0.0.1:6379 is unreachable. Start Redis (e.g. docker compose up -d) or run: make test-docker")
 		}
 		err := redis.Setup()
 		if err != nil {

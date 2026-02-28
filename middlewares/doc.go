@@ -11,12 +11,12 @@ Responsibilities:
   - Metrics: expose Prometheus counters, histogram, and in-flight gauge (route pattern as label).
   - Timeout: set request context deadline so downstream DB/Redis respect it.
   - CORS: set Access-Control-* headers from config.
-  - Auth: validate Bearer JWT, set user_id in context.
-  - Rate limiting: Redis Lua script (INCR+EXPIRE+TTL); 429 when exceeded; skip paths configurable.
+  - Auth: validate Bearer JWT via jwt.TokenVerifier (Manager or Verifier); set user_id and impersonation fields in context. Use AuthMiddleware(verifier) with jwt.NewManager or jwt.NewVerifier for verification-only services.
+  - Rate limiting: Redis sliding-window (ZSET + Lua); 429 when exceeded; skip paths configurable.
 
 Constraints:
   - Rate limiter requires Redis enabled and config.RateLimiter.Enabled; fails open on Redis error.
-  - Auth requires jwt.Init() and config.Server.Secret.
+  - Auth requires a non-nil jwt.TokenVerifier (*jwt.Manager or *jwt.Verifier); pass it to AuthMiddleware(verifier).
   - No provider switching or fallbacks inside middleware; config is read once at middleware build.
 
 This package must NOT:
