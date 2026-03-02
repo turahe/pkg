@@ -95,42 +95,25 @@ func FormatCurrency(amount float64, currencyCode string) string {
 		return fmt.Sprintf("%.2f", amount)
 	}
 
-	// Parse currency code
 	curr, err := currency.ParseISO(currencyCode)
 	if err != nil {
-		// Fallback: simple format with currency code
 		return fmt.Sprintf("%.2f %s", amount, currencyCode)
 	}
 
-	// Determine language based on currency
-	// Try common locales for the currency
-	langTag := language.English // Default to English
+	var lang language.Tag
 
-	// Map common currency codes to preferred locales
 	switch currencyCode {
-	case "EUR":
-		langTag = language.German // or language.French, language.Italian
-	case "GBP":
-		langTag = language.English
-	case "JPY":
-		langTag = language.Japanese
-	case "CNY":
-		langTag = language.Chinese
-	case "INR":
-		langTag = language.Hindi
-	case "BRL":
-		langTag = language.Portuguese
-	case "MXN":
-		langTag = language.Spanish
-	case "CAD":
-		langTag = language.English
-	case "AUD":
-		langTag = language.English
 	case "IDR":
-		langTag = language.Indonesian
+		lang = language.Indonesian
+	case "USD":
+		lang = language.English
+	default:
+		lang = language.English
 	}
 
-	// Create a printer for the language and format with currency
-	printer := message.NewPrinter(langTag)
-	return printer.Sprintf("%v %v", curr, amount)
+	p := message.NewPrinter(lang)
+
+	// Proper currency formatting
+	return p.Sprintf("%v", currency.Symbol(curr)) +
+		" " + p.Sprintf("%.0f", amount)
 }
