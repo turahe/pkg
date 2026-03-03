@@ -46,7 +46,7 @@ const integrationTimeout = 500 * time.Millisecond
 const keyPrefix = "pkg:integration:"
 
 // setupIntegrationBackend sets config and calls Setup() using the first available
-// backend (Redis or Valkey). Skips or fails if none is reachable.
+// backend (Redis or Valkey). Skips the test if none is reachable so go test ./... passes without Redis.
 func setupIntegrationBackend(t *testing.T) {
 	t.Helper()
 	for _, b := range integrationBackends() {
@@ -67,7 +67,13 @@ func setupIntegrationBackend(t *testing.T) {
 		t.Logf("Using %s at %s:%s", b.name, b.host, b.port)
 		return
 	}
-	t.Fatalf("No Redis or Valkey available. Start one with: docker compose up -d (Redis:6379 or Valkey:6380)")
+	t.Skip("No Redis or Valkey available. Start one with: docker compose up -d (Redis:6379 or Valkey:6380)")
+}
+
+// setupIntegrationBackendOrSkip sets config and calls Setup() using the first available
+// backend. Skips the test if no backend is reachable (so go test ./... passes without Redis).
+func setupIntegrationBackendOrSkip(t *testing.T) {
+	setupIntegrationBackend(t)
 }
 
 func TestIntegration_GetSetDelete(t *testing.T) {

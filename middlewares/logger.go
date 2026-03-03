@@ -9,8 +9,9 @@ import (
 )
 
 // LoggerMiddleware returns a Gin middleware that logs each request after Next(): method, path, status,
-// latency, client IP, user-agent. Uses logger.WithContext(ctx) so trace_id and correlation_id appear
-// in JSON when RequestID or TraceMiddleware is used. Log level: 5xx Error, 4xx Warn, 2xx/3xx Info.
+// latency, client IP, user-agent. Uses logger.WithContext(ctx) so trace_id, span_id, correlation_id,
+// and httpRequest (if HTTPInstrumentation ran) appear in JSON. Log level: 5xx Error, 4xx Warn, 2xx/3xx Info.
+// Register after CloudTraceMiddleware (or TraceMiddleware) and HTTPInstrumentation for full GCP fields.
 func LoggerMiddleware() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		// Start timer

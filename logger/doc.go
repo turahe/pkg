@@ -1,21 +1,70 @@
 /*
-Package logger provides structured logging (log/slog) with Google Cloud Logging-compatible JSON output: severity, time, message, trace_id, correlation_id, sourceLocation, and optional fields.
+Package logger provides an enterprise observability foundation for fintech microservices:
+structured logging (log/slog), Cloud Trace integration, correlation, and request instrumentation.
 
-Role in architecture:
-  - Infrastructure: used by handlers, middleware, and other packages for request-scoped and plain logging.
+## Google Cloud Compliance
 
-Responsibilities:
-  - Package-level functions: Debugf, Infof, Warnf, Errorf, Fatalf and structured Debug/Info/Warn/Error with Fields.
-  - Context-bound logging: WithTraceID, WithCorrelationID, GetTraceID, GetCorrelationID; WithContext(ctx) returns a logger that includes IDs in JSON.
-  - Context-aware functions: DebugfContext, InfofContext, WarnfContext, ErrorfContext.
-  - Lazy writer: log file is opened on first write so init() does not block.
-  - SetLogLevel, GetLogger, GetWriter for configuration and testing.
+Logs follow the official Google Cloud structured logging format:
 
-Constraints:
-  - Single global logger instance; no per-request logger creation beyond WithContext.
-  - Output format is fixed (GCP-style JSON); no pluggable formatters.
+  - severity, message, timestamp (RFC3339Nano)
+  - logging.googleapis.com/trace (format: "projects/{PROJECT_ID}/traces/{TRACE_ID}")
+  - logging.googleapis.com/spanId, logging.googleapis.com/sourceLocation
+  - httpRequest (GCP HttpRequest shape when in HTTP context)
+  - correlation_id (business transaction ID; never overwritten by middleware)
 
-This package must NOT:
-  - Depend on database or HTTP packages; only standard library and slog.
+Trace is only injected when a valid trace ID and project ID exist (env GOOGLE_CLOUD_PROJECT or Config.ProjectID).
+
+## Initialization
+
+Call Init once at startup (e.g. in main or wire):
+
+  cfg := logger.Config{
+      LogLevel:           slog.LevelInfo,
+      EnableCaller:       false, // set true in dev for file/line
+      EnableHTTPLogging:  true,
+      ProjectID:          os.Getenv("GOOGLE_CLOUD_PROJECT"),
+      ServiceName:       "payments-api",
+      ServiceVersion:     version.Version,
+      Environment:        "production",
+      Redact:             myRedactFunc, // optional: redact sensitive fields
+      ErrorStacktrace:    false,
+  }
+  logger.Init(cfg)
+
+## Usage in Handlers
+
+After trace and HTTP instrumentation middleware have run:
+
+  log := logger.WithContext(c.Request.Context())
+  log.Infof("payment processed: %s", paymentID)
+  log.Info("payment", logger.Fields{"payment_id": paymentID, "amount": 100})
+
+Structured errors (type, cause chain, optional stack):
+
+  log := logger.WithContext(c.Request.Context())
+  if err != nil {
+      log.ErrorStructured(err)
+  }
+
+## Correlation Strategy
+
+  - traceID: distributed tracing (X-Cloud-Trace-Context, X-Trace-Id, X-Request-ID)
+  - spanID: request span (from X-Cloud-Trace-Context)
+  - correlationID: business transaction (order_id, payment_id, etc.); never overwritten when already set
+
+## OpenTelemetry Integration Point
+
+This package does not implement OpenTelemetry. To bridge with OTel:
+
+  - Extract trace/span from otel span context and set them via WithTraceID/WithSpanID in context.
+  - Or use go.opentelemetry.io/contrib/instrumentation to populate X-Cloud-Trace-Context
+    and let CloudTraceMiddleware parse it; logs will then link to the same trace in GCP.
+
+## Production Safety
+
+  - No os.Exit in request context; Fatalf is for startup failures only.
+  - Recovery middleware logs CRITICAL with trace/correlation preserved.
+  - Redact hook prevents sensitive data in logs (audit-grade for fintech).
 */
+
 package logger

@@ -194,7 +194,7 @@ redis.ScanKeys(pattern string, count int64) ([]string, error)  // cluster-aware
 
 ### `logger`
 
-Structured logging built on `log/slog`. Outputs Google Cloud Logging-compatible JSON with `severity`, `time`, `message`, `trace_id`, `correlation_id`, `sourceLocation`, and optional `fields`. The underlying writer is lazy-initialized on first log write (no I/O at startup).
+Structured logging built on `log/slog`. Outputs Google Cloud Logging-compatible JSON with `severity`, `time`, `message`, `trace_id`, `correlation_id`, `sourceLocation`, and optional `fields`. Logs to stderr (no log file). The underlying writer is lazy-initialized on first log write (no I/O at startup).
 
 **Plain functions:**
 ```go
@@ -237,7 +237,7 @@ logger.ErrorfContext(ctx, "failed: %v", err)
 ```go
 logger.SetLogLevel(slog.LevelDebug)  // default: Info
 logger.GetLogger() *slog.Logger
-logger.GetWriter() io.Writer         // file + stderr multi-writer
+logger.GetWriter() io.Writer         // stderr (used e.g. by GORM logger)
 ```
 
 ---
