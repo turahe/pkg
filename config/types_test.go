@@ -82,12 +82,16 @@ func TestServerConfiguration_AllFields(t *testing.T) {
 
 func TestCorsConfiguration_AllFields(t *testing.T) {
 	cors := CorsConfiguration{
-		Global: false,
-		Ips:    "192.168.1.1,192.168.1.2",
+		Global:   false,
+		Frontend: "http://localhost:3000",
+		Ips:      "192.168.1.1,192.168.1.2",
 	}
 
 	if cors.Global != false {
 		t.Errorf("Global = %v, want false", cors.Global)
+	}
+	if cors.Frontend != "http://localhost:3000" {
+		t.Errorf("Frontend = %q, want http://localhost:3000", cors.Frontend)
 	}
 	if cors.Ips != "192.168.1.1,192.168.1.2" {
 		t.Errorf("Ips = %q, want 192.168.1.1,192.168.1.2", cors.Ips)

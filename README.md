@@ -749,6 +749,8 @@ cp .env.example .env
 | `SERVER_REFRESH_TOKEN_EXPIRY` | `7` | Refresh token lifetime (days) |
 | `SERVER_SESSION_EXPIRY` | `24` | Session lifetime (hours) |
 | `CORS_GLOBAL` | `true` | Allow all origins |
+| `CORS_FRONTEND` | — | Frontend origin URL when `CORS_GLOBAL=false` (e.g. `http://localhost:3000`) |
+| `CORS_IPS` | — | Comma-separated allowed origins when `CORS_GLOBAL=false` |
 
 ### JWT
 

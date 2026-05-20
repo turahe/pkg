@@ -42,10 +42,11 @@ type ServerConfiguration struct {
 	JWTKeyID    string // Key ID (kid) in JWT header; optional, for key rotation
 }
 
-// CorsConfiguration holds CORS settings. Global true allows all origins; Ips is used when Global is false.
+// CorsConfiguration holds CORS settings. Global true allows all origins; Frontend and Ips are used when Global is false.
 type CorsConfiguration struct {
-	Global bool   // If true, allow all origins
-	Ips    string // Comma-separated allowed IPs when Global is false
+	Global   bool   // If true, allow all origins
+	Frontend string // Frontend origin URL (e.g. http://localhost:3000)
+	Ips      string // Comma-separated allowed origins when Global is false
 }
 
 // DatabaseConfiguration holds database connection and pool settings. Required: Dbname, Username, Password.

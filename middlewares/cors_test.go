@@ -39,7 +39,7 @@ func TestCORS_Global(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, "*", w.Header().Get("Access-Control-Allow-Origin"))
 	assert.Equal(t, "true", w.Header().Get("Access-Control-Allow-Credentials"))
-	assert.Equal(t, "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With", w.Header().Get("Access-Control-Allow-Headers"))
+	assert.Equal(t, "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With, X-2FA-Code", w.Header().Get("Access-Control-Allow-Headers"))
 	assert.Equal(t, "POST, OPTIONS, GET, PUT, PATCH, DELETE", w.Header().Get("Access-Control-Allow-Methods"))
 }
 
@@ -65,11 +65,41 @@ func TestCORS_SpecificIPs(t *testing.T) {
 	})
 
 	req := httptest.NewRequest("GET", "/test", nil)
+	req.Header.Set("Origin", "http://test.com")
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Equal(t, "http://example.com,http://test.com", w.Header().Get("Access-Control-Allow-Origin"))
+	assert.Equal(t, "http://test.com", w.Header().Get("Access-Control-Allow-Origin"))
+	assert.Equal(t, "true", w.Header().Get("Access-Control-Allow-Credentials"))
+}
+
+func TestCORS_Frontend(t *testing.T) {
+	originalConfig := config.Config
+	defer func() {
+		config.Config = originalConfig
+	}()
+
+	config.Config = &config.Configuration{
+		Cors: config.CorsConfiguration{
+			Global:   false,
+			Frontend: "http://localhost:3000",
+		},
+	}
+
+	router := setupRouter()
+	router.Use(CORS())
+	router.GET("/test", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	})
+
+	req := httptest.NewRequest("GET", "/test", nil)
+	req.Header.Set("Origin", "http://localhost:3000")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "http://localhost:3000", w.Header().Get("Access-Control-Allow-Origin"))
 	assert.Equal(t, "true", w.Header().Get("Access-Control-Allow-Credentials"))
 }
 
@@ -130,6 +160,6 @@ func TestCORS_Headers(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, "*", w.Header().Get("Access-Control-Allow-Origin"))
-	assert.Equal(t, "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With", w.Header().Get("Access-Control-Allow-Headers"))
+	assert.Equal(t, "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With, X-2FA-Code", w.Header().Get("Access-Control-Allow-Headers"))
 	assert.Equal(t, "POST, OPTIONS, GET, PUT, PATCH, DELETE", w.Header().Get("Access-Control-Allow-Methods"))
 }

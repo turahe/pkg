@@ -34,8 +34,9 @@ func buildConfigFromEnv() *Configuration {
 			JWTKeyID:             getEnvOrDefault("JWT_KEY_ID", ""),
 		},
 		Cors: CorsConfiguration{
-			Global: parseBool("CORS_GLOBAL", true),
-			Ips:    getEnvOrDefault("CORS_IPS", ""),
+			Global:   parseBool("CORS_GLOBAL", true),
+			Frontend: getEnvOrDefault("CORS_FRONTEND", ""),
+			Ips:      getEnvOrDefault("CORS_IPS", ""),
 		},
 		Database: DatabaseConfiguration{
 			Driver:                 getEnvOrDefault("DATABASE_DRIVER", "mysql"),
