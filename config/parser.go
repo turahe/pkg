@@ -51,6 +51,7 @@ func buildConfigFromEnv() *Configuration {
 			MaxIdleConns:           parseInt("DATABASE_MAX_IDLE_CONNS", 5),
 			MaxOpenConns:           parseInt("DATABASE_MAX_OPEN_CONNS", 10),
 			ConnMaxLifetimeMinutes: parseInt("DATABASE_CONN_MAX_LIFETIME", 1440),
+			ConnectionTimezone:     getEnvOrDefault("DATABASE_TIMEZONE", ""),
 		},
 		DatabaseSite: DatabaseConfiguration{
 			Driver:                 getEnvOrDefault("DATABASE_DRIVER_SITE", "mysql"),
@@ -65,6 +66,7 @@ func buildConfigFromEnv() *Configuration {
 			MaxIdleConns:           parseInt("DATABASE_MAX_IDLE_CONNS_SITE", 5),
 			MaxOpenConns:           parseInt("DATABASE_MAX_OPEN_CONNS_SITE", 10),
 			ConnMaxLifetimeMinutes: parseInt("DATABASE_CONN_MAX_LIFETIME_SITE", 1440),
+			ConnectionTimezone:     getEnvOrDefault("DATABASE_TIMEZONE_SITE", ""),
 		},
 		Redis: RedisConfiguration{
 			Enabled:         parseBool("REDIS_ENABLED", false),

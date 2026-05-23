@@ -58,6 +58,15 @@ func connectCloudSQLPostgres(ctx context.Context, cfg *config.DatabaseConfigurat
 		dialer.Close()
 		return nil, nil, fmt.Errorf("parse pgx config: %w", err)
 	}
+	tz, err := resolveConnectionTimezone(cfg)
+	if err != nil {
+		dialer.Close()
+		return nil, nil, err
+	}
+	if pgxConfig.RuntimeParams == nil {
+		pgxConfig.RuntimeParams = make(map[string]string)
+	}
+	pgxConfig.RuntimeParams["timezone"] = tz
 	instance := cfg.CloudSQLInstance
 	pgxConfig.DialFunc = func(ctx context.Context, _, _ string) (net.Conn, error) {
 		return dialer.Dial(ctx, instance)
@@ -112,10 +121,15 @@ func connectCloudSQLMySQL(ctx context.Context, cfg *config.DatabaseConfiguration
 	if registerErr != nil {
 		return nil, nil, fmt.Errorf("register cloudsql-mysql driver: %w", registerErr)
 	}
-	dsn := fmt.Sprintf("%s:%s@cloudsql-mysql(%s)/%s?parseTime=true",
-		cfg.Username, cfg.Password, cfg.CloudSQLInstance, cfg.Dbname)
+	tz, err := resolveConnectionTimezone(cfg)
+	if err != nil {
+		return nil, nil, err
+	}
+	loc := mysqlLocQueryValue(tz)
+	dsn := fmt.Sprintf("%s:%s@cloudsql-mysql(%s)/%s?parseTime=true&loc=%s",
+		cfg.Username, cfg.Password, cfg.CloudSQLInstance, cfg.Dbname, loc)
 	if opts.UseIAM {
-		dsn = fmt.Sprintf("%s@cloudsql-mysql(%s)/%s?parseTime=true", cfg.Username, cfg.CloudSQLInstance, cfg.Dbname)
+		dsn = fmt.Sprintf("%s@cloudsql-mysql(%s)/%s?parseTime=true&loc=%s", cfg.Username, cfg.CloudSQLInstance, cfg.Dbname, loc)
 	}
 	db, err := gorm.Open(mysql.New(mysql.Config{
 		DriverName: "cloudsql-mysql",

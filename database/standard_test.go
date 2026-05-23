@@ -24,7 +24,7 @@ func TestBuildDSN(t *testing.T) {
 				Password: "p",
 				Dbname:   "db",
 			},
-			contains: []string{"tcp(localhost:3306)", "/db", "charset=utf8", "parseTime=True"},
+			contains: []string{"tcp(localhost:3306)", "/db", "charset=utf8", "parseTime=True", "loc=UTC"},
 		},
 		{
 			name: "postgres",

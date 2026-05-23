@@ -17,15 +17,23 @@ import (
 func buildDSN(cfg *config.DatabaseConfiguration) (string, error) {
 	switch cfg.Driver {
 	case "mysql":
-		return fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8&parseTime=True&loc=Local",
-			cfg.Username, cfg.Password, cfg.Host, cfg.Port, cfg.Dbname), nil
+		tz, err := resolveConnectionTimezone(cfg)
+		if err != nil {
+			return "", err
+		}
+		return fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8&parseTime=True&loc=%s",
+			cfg.Username, cfg.Password, cfg.Host, cfg.Port, cfg.Dbname, mysqlLocQueryValue(tz)), nil
 	case "postgres":
+		tz, err := resolveConnectionTimezone(cfg)
+		if err != nil {
+			return "", err
+		}
 		mode := "disable"
 		if cfg.Sslmode {
 			mode = "require"
 		}
-		return fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=%s",
-			cfg.Host, cfg.Username, cfg.Password, cfg.Dbname, cfg.Port, mode), nil
+		return fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=%s timezone=%s",
+			cfg.Host, cfg.Username, cfg.Password, cfg.Dbname, cfg.Port, mode, tz), nil
 	case "sqlite":
 		return "./" + cfg.Dbname + ".db", nil
 	case "sqlserver":

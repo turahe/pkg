@@ -781,6 +781,7 @@ Secret Manager calls use a 30s context timeout.
 | `DATABASE_DBNAME` | — | |
 | `DATABASE_SSLMODE` | `false` | |
 | `DATABASE_LOGMODE` | `false` | Enable GORM query logging |
+| `DATABASE_TIMEZONE` | — | IANA timezone for DB session (`mysql`/`postgres`/Cloud SQL); empty uses `SERVER_TIMEZONE` |
 | `DATABASE_MAX_IDLE_CONNS` | `0` (→ 10) | Connection pool idle size |
 | `DATABASE_MAX_OPEN_CONNS` | `0` (→ 30) | Connection pool max open |
 | `DATABASE_CONN_MAX_LIFETIME` | `0` (→ 30 min) | Connection lifetime (minutes) |

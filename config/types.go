@@ -61,9 +61,10 @@ type DatabaseConfiguration struct {
 	Sslmode               bool
 	Logmode               bool
 	CloudSQLInstance      string `mapstructure:"cloud_sql_instance"` // project:region:instance for Cloud SQL
-	MaxIdleConns          int    // 0 = default 5
-	MaxOpenConns          int    // 0 = default 10
-	ConnMaxLifetimeMinutes int   // 0 = default 1440 (24h)
+	MaxIdleConns           int    // 0 = default 5
+	MaxOpenConns           int    // 0 = default 10
+	ConnMaxLifetimeMinutes int    // 0 = default 1440 (24h)
+	ConnectionTimezone     string // IANA timezone for DB session; empty uses SERVER_TIMEZONE
 }
 
 // RedisConfiguration holds Redis connection and pool settings. Set Enabled true to use Redis.
