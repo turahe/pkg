@@ -3,6 +3,8 @@ package config
 import (
 	"os"
 	"strconv"
+	"strings"
+	"time"
 )
 
 // Placeholder values that should be treated as invalid
@@ -96,6 +98,29 @@ func buildConfigFromEnv() *Configuration {
 		Timezone: TimezoneConfiguration{
 			Timezone: getEnvOrDefault("SERVER_TIMEZONE", "UTC"),
 		},
+		OpenTelemetry: OpenTelemetryConfiguration{
+			Endpoint:         getEnvOrDefault("OTEL_EXPORTER_OTLP_ENDPOINT", ""),
+			TracesEndpoint:   getEnvOrDefault("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", ""),
+			Insecure:         parseBool("OTEL_EXPORTER_OTLP_INSECURE", true),
+			Headers:          parseKeyValueHeaders(getEnvOrDefault("OTEL_EXPORTER_OTLP_HEADERS", "")),
+			ServiceName:      getEnvOrDefault("OTEL_SERVICE_NAME", ""),
+			Environment:      firstNonEmpty(getEnvOrDefault("OTEL_ENVIRONMENT", ""), getEnvOrDefault("APP_ENV", "")),
+			ServiceVersion:   firstNonEmpty(getEnvOrDefault("OTEL_SERVICE_VERSION", ""), getEnvOrDefault("SENTRY_RELEASE", "")),
+			TracesSamplerArg: parseFloatRatio("OTEL_TRACES_SAMPLER_ARG", 1.0),
+			ShutdownTimeout:  parseDuration("OTEL_SHUTDOWN_TIMEOUT", 5*time.Second),
+			GORMEnabled:      parseBool("OTEL_GORM_ENABLED", true),
+		},
+		Sentry: SentryConfiguration{
+			DSN:              getEnvOrDefault("SENTRY_DSN", ""),
+			Environment:      firstNonEmpty(getEnvOrDefault("SENTRY_ENVIRONMENT", ""), getEnvOrDefault("APP_ENV", "")),
+			Release:          getEnvOrDefault("SENTRY_RELEASE", ""),
+			ServerName:       getEnvOrDefault("SENTRY_SERVER_NAME", ""),
+			Debug:            parseBool("SENTRY_DEBUG", false),
+			AttachStacktrace: parseBool("SENTRY_ATTACH_STACKTRACE", true),
+			SampleRate:       parseFloatRatio("SENTRY_SAMPLE_RATE", 1.0),
+			TracesSampleRate: parseFloatRatio("SENTRY_TRACES_SAMPLE_RATE", 0.0),
+			FlushTimeout:     parseDuration("SENTRY_FLUSH_TIMEOUT", 2*time.Second),
+		},
 	}
 }
 
@@ -141,4 +166,64 @@ func parseInt(key string, defaultValue int) int {
 		return defaultValue
 	}
 	return result
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if strings.TrimSpace(v) != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+func parseFloatRatio(key string, defaultValue float64) float64 {
+	val := strings.TrimSpace(os.Getenv(key))
+	if val == "" {
+		return defaultValue
+	}
+	result, err := strconv.ParseFloat(val, 64)
+	if err != nil || result < 0 || result > 1 {
+		return defaultValue
+	}
+	return result
+}
+
+func parseDuration(key string, defaultValue time.Duration) time.Duration {
+	val := strings.TrimSpace(os.Getenv(key))
+	if val == "" {
+		return defaultValue
+	}
+	result, err := time.ParseDuration(val)
+	if err != nil || result <= 0 {
+		return defaultValue
+	}
+	return result
+}
+
+func parseKeyValueHeaders(raw string) map[string]string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil
+	}
+	headers := make(map[string]string)
+	for _, pair := range strings.Split(raw, ",") {
+		pair = strings.TrimSpace(pair)
+		if pair == "" {
+			continue
+		}
+		k, v, ok := strings.Cut(pair, "=")
+		if !ok {
+			continue
+		}
+		k = strings.TrimSpace(k)
+		v = strings.TrimSpace(v)
+		if k != "" {
+			headers[k] = v
+		}
+	}
+	if len(headers) == 0 {
+		return nil
+	}
+	return headers
 }

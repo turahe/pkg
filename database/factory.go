@@ -28,6 +28,7 @@ func New(cfg *config.DatabaseConfiguration, opts Options, override ...Option) (*
 // NewContext creates a Database with the given context (used for connection timeout/cancellation). Driver is read from cfg;
 // cloudsql-postgres and cloudsql-mysql use Cloud SQL connector; others use standard driver.
 func NewContext(ctx context.Context, cfg *config.DatabaseConfiguration, opts Options, override ...Option) (*Database, error) {
+	opts = applyOpenTelemetryDefaults(opts)
 	o := &Options{}
 	*o = opts
 	for _, fn := range override {
@@ -47,6 +48,9 @@ func NewContext(ctx context.Context, cfg *config.DatabaseConfiguration, opts Opt
 	}
 	if err != nil {
 		return nil, fmt.Errorf("database: %w", err)
+	}
+	if err := registerGORMInstrumentation(db, cfg, o); err != nil {
+		return nil, wrapConnectErr(err, cleanup)
 	}
 	cleanups := []func() error{}
 	if cleanup != nil {

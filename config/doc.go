@@ -3,7 +3,7 @@ Package config provides application configuration loaded from environment variab
 
 Role in architecture:
   - Infrastructure: reads from OS environment and optional .env file (via godotenv).
-  - Single source of truth for server, database, Redis, GCS, rate limiter, CORS, and timezone settings.
+  - Single source of truth for server, database, Redis, GCS, rate limiter, CORS, timezone, OpenTelemetry, and Sentry settings.
 
 Responsibilities:
   - Load and parse environment variables into typed structs (Configuration and nested types).

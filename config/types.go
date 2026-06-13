@@ -1,5 +1,7 @@
 package config
 
+import "time"
+
 // Configuration holds the full application configuration. All sections are
 // populated from environment variables by buildConfigFromEnv (see parser.go).
 type Configuration struct {
@@ -11,6 +13,8 @@ type Configuration struct {
 	GCS          GCSConfiguration
 	RateLimiter  RateLimiterConfiguration
 	Timezone     TimezoneConfiguration
+	OpenTelemetry OpenTelemetryConfiguration
+	Sentry        SentryConfiguration
 }
 
 // ServerConfiguration holds server and session settings (port, secret, mode, token and session expiry).
@@ -101,4 +105,34 @@ type RateLimiterConfiguration struct {
 // TimezoneConfiguration holds the server timezone (IANA name, e.g. "Asia/Jakarta", "UTC").
 type TimezoneConfiguration struct {
 	Timezone string
+}
+
+// OpenTelemetryConfiguration holds OTLP trace export settings. Empty Endpoint and
+// TracesEndpoint disable tracing. Environment falls back to APP_ENV; ServiceVersion
+// falls back to SENTRY_RELEASE when unset.
+type OpenTelemetryConfiguration struct {
+	Endpoint           string
+	TracesEndpoint     string
+	Insecure           bool
+	Headers            map[string]string
+	ServiceName        string
+	Environment        string
+	ServiceVersion     string
+	TracesSamplerArg   float64
+	ShutdownTimeout    time.Duration
+	GORMEnabled        bool // OTEL_GORM_ENABLED; auto-instruments GORM when tracing is enabled
+}
+
+// SentryConfiguration holds Sentry error reporting settings. Empty DSN disables Sentry.
+// Environment falls back to APP_ENV when unset.
+type SentryConfiguration struct {
+	DSN                string
+	Environment        string
+	Release            string
+	ServerName         string
+	Debug              bool
+	AttachStacktrace   bool
+	SampleRate         float64
+	TracesSampleRate   float64
+	FlushTimeout       time.Duration
 }

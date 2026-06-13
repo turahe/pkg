@@ -69,6 +69,8 @@ type Configuration struct {
     GCS         GCSConfiguration
     RateLimiter RateLimiterConfiguration
     Timezone    TimezoneConfiguration
+    OpenTelemetry OpenTelemetryConfiguration
+    Sentry        SentryConfiguration
 }
 ```
 
@@ -821,6 +823,39 @@ Secret Manager calls use a 30s context timeout.
 | `GCS_ENABLED` | `false` | |
 | `GCS_BUCKET_NAME` | — | |
 | `GCS_CREDENTIALS_FILE` | — | Path to service account JSON; omit to use ADC |
+
+### OpenTelemetry
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | — | OTLP HTTP endpoint; empty disables tracing |
+| `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` | — | Optional trace-specific endpoint override |
+| `OTEL_EXPORTER_OTLP_INSECURE` | `true` | Use HTTP instead of HTTPS for OTLP export |
+| `OTEL_EXPORTER_OTLP_HEADERS` | — | Comma-separated `key=value` OTLP headers |
+| `OTEL_SERVICE_NAME` | — | Service name resource attribute; `otelx` defaults to `app` |
+| `OTEL_ENVIRONMENT` | — | Deployment environment; falls back to `APP_ENV` |
+| `OTEL_SERVICE_VERSION` | — | Service version; falls back to `SENTRY_RELEASE` |
+| `OTEL_TRACES_SAMPLER_ARG` | `1.0` | Parent-based ratio sampler (0..1) |
+| `OTEL_SHUTDOWN_TIMEOUT` | `5s` | Tracer provider shutdown timeout |
+| `OTEL_GORM_ENABLED` | `true` | Register GORM OTel plugin when OTLP endpoint is set |
+
+Initialize tracing with `otelx.Init(ctx, config.GetConfig().OpenTelemetry)` after `config.Setup`. GORM is instrumented automatically when `OTEL_EXPORTER_OTLP_ENDPOINT` is set and `OTEL_GORM_ENABLED=true` (default). Disable with `OTEL_GORM_ENABLED=false` or `database.WithOpenTelemetry(false)`.
+
+### Sentry
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SENTRY_DSN` | — | Sentry DSN; empty disables Sentry |
+| `SENTRY_ENVIRONMENT` | — | Deployment environment; falls back to `APP_ENV` |
+| `SENTRY_RELEASE` | — | Release identifier (git SHA or semver) |
+| `SENTRY_SERVER_NAME` | — | Server name tag; `sentryx` defaults to `app` |
+| `SENTRY_DEBUG` | `false` | Enable Sentry SDK debug logging |
+| `SENTRY_ATTACH_STACKTRACE` | `true` | Attach stack traces to non-panic messages |
+| `SENTRY_SAMPLE_RATE` | `1.0` | Error event sample rate (0..1) |
+| `SENTRY_TRACES_SAMPLE_RATE` | `0.0` | Performance transaction sample rate (0..1) |
+| `SENTRY_FLUSH_TIMEOUT` | `2s` | Flush timeout at shutdown |
+
+Initialize Sentry with `sentryx.Init(config.GetConfig().Sentry)` after `config.Setup`.
 
 ---
 

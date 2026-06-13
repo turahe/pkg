@@ -22,22 +22,22 @@ import (
 
 // TokenType identifies the kind of JWT (access, refresh, impersonation).
 const (
-	TokenTypeAccess       = "access"
-	TokenTypeRefresh      = "refresh"
+	TokenTypeAccess        = "access"
+	TokenTypeRefresh       = "refresh"
 	TokenTypeImpersonation = "impersonation"
 )
 
 // Manager holds JWT signing and verification configuration. Create with NewManager for all-in-one use.
 // For split services use NewSigner (auth server) and NewVerifier (API servers).
 type Manager struct {
-	signingMethod   jwt.SigningMethod
-	signKey         any
-	verifyKey       any
-	accessExpiry    time.Duration
-	refreshExpiry   time.Duration
-	issuer          string
-	audience        []string
-	kid             string
+	signingMethod jwt.SigningMethod
+	signKey       any
+	verifyKey     any
+	accessExpiry  time.Duration
+	refreshExpiry time.Duration
+	issuer        string
+	audience      []string
+	kid           string
 }
 
 // Signer issues JWTs (private key or secret only). Use for auth/login services.
@@ -315,9 +315,9 @@ func (s *Signer) GenerateToken(id uuid.UUID) (string, error) {
 // GenerateTokenWithExpiry issues a signed JWT (token_type: access) with custom expiry.
 func (s *Signer) GenerateTokenWithExpiry(id uuid.UUID, expiry time.Duration) (string, error) {
 	claims := Claims{
-		UUID:            id.String(),
+		UUID:             id.String(),
 		RegisteredClaims: s.buildRegisteredClaims(id.String(), expiry),
-		TokenType:       TokenTypeAccess,
+		TokenType:        TokenTypeAccess,
 	}
 	return s.signToken(claims)
 }
@@ -325,9 +325,9 @@ func (s *Signer) GenerateTokenWithExpiry(id uuid.UUID, expiry time.Duration) (st
 // GenerateRefreshToken issues a signed JWT (token_type: refresh).
 func (s *Signer) GenerateRefreshToken(id uuid.UUID) (string, error) {
 	claims := Claims{
-		UUID:            id.String(),
+		UUID:             id.String(),
 		RegisteredClaims: s.buildRegisteredClaims(id.String(), s.refreshExpiry),
-		TokenType:       TokenTypeRefresh,
+		TokenType:        TokenTypeRefresh,
 	}
 	return s.signToken(claims)
 }
@@ -340,7 +340,7 @@ func (s *Signer) GenerateImpersonationToken(adminID uuid.UUID, adminRole string,
 		ttl = maxTTL
 	}
 	claims := Claims{
-		UUID: targetUserID.String(),
+		UUID:             targetUserID.String(),
 		RegisteredClaims: s.buildRegisteredClaims(targetUserID.String(), ttl),
 		TokenType:        TokenTypeImpersonation,
 		ImpersonatorID:   adminID.String(),
@@ -531,9 +531,9 @@ func (m *Manager) GenerateToken(id uuid.UUID) (string, error) {
 // GenerateTokenWithExpiry issues a signed JWT with the given UUID and custom expiry (token_type: "access").
 func (m *Manager) GenerateTokenWithExpiry(id uuid.UUID, expiry time.Duration) (string, error) {
 	claims := Claims{
-		UUID:            id.String(),
+		UUID:             id.String(),
 		RegisteredClaims: m.buildRegisteredClaims(id.String(), expiry),
-		TokenType:       TokenTypeAccess,
+		TokenType:        TokenTypeAccess,
 	}
 	return m.signToken(claims)
 }
@@ -541,9 +541,9 @@ func (m *Manager) GenerateTokenWithExpiry(id uuid.UUID, expiry time.Duration) (s
 // GenerateRefreshToken issues a signed JWT with refresh token expiry (token_type: "refresh").
 func (m *Manager) GenerateRefreshToken(id uuid.UUID) (string, error) {
 	claims := Claims{
-		UUID:            id.String(),
+		UUID:             id.String(),
 		RegisteredClaims: m.buildRegisteredClaims(id.String(), m.refreshExpiry),
-		TokenType:       TokenTypeRefresh,
+		TokenType:        TokenTypeRefresh,
 	}
 	return m.signToken(claims)
 }
@@ -557,7 +557,7 @@ func (m *Manager) GenerateImpersonationToken(adminID uuid.UUID, adminRole string
 		ttl = maxTTL
 	}
 	claims := Claims{
-		UUID: targetUserID.String(),
+		UUID:             targetUserID.String(),
 		RegisteredClaims: m.buildRegisteredClaims(targetUserID.String(), ttl),
 		TokenType:        TokenTypeImpersonation,
 		ImpersonatorID:   adminID.String(),

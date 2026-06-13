@@ -30,6 +30,9 @@ type Options struct {
 	ConnMaxIdle  time.Duration
 	SlowThreshold time.Duration
 	PingTimeout  time.Duration
+	// EnableOpenTelemetry registers the GORM OTel plugin after connect.
+	// When false, auto-enables if OTEL_GORM_ENABLED=true and OTLP endpoint is set.
+	EnableOpenTelemetry bool
 }
 
 func (o *Options) applyDefaults() {
@@ -92,6 +95,11 @@ func WithConnMaxLifetime(d time.Duration) Option {
 // WithConnMaxIdleTime sets the maximum time a connection may be idle.
 func WithConnMaxIdleTime(d time.Duration) Option {
 	return func(o *Options) { o.ConnMaxIdle = d }
+}
+
+// WithOpenTelemetry sets whether to register GORM OpenTelemetry instrumentation.
+func WithOpenTelemetry(v bool) Option {
+	return func(o *Options) { o.EnableOpenTelemetry = v }
 }
 
 // WithProductionPoolDefaults sets higher connection pool limits for high-throughput production (e.g. 1000+ RPS).
