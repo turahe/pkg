@@ -124,6 +124,15 @@ func buildConfigFromEnv() *Configuration {
 			TracesSampleRate: parseFloatRatio("SENTRY_TRACES_SAMPLE_RATE", 0.0),
 			FlushTimeout:     parseDuration("SENTRY_FLUSH_TIMEOUT", 2*time.Second),
 		},
+		MTLS: MTLSConfiguration{
+			Enabled:        parseBool("MTLS_ENABLED", false),
+			CACertFile:     getEnvOrDefault("MTLS_CA_CERT", "/etc/mtls/ca.crt"),
+			ServerCertFile: getEnvOrDefault("MTLS_SERVER_CERT", "/etc/mtls/server.crt"),
+			ServerKeyFile:  getEnvOrDefault("MTLS_SERVER_KEY", "/etc/mtls/server.key"),
+			ClientCertFile: getEnvOrDefault("MTLS_CLIENT_CERT", "/etc/mtls/gateway.crt"),
+			ClientKeyFile:  getEnvOrDefault("MTLS_CLIENT_KEY", "/etc/mtls/gateway.key"),
+			SkipPaths:      getEnvOrDefault("MTLS_SKIP_PATHS", "/live,/ready,/metrics"),
+		},
 	}
 }
 

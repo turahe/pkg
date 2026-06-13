@@ -15,6 +15,7 @@ type Configuration struct {
 	Timezone     TimezoneConfiguration
 	OpenTelemetry OpenTelemetryConfiguration
 	Sentry        SentryConfiguration
+	MTLS          MTLSConfiguration
 }
 
 // ServerConfiguration holds server and session settings (port, secret, mode, token and session expiry).
@@ -138,4 +139,16 @@ type SentryConfiguration struct {
 	SampleRate         float64
 	TracesSampleRate   float64
 	FlushTimeout       time.Duration
+}
+
+// MTLSConfiguration holds mutual TLS settings for server listen and client verification.
+// When Enabled is false, mTLS helpers and middleware are no-ops.
+type MTLSConfiguration struct {
+	Enabled        bool
+	CACertFile     string
+	ServerCertFile string
+	ServerKeyFile  string
+	ClientCertFile string
+	ClientKeyFile  string
+	SkipPaths      string // comma-separated paths bypassing MTLSMiddleware (e.g. /live,/ready)
 }

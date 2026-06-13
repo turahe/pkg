@@ -71,6 +71,7 @@ type Configuration struct {
     Timezone    TimezoneConfiguration
     OpenTelemetry OpenTelemetryConfiguration
     Sentry        SentryConfiguration
+    MTLS          MTLSConfiguration
 }
 ```
 
@@ -285,6 +286,7 @@ router.NoRoute(middlewares.NoRouteHandler())
 | `RequestTimeout(d)` | `gin.HandlerFunc` | Adds `context.WithTimeout` to every request; no-op when `d <= 0` |
 | `CORS()` | `gin.HandlerFunc` | CORS headers; global or per-origin from config |
 | `AuthMiddleware(verifier)` | `jwt.TokenVerifier` → `gin.HandlerFunc` | Validates `Bearer` JWT; sets `user_id`, `original_user_id`, `is_impersonating` in context. Pass *jwt.Manager or *jwt.Verifier. |
+| `MTLSMiddleware()` | `gin.HandlerFunc` | Requires verified TLS client cert when `MTLS_ENABLED`; sets `mtls_client_cn` in context |
 | `RateLimiter()` | `gin.HandlerFunc` | Redis Lua single-round-trip rate limiter; sets `X-RateLimit-*` headers; supports IP or user keying and skip-paths |
 | `NoMethodHandler()` | `gin.HandlerFunc` | 405 JSON response |
 | `NoRouteHandler()` | `gin.HandlerFunc` | 404 JSON response |
@@ -859,6 +861,28 @@ Initialize tracing with `otelx.Init(ctx, config.GetConfig().OpenTelemetry)` afte
 | `SENTRY_FLUSH_TIMEOUT` | `2s` | Flush timeout at shutdown |
 
 Initialize Sentry with `sentryx.Init(config.GetConfig().Sentry)` after `config.Setup`.
+
+### mTLS
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MTLS_ENABLED` | `false` | Enable mTLS server listen and client-cert middleware |
+| `MTLS_CA_CERT` | `/etc/mtls/ca.crt` | Shared CA bundle |
+| `MTLS_SERVER_CERT` | `/etc/mtls/server.crt` | Backend server certificate |
+| `MTLS_SERVER_KEY` | `/etc/mtls/server.key` | Backend server private key |
+| `MTLS_CLIENT_CERT` | `/etc/mtls/gateway.crt` | Gateway/client certificate (outbound) |
+| `MTLS_CLIENT_KEY` | `/etc/mtls/gateway.key` | Gateway/client private key |
+| `MTLS_SKIP_PATHS` | `/live,/ready,/metrics` | Paths bypassing `MTLSMiddleware` |
+
+```go
+srv := &http.Server{Addr: ":" + cfg.Server.Port, Handler: router}
+_ = mtls.ConfigureServer(srv)
+go mtls.ListenConfigured(srv)
+
+router.Use(middlewares.MTLSMiddleware())
+```
+
+Use `mtls.NewTransport(config.GetConfig().MTLS)` for gateway outbound HTTPS.
 
 ---
 

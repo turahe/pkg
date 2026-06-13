@@ -12,6 +12,7 @@ Responsibilities:
   - Timeout: set request context deadline so downstream DB/Redis respect it.
   - CORS: set Access-Control-* headers from config.
   - Auth: validate Bearer JWT via jwt.TokenVerifier (Manager or Verifier); set user_id and impersonation fields in context. Use AuthMiddleware(verifier) with jwt.NewManager or jwt.NewVerifier for verification-only services.
+  - MTLS: require verified TLS client certificate when config.MTLS.Enabled; set mtls_client_cn in context; skip paths from MTLS_SKIP_PATHS.
   - Rate limiting: Redis sliding-window (ZSET + Lua); 429 when exceeded; skip paths configurable.
 
 Constraints:
