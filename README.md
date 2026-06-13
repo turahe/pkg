@@ -5,7 +5,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/turahe/pkg)](https://goreportcard.com/report/github.com/turahe/pkg)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A collection of production-ready Go packages for building web services: database, Redis (standard + cluster), JWT, crypto, GCS, structured logging, HTTP middleware, Prometheus metrics, graceful shutdown, and utilities. Follows clean architecture boundaries — domain, use-case, and infrastructure are separate.
+A collection of production-ready Go packages for building web services: database, Redis (standard + cluster), JWT, crypto, GCS, structured logging, HTTP middleware, OpenTelemetry (`otelx`), Sentry (`sentryx`), mutual TLS (`mtls`), Prometheus metrics, graceful shutdown, and utilities. Follows clean architecture boundaries — domain, use-case, and infrastructure are separate.
 
 ## Contents
 
@@ -16,6 +16,9 @@ A collection of production-ready Go packages for building web services: database
   - [redis](#redis)
   - [logger](#logger)
   - [middlewares](#middlewares)
+  - [otelx](#otelx)
+  - [sentryx](#sentryx)
+  - [mtls](#mtls)
   - [handler](#handler)
   - [response](#response)
   - [jwt](#jwt)
@@ -41,7 +44,7 @@ A collection of production-ready Go packages for building web services: database
 go get github.com/turahe/pkg
 ```
 
-Requires Go 1.21+.
+Requires Go 1.26+.
 
 ---
 
@@ -113,6 +116,11 @@ err     = db.Close()                  // close connections + Cloud SQL connector
 | `LogLevel` | Warn | GORM log level |
 | `UseIAM` | false | Cloud SQL IAM auth |
 | `UsePrivateIP` | false | Cloud SQL Private IP |
+| `EnableOpenTelemetry` | auto | GORM OTel plugin; auto when tracing enabled (`OTEL_GORM_ENABLED`) |
+
+**Connection timezone:** set `DATABASE_TIMEZONE` (IANA name) or leave empty to use `SERVER_TIMEZONE` (default `UTC`). Applied to MySQL `loc`, Postgres `timezone`, and Cloud SQL drivers.
+
+**OpenTelemetry GORM:** when `otelx.Init` succeeds (OTLP or GCP exporter), GORM spans are registered automatically unless disabled with `database.WithOpenTelemetry(false)`.
 
 **High-RPS pool preset:**
 ```go
@@ -266,9 +274,10 @@ router.Use(
     middlewares.LoggerMiddleware(),            // 3. log with IDs in context
     middlewares.Metrics(),                    // 4. Prometheus instrumentation
     middlewares.RequestTimeout(10*time.Second), // 5. bound all downstream handlers
-    middlewares.CORS(),                       // 6. CORS headers
-    middlewares.AuthMiddleware(jwtManager),   // 7. JWT auth (pass *Manager or *Verifier)
-    middlewares.RateLimiter(),                // 8. rate limit (requires Redis)
+    middlewares.CORS(),                       // 6. CORS headers (incl. X-2FA-Code)
+    middlewares.MTLSMiddleware(),           // 7. client cert check (when MTLS_ENABLED)
+    middlewares.AuthMiddleware(jwtManager),   // 8. JWT auth (pass *Manager or *Verifier)
+    middlewares.RateLimiter(),                // 9. rate limit (requires Redis)
 )
 router.NoMethod(middlewares.NoMethodHandler())
 router.NoRoute(middlewares.NoRouteHandler())
@@ -284,7 +293,7 @@ router.NoRoute(middlewares.NoRouteHandler())
 | `LoggerMiddleware()` | `gin.HandlerFunc` | Structured request log (method, path, status, latency, IP, user-agent, trace IDs) |
 | `Metrics()` | `gin.HandlerFunc` | Prometheus counters, histogram, and in-flight gauge; uses route pattern to avoid high-cardinality labels |
 | `RequestTimeout(d)` | `gin.HandlerFunc` | Adds `context.WithTimeout` to every request; no-op when `d <= 0` |
-| `CORS()` | `gin.HandlerFunc` | CORS headers; global or per-origin from config |
+| `CORS()` | `gin.HandlerFunc` | CORS headers; global or per-origin (`CORS_FRONTEND` / `CORS_IPS`) from config |
 | `AuthMiddleware(verifier)` | `jwt.TokenVerifier` → `gin.HandlerFunc` | Validates `Bearer` JWT; sets `user_id`, `original_user_id`, `is_impersonating` in context. Pass *jwt.Manager or *jwt.Verifier. |
 | `MTLSMiddleware()` | `gin.HandlerFunc` | Requires verified TLS client cert when `MTLS_ENABLED`; sets `mtls_client_cn` in context |
 | `RateLimiter()` | `gin.HandlerFunc` | Redis Lua single-round-trip rate limiter; sets `X-RateLimit-*` headers; supports IP or user keying and skip-paths |
@@ -304,6 +313,90 @@ Register the scrape endpoint separately:
 import "github.com/prometheus/client_golang/prometheus/promhttp"
 router.GET("/metrics", gin.WrapH(promhttp.Handler()))
 ```
+
+---
+
+### `otelx`
+
+OpenTelemetry trace setup wired to `config.OpenTelemetry`. Supports **OTLP HTTP** or **Google Cloud Trace** (`OTEL_TRACES_EXPORTER=gcp`).
+
+```go
+import "github.com/turahe/pkg/otelx"
+
+shutdown, enabled := otelx.Init(ctx, config.GetConfig().OpenTelemetry)
+if enabled {
+    defer shutdown(ctx)
+}
+
+// GORM instrumentation (auto when tracing enabled + OTEL_GORM_ENABLED=true)
+db, _ := database.New(&cfg.Database, database.Options{})
+```
+
+**API:**
+
+| Function | Description |
+|----------|-------------|
+| `otelx.LoadConfig()` | Returns `config.OpenTelemetryConfiguration` |
+| `otelx.Init(ctx, cfg)` | Configures global TracerProvider; returns shutdown func + enabled flag |
+| `otelx.RegisterGORM(db, opts)` | Manual GORM OTel plugin registration |
+| `otelx.TracingEnabled(cfg)` | True when OTLP endpoint or `gcp` exporter is configured |
+
+**GCP mode:** set `OTEL_TRACES_EXPORTER=gcp` and `GOOGLE_CLOUD_PROJECT` (or `OTEL_GCP_PROJECT_ID`). Uses Application Default Credentials and enables `X-Cloud-Trace-Context` propagation automatically.
+
+---
+
+### `sentryx`
+
+Sentry error reporting wired to `config.Sentry`. Empty `SENTRY_DSN` disables Sentry with zero overhead.
+
+```go
+import "github.com/turahe/pkg/sentryx"
+
+if sentryx.Init(config.GetConfig().Sentry) {
+    defer sentryx.Flush(config.GetConfig().Sentry.FlushTimeout)
+}
+```
+
+| Function | Description |
+|----------|-------------|
+| `sentryx.LoadConfig()` | Returns `config.SentryConfiguration` |
+| `sentryx.Init(cfg)` | Initializes Sentry; returns enabled flag |
+| `sentryx.Flush(timeout)` | Drains buffered events on shutdown |
+
+---
+
+### `mtls`
+
+Mutual TLS helpers for backend HTTPS (require client cert) and gateway outbound connections. Config from `config.MTLS`.
+
+**Server (backend):**
+```go
+import "github.com/turahe/pkg/mtls"
+
+srv := &http.Server{Addr: ":" + cfg.Server.Port, Handler: router}
+_ = mtls.ConfigureServer(srv)
+go mtls.ListenConfigured(srv)
+
+router.Use(middlewares.MTLSMiddleware()) // HTTP-layer client cert enforcement
+```
+
+**Client (gateway outbound):**
+```go
+transport, err := mtls.NewTransport(config.GetConfig().MTLS)
+client := &http.Client{Transport: transport}
+```
+
+| Function | Description |
+|----------|-------------|
+| `mtls.LoadConfig()` | Returns `config.MTLSConfiguration` |
+| `mtls.ServerTLSConfig(cfg)` | TLS config with `RequireAndVerifyClientCert` |
+| `mtls.ClientTLSConfig(cfg)` | TLS config with client cert for outbound calls |
+| `mtls.ConfigureServer(srv)` | Applies server TLS when `MTLS_ENABLED` |
+| `mtls.ListenConfigured(srv)` | `ListenAndServeTLS` or plain HTTP |
+| `mtls.RunGin(engine, addr)` | Gin drop-in for `engine.Run` with optional mTLS |
+| `mtls.NewTransport(cfg)` | `http.Transport` for gateway upstream HTTPS |
+
+When `MTLS_ENABLED=false`, all helpers fall back to plain HTTP.
 
 ---
 
@@ -592,12 +685,22 @@ import (
     "github.com/turahe/pkg/config"
     "github.com/turahe/pkg/database"
     "github.com/turahe/pkg/middlewares"
+    "github.com/turahe/pkg/mtls"
+    "github.com/turahe/pkg/otelx"
     pkgredis "github.com/turahe/pkg/redis"
+    "github.com/turahe/pkg/sentryx"
     "gorm.io/gorm/logger"
 )
 
 func main() {
+    if err := config.Setup(""); err != nil {
+        log.Fatal(err)
+    }
     cfg := config.GetConfig()
+
+    ctx := context.Background()
+    otelShutdown, otelEnabled := otelx.Init(ctx, cfg.OpenTelemetry)
+    sentryEnabled := sentryx.Init(cfg.Sentry)
 
     // Database
     db, err := database.New(&cfg.Database, database.Options{LogLevel: logger.Warn})
@@ -624,6 +727,8 @@ func main() {
         middlewares.LoggerMiddleware(),
         middlewares.Metrics(),
         middlewares.RequestTimeout(10*time.Second),
+        middlewares.CORS(),
+        middlewares.MTLSMiddleware(),
     )
     router.GET("/metrics", gin.WrapH(promhttp.Handler()))
     router.GET("/live", func(c *gin.Context) {
@@ -653,8 +758,11 @@ func main() {
         WriteTimeout:      10 * time.Second,
         IdleTimeout:       60 * time.Second,
     }
+    if err := mtls.ConfigureServer(srv); err != nil {
+        log.Fatal(err)
+    }
     go func() {
-        if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+        if err := mtls.ListenConfigured(srv); err != nil && err != http.ErrServerClosed {
             log.Printf("server: %v", err)
         }
     }()
@@ -668,6 +776,13 @@ func main() {
     shutCtx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
     defer cancel()
     srv.Shutdown(shutCtx)
+
+    if sentryEnabled {
+        sentryx.Flush(cfg.Sentry.FlushTimeout)
+    }
+    if otelEnabled {
+        otelShutdown(shutCtx)
+    }
 
     if cfg.Redis.Enabled {
         pkgredis.Close()
@@ -752,9 +867,18 @@ cp .env.example .env
 | `SERVER_ACCESS_TOKEN_EXPIRY` | `1` | Access token lifetime (hours) |
 | `SERVER_REFRESH_TOKEN_EXPIRY` | `7` | Refresh token lifetime (days) |
 | `SERVER_SESSION_EXPIRY` | `24` | Session lifetime (hours) |
-| `CORS_GLOBAL` | `true` | Allow all origins |
+| `SERVER_TIMEZONE` | `UTC` | IANA timezone (also default for DB when `DATABASE_TIMEZONE` empty) |
+| `APP_ENV` | — | Deployment environment; fallback for OTEL/Sentry when their env vars are empty |
+
+### CORS
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `CORS_GLOBAL` | `true` | Allow all origins (`*`) |
 | `CORS_FRONTEND` | — | Frontend origin URL when `CORS_GLOBAL=false` (e.g. `http://localhost:3000`) |
 | `CORS_IPS` | — | Comma-separated allowed origins when `CORS_GLOBAL=false` |
+
+Allowed headers include `Authorization`, `X-CSRF-Token`, and `X-2FA-Code`.
 
 ### JWT
 
@@ -766,12 +890,8 @@ cp .env.example .env
 | `JWT_ISSUER` | — | Issuer (`iss`) claim |
 | `JWT_AUDIENCE` | — | Audience (`aud`), comma-separated |
 | `JWT_KEY_ID` | — | Key ID (`kid`) in JWT header |
-| `JWT_SECRET_MANAGER_PROJECT_ID` | — | GCP project for Secret Manager (optional) |
-| `JWT_SECRET_MANAGER_SECRET_NAME` | — | Secret name for HS256 secret value |
-| `JWT_SECRET_MANAGER_PRIVATE_KEY_SECRET_NAME` | — | Secret name for RS256/ES256 private key PEM |
-| `JWT_SECRET_MANAGER_PUBLIC_KEY_SECRET_NAME` | — | Secret name for RS256/ES256 public key PEM |
 
-Secret Manager calls use a 30s context timeout.
+Keys can be embedded via `config.Server.JWTPrivateKeyPEM` / `JWTPublicKeyPEM` (see [jwt](#jwt) section).
 
 ### Database
 
@@ -791,6 +911,7 @@ Secret Manager calls use a 30s context timeout.
 | `DATABASE_CONN_MAX_LIFETIME` | `0` (→ 30 min) | Connection lifetime (minutes) |
 | `DATABASE_CLOUD_SQL_INSTANCE` | — | `project:region:instance` for Cloud SQL |
 | `DATABASE_*_SITE` | — | Same keys with `_SITE` suffix for secondary DB |
+| `DATABASE_TIMEZONE_SITE` | — | Site DB timezone; empty uses `SERVER_TIMEZONE` |
 
 ### Redis
 
@@ -844,7 +965,7 @@ Secret Manager calls use a 30s context timeout.
 | `OTEL_GCP_PROJECT_ID` | — | GCP project for Cloud Trace; falls back to `GOOGLE_CLOUD_PROJECT` |
 | `OTEL_GCP_PROPAGATOR` | `false` | Enable `X-Cloud-Trace-Context` propagation (auto-on for `gcp` exporter) |
 
-Initialize tracing with `otelx.Init(ctx, config.GetConfig().OpenTelemetry)` after `config.Setup`. For Google Cloud Trace set `OTEL_TRACES_EXPORTER=gcp` (uses Application Default Credentials). GORM is instrumented automatically when tracing is enabled and `OTEL_GORM_ENABLED=true` (default).
+Initialize tracing with `otelx.Init(ctx, config.GetConfig().OpenTelemetry)` after `config.Setup`. For Google Cloud Trace set `OTEL_TRACES_EXPORTER=gcp`. GORM is instrumented automatically when tracing is enabled and `OTEL_GORM_ENABLED=true` (default).
 
 ### Sentry
 
@@ -866,7 +987,7 @@ Initialize Sentry with `sentryx.Init(config.GetConfig().Sentry)` after `config.S
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `MTLS_ENABLED` | `false` | Enable mTLS server listen and client-cert middleware |
+| `MTLS_ENABLED` | `false` | Enable mTLS server listen and `MTLSMiddleware` |
 | `MTLS_CA_CERT` | `/etc/mtls/ca.crt` | Shared CA bundle |
 | `MTLS_SERVER_CERT` | `/etc/mtls/server.crt` | Backend server certificate |
 | `MTLS_SERVER_KEY` | `/etc/mtls/server.key` | Backend server private key |
@@ -874,15 +995,7 @@ Initialize Sentry with `sentryx.Init(config.GetConfig().Sentry)` after `config.S
 | `MTLS_CLIENT_KEY` | `/etc/mtls/gateway.key` | Gateway/client private key |
 | `MTLS_SKIP_PATHS` | `/live,/ready,/metrics` | Paths bypassing `MTLSMiddleware` |
 
-```go
-srv := &http.Server{Addr: ":" + cfg.Server.Port, Handler: router}
-_ = mtls.ConfigureServer(srv)
-go mtls.ListenConfigured(srv)
-
-router.Use(middlewares.MTLSMiddleware())
-```
-
-Use `mtls.NewTransport(config.GetConfig().MTLS)` for gateway outbound HTTPS.
+See [`mtls`](#mtls) for server/client wiring examples.
 
 ---
 
@@ -890,12 +1003,14 @@ Use `mtls.NewTransport(config.GetConfig().MTLS)` for gateway outbound HTTPS.
 
 See [`cmd/example/main.go`](cmd/example/main.go) for a complete wiring of:
 
-- Dependency-injected database with health check
+- `config.Setup` and optional `otelx` / `sentryx` initialization
+- Dependency-injected database with health check and optional GORM tracing
 - Optional Redis setup and graceful `Close()`
-- `gin.New()` with explicit middleware stack (recovery → trace → logging → metrics → timeout)
+- Optional mTLS via `mtls.ConfigureServer` + `MTLSMiddleware`
+- `gin.New()` with explicit middleware stack (recovery → trace → logging → metrics → timeout → CORS → mTLS)
 - `/live` (liveness), `/ready` (readiness with component checks), `/metrics` (Prometheus)
 - HTTP server with all timeouts set
-- Graceful shutdown: readiness gate → `srv.Shutdown(25s)` → Redis close → DB close
+- Graceful shutdown: readiness gate → `srv.Shutdown(25s)` → Sentry flush → OTel shutdown → Redis close → DB close
 
 ### Kubernetes probes
 
@@ -924,7 +1039,7 @@ docker build -t myapp .
 docker run --env-file .env -p 8080:8080 myapp
 ```
 
-The multi-stage `Dockerfile` uses `golang:1.25-alpine` to build and `gcr.io/distroless/base-debian12:nonroot` as the runtime image. Runs as UID 65532 (non-root).
+The multi-stage `Dockerfile` uses `golang:1.26-alpine` to build and `gcr.io/distroless/base-debian12:nonroot` as the runtime image. Runs as UID 65532 (non-root).
 
 ---
 
@@ -978,9 +1093,9 @@ DATABASE_USERNAME=root DATABASE_PASSWORD=root DATABASE_DBNAME=testdb \
 go test ./...
 ```
 
-Integration tests skip automatically when services are unavailable. CI runs the full matrix (Go 1.21–1.25.4) with these services via GitHub Actions.
+Integration tests skip automatically when services are unavailable. CI runs the full matrix with these services via GitHub Actions.
 
-**Packages with tests:** `config`, `crypto`, `database`, `gcs`, `handler`, `jwt`, `logger`, `middlewares`, `redis`, `repositories`, `response`, `types`, `util`.
+**Packages with tests:** `config`, `crypto`, `database`, `gcs`, `handler`, `jwt`, `logger`, `middlewares`, `mtls`, `otelx`, `redis`, `repositories`, `response`, `sentryx`, `types`, `util`.
 
 ---
 
