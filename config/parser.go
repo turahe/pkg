@@ -99,6 +99,7 @@ func buildConfigFromEnv() *Configuration {
 			Timezone: getEnvOrDefault("SERVER_TIMEZONE", "UTC"),
 		},
 		OpenTelemetry: OpenTelemetryConfiguration{
+			Exporter:         getEnvOrDefault("OTEL_TRACES_EXPORTER", "otlp"),
 			Endpoint:         getEnvOrDefault("OTEL_EXPORTER_OTLP_ENDPOINT", ""),
 			TracesEndpoint:   getEnvOrDefault("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", ""),
 			Insecure:         parseBool("OTEL_EXPORTER_OTLP_INSECURE", true),
@@ -109,6 +110,8 @@ func buildConfigFromEnv() *Configuration {
 			TracesSamplerArg: parseFloatRatio("OTEL_TRACES_SAMPLER_ARG", 1.0),
 			ShutdownTimeout:  parseDuration("OTEL_SHUTDOWN_TIMEOUT", 5*time.Second),
 			GORMEnabled:      parseBool("OTEL_GORM_ENABLED", true),
+			GCPProjectID:     firstNonEmpty(getEnvOrDefault("OTEL_GCP_PROJECT_ID", ""), getEnvOrDefault("GOOGLE_CLOUD_PROJECT", "")),
+			GCPPropagator:    parseBool("OTEL_GCP_PROPAGATOR", false),
 		},
 		Sentry: SentryConfiguration{
 			DSN:              getEnvOrDefault("SENTRY_DSN", ""),

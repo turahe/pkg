@@ -2,7 +2,6 @@ package otelx
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/turahe/pkg/config"
 	"github.com/turahe/pkg/logger"
@@ -17,11 +16,6 @@ type GORMOptions struct {
 	DBSystem string
 	// Metrics enables DB pool metrics from the plugin. Default false (tracing only).
 	Metrics bool
-}
-
-// TracingEnabled reports whether OTLP tracing is configured (endpoint set).
-func TracingEnabled(cfg config.OpenTelemetryConfiguration) bool {
-	return strings.TrimSpace(cfg.Endpoint) != "" || strings.TrimSpace(cfg.TracesEndpoint) != ""
 }
 
 // GORMEnabled reports whether GORM instrumentation should be registered from config.

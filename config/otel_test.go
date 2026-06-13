@@ -44,6 +44,7 @@ func TestBuildConfigFromEnv_OpenTelemetry(t *testing.T) {
 		"OTEL_TRACES_SAMPLER_ARG":            "0.5",
 		"OTEL_SHUTDOWN_TIMEOUT":              "8s",
 		"OTEL_GORM_ENABLED":                  "false",
+		"OTEL_TRACES_EXPORTER":               "otlp",
 	}
 	for k, v := range envVars {
 		os.Setenv(k, v)

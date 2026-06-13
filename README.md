@@ -828,7 +828,8 @@ Secret Manager calls use a 30s context timeout.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | — | OTLP HTTP endpoint; empty disables tracing |
+| `OTEL_TRACES_EXPORTER` | `otlp` | `otlp` or `gcp` (Google Cloud Trace via ADC) |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | — | OTLP HTTP endpoint; required when exporter is `otlp` |
 | `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` | — | Optional trace-specific endpoint override |
 | `OTEL_EXPORTER_OTLP_INSECURE` | `true` | Use HTTP instead of HTTPS for OTLP export |
 | `OTEL_EXPORTER_OTLP_HEADERS` | — | Comma-separated `key=value` OTLP headers |
@@ -837,9 +838,11 @@ Secret Manager calls use a 30s context timeout.
 | `OTEL_SERVICE_VERSION` | — | Service version; falls back to `SENTRY_RELEASE` |
 | `OTEL_TRACES_SAMPLER_ARG` | `1.0` | Parent-based ratio sampler (0..1) |
 | `OTEL_SHUTDOWN_TIMEOUT` | `5s` | Tracer provider shutdown timeout |
-| `OTEL_GORM_ENABLED` | `true` | Register GORM OTel plugin when OTLP endpoint is set |
+| `OTEL_GORM_ENABLED` | `true` | Register GORM OTel plugin when tracing is enabled |
+| `OTEL_GCP_PROJECT_ID` | — | GCP project for Cloud Trace; falls back to `GOOGLE_CLOUD_PROJECT` |
+| `OTEL_GCP_PROPAGATOR` | `false` | Enable `X-Cloud-Trace-Context` propagation (auto-on for `gcp` exporter) |
 
-Initialize tracing with `otelx.Init(ctx, config.GetConfig().OpenTelemetry)` after `config.Setup`. GORM is instrumented automatically when `OTEL_EXPORTER_OTLP_ENDPOINT` is set and `OTEL_GORM_ENABLED=true` (default). Disable with `OTEL_GORM_ENABLED=false` or `database.WithOpenTelemetry(false)`.
+Initialize tracing with `otelx.Init(ctx, config.GetConfig().OpenTelemetry)` after `config.Setup`. For Google Cloud Trace set `OTEL_TRACES_EXPORTER=gcp` (uses Application Default Credentials). GORM is instrumented automatically when tracing is enabled and `OTEL_GORM_ENABLED=true` (default).
 
 ### Sentry
 

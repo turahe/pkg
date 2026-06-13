@@ -15,6 +15,9 @@ func TestTracingEnabled(t *testing.T) {
 	if !TracingEnabled(config.OpenTelemetryConfiguration{Endpoint: "localhost:4318"}) {
 		t.Fatal("expected tracing enabled")
 	}
+	if !TracingEnabled(config.OpenTelemetryConfiguration{Exporter: "gcp"}) {
+		t.Fatal("expected tracing enabled for gcp exporter")
+	}
 }
 
 func TestGORMEnabled(t *testing.T) {

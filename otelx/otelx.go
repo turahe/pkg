@@ -2,8 +2,8 @@
 // so the rest of the service doesn't need to know about OTel's surface area.
 //
 // Settings are loaded via config.GetConfig().OpenTelemetry (or config.Setup).
-// OTEL_EXPORTER_OTLP_ENDPOINT being empty is the explicit "tracing is off" signal —
-// Init becomes a no-op and Shutdown returns immediately.
+// Tracing is disabled when OTEL_TRACES_EXPORTER=otlp and OTLP endpoint is empty.
+// Set OTEL_TRACES_EXPORTER=gcp to export directly to Google Cloud Trace via ADC.
 package otelx
 
 import (
@@ -14,11 +14,7 @@ import (
 	"github.com/turahe/pkg/config"
 	"github.com/turahe/pkg/logger"
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
-	"go.opentelemetry.io/otel/propagation"
-	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 )
 
 const defaultServiceName = "app"
@@ -29,13 +25,13 @@ func LoadConfig() config.OpenTelemetryConfiguration {
 }
 
 // Init configures the global OpenTelemetry TracerProvider. Returns a shutdown
-// function and a boolean (enabled). When Endpoint is empty we report "off" and
-// proceed silently; when set but invalid we log and treat as "off".
+// function and a boolean (enabled). When tracing is not configured we report "off"
+// and proceed silently; when configured but invalid we log and treat as "off".
 func Init(ctx context.Context, cfg config.OpenTelemetryConfiguration) (func(context.Context) error, bool) {
 	noopShutdown := func(context.Context) error { return nil }
 
-	if strings.TrimSpace(cfg.Endpoint) == "" && strings.TrimSpace(cfg.TracesEndpoint) == "" {
-		logger.Infof("otel: disabled (OTEL_EXPORTER_OTLP_ENDPOINT is empty)")
+	if !TracingEnabled(cfg) {
+		logger.Infof("otel: disabled (exporter=%s endpoint empty)", normalizeExporter(cfg.Exporter))
 		return noopShutdown, false
 	}
 
@@ -45,30 +41,13 @@ func Init(ctx context.Context, cfg config.OpenTelemetryConfiguration) (func(cont
 		shutdownTimeout = 5 * time.Second
 	}
 
-	res, err := resource.New(ctx,
-		resource.WithAttributes(
-			semconv.ServiceName(serviceName),
-			semconv.ServiceVersion(cfg.ServiceVersion),
-			semconv.DeploymentEnvironment(cfg.Environment),
-		),
-	)
+	res, err := buildResource(ctx, cfg, serviceName)
 	if err != nil {
 		logger.Errorf("otel: resource init failed: %v", err)
 		return noopShutdown, false
 	}
 
-	opts := []otlptracehttp.Option{}
-	endpoint := firstNonEmpty(cfg.TracesEndpoint, cfg.Endpoint)
-	endpoint = normalizeEndpoint(endpoint)
-	opts = append(opts, otlptracehttp.WithEndpoint(endpoint))
-	if cfg.Insecure {
-		opts = append(opts, otlptracehttp.WithInsecure())
-	}
-	if len(cfg.Headers) > 0 {
-		opts = append(opts, otlptracehttp.WithHeaders(cfg.Headers))
-	}
-
-	exporter, err := otlptracehttp.New(ctx, opts...)
+	exporter, err := buildTraceExporter(ctx, cfg)
 	if err != nil {
 		logger.Errorf("otel: exporter init failed: %v", err)
 		return noopShutdown, false
@@ -86,14 +65,11 @@ func Init(ctx context.Context, cfg config.OpenTelemetryConfiguration) (func(cont
 	)
 
 	otel.SetTracerProvider(tp)
-	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
-		propagation.TraceContext{},
-		propagation.Baggage{},
-	))
+	otel.SetTextMapPropagator(buildTextMapPropagator(useGCPPropagator(cfg)))
 
-	logger.Infof("otel: enabled service=%s environment=%s version=%s sampler=%.2f endpoint=%s",
-		serviceName, cfg.Environment, cfg.ServiceVersion, samplerArg,
-		firstNonEmpty(cfg.TracesEndpoint, cfg.Endpoint))
+	logger.Infof("otel: enabled exporter=%s service=%s environment=%s version=%s sampler=%.2f target=%s gcp_propagator=%t",
+		normalizeExporter(cfg.Exporter), serviceName, cfg.Environment, cfg.ServiceVersion, samplerArg,
+		exporterDescription(cfg), useGCPPropagator(cfg))
 
 	shutdown := func(shutdownCtx context.Context) error {
 		if shutdownCtx == nil {
@@ -110,7 +86,7 @@ func Init(ctx context.Context, cfg config.OpenTelemetryConfiguration) (func(cont
 func firstNonEmpty(values ...string) string {
 	for _, v := range values {
 		if strings.TrimSpace(v) != "" {
-			return v
+			return strings.TrimSpace(v)
 		}
 	}
 	return ""

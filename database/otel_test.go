@@ -29,7 +29,7 @@ func TestApplyOpenTelemetryDefaults(t *testing.T) {
 	config.Config = &config.Configuration{
 		OpenTelemetry: config.OpenTelemetryConfiguration{
 			GORMEnabled: true,
-			Endpoint:    "localhost:4318",
+			Exporter:    "gcp",
 		},
 	}
 
