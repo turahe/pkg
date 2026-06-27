@@ -949,23 +949,59 @@ Keys can be embedded via `config.Server.JWTPrivateKeyPEM` / `JWTPublicKeyPEM` (s
 
 ### OpenTelemetry
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `OTEL_TRACES_EXPORTER` | `otlp` | `otlp` or `gcp` (Google Cloud Trace via ADC) |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | — | OTLP HTTP endpoint; required when exporter is `otlp` |
-| `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` | — | Optional trace-specific endpoint override |
-| `OTEL_EXPORTER_OTLP_INSECURE` | `true` | Use HTTP instead of HTTPS for OTLP export |
-| `OTEL_EXPORTER_OTLP_HEADERS` | — | Comma-separated `key=value` OTLP headers |
-| `OTEL_SERVICE_NAME` | — | Service name resource attribute; `otelx` defaults to `app` |
-| `OTEL_ENVIRONMENT` | — | Deployment environment; falls back to `APP_ENV` |
-| `OTEL_SERVICE_VERSION` | — | Service version; falls back to `SENTRY_RELEASE` |
-| `OTEL_TRACES_SAMPLER_ARG` | `1.0` | Parent-based ratio sampler (0..1) |
-| `OTEL_SHUTDOWN_TIMEOUT` | `5s` | Tracer provider shutdown timeout |
-| `OTEL_GORM_ENABLED` | `true` | Register GORM OTel plugin when tracing is enabled |
-| `OTEL_GCP_PROJECT_ID` | — | GCP project for Cloud Trace; falls back to `GOOGLE_CLOUD_PROJECT` |
-| `OTEL_GCP_PROPAGATOR` | `false` | Enable `X-Cloud-Trace-Context` propagation (auto-on for `gcp` exporter) |
+Initialize tracing with `otelx.Init(ctx, config.GetConfig().OpenTelemetry)` after `config.Setup`. Choose an exporter with `OTEL_TRACES_EXPORTER` (`otlp` or `gcp`).
 
-Initialize tracing with `otelx.Init(ctx, config.GetConfig().OpenTelemetry)` after `config.Setup`. For Google Cloud Trace set `OTEL_TRACES_EXPORTER=gcp`. GORM is instrumented automatically when tracing is enabled and `OTEL_GORM_ENABLED=true` (default).
+**Shared (all exporters):**
+
+| Variable | Required | Default | Example | Description |
+|----------|----------|---------|---------|-------------|
+| `OTEL_TRACES_EXPORTER` | No | `otlp` | `gcp` | `otlp` (OTLP HTTP) or `gcp` (Google Cloud Trace) |
+| `OTEL_SERVICE_NAME` | No | `app` | `payments-api` | Service name resource attribute |
+| `OTEL_ENVIRONMENT` | No | `APP_ENV` | `production` | Deployment environment; falls back to `APP_ENV` |
+| `OTEL_SERVICE_VERSION` | No | `SENTRY_RELEASE` | `1.4.2` | Service version; falls back to `SENTRY_RELEASE` |
+| `OTEL_TRACES_SAMPLER_ARG` | No | `1.0` | `0.25` | Parent-based ratio sampler (0..1) |
+| `OTEL_SHUTDOWN_TIMEOUT` | No | `5s` | `10s` | Tracer provider shutdown timeout |
+| `OTEL_GORM_ENABLED` | No | `true` | `false` | Register GORM OTel plugin when tracing is enabled |
+
+**OTLP** (`OTEL_TRACES_EXPORTER=otlp`):
+
+| Variable | Required | Default | Example | Description |
+|----------|----------|---------|---------|-------------|
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | **Yes** | — | `localhost:4318` | OTLP HTTP endpoint (host:port, no scheme) |
+| `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` | No | — | `otel-collector:4318` | Trace-specific endpoint override |
+| `OTEL_EXPORTER_OTLP_INSECURE` | No | `true` | `false` | Use HTTP instead of HTTPS for OTLP export |
+| `OTEL_EXPORTER_OTLP_HEADERS` | No | — | `Authorization=Bearer token` | Comma-separated `key=value` OTLP headers |
+
+**GCP Cloud Trace** (`OTEL_TRACES_EXPORTER=gcp`):
+
+| Variable | Required | Default | Example | Description |
+|----------|----------|---------|---------|-------------|
+| `OTEL_GCP_PROJECT_ID` | No | `GOOGLE_CLOUD_PROJECT` | `my-gcp-project` | GCP project; falls back to `GOOGLE_CLOUD_PROJECT` |
+| `OTEL_GCP_PROPAGATOR` | No | `false` | `true` | `X-Cloud-Trace-Context` propagation (auto-on for `gcp`) |
+
+Uses Application Default Credentials. GORM is instrumented automatically when tracing is enabled and `OTEL_GORM_ENABLED=true` (default).
+
+**Example — OTLP (local collector / Jaeger):**
+```bash
+OTEL_TRACES_EXPORTER=otlp
+OTEL_EXPORTER_OTLP_ENDPOINT=localhost:4318
+OTEL_EXPORTER_OTLP_INSECURE=true
+OTEL_SERVICE_NAME=payments-api
+OTEL_ENVIRONMENT=development
+OTEL_TRACES_SAMPLER_ARG=1.0
+OTEL_GORM_ENABLED=true
+```
+
+**Example — GCP Cloud Trace:**
+```bash
+OTEL_TRACES_EXPORTER=gcp
+OTEL_GCP_PROJECT_ID=my-gcp-project
+OTEL_SERVICE_NAME=payments-api
+OTEL_ENVIRONMENT=production
+OTEL_SERVICE_VERSION=1.4.2
+OTEL_GORM_ENABLED=true
+# GOOGLE_APPLICATION_CREDENTIALS=/path/to/sa.json  # local dev; omit on GCE/GKE/Cloud Run
+```
 
 ### Sentry
 
