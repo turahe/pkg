@@ -14,21 +14,32 @@ import (
 func IsEmpty(value interface{}) bool {
 	v := reflect.ValueOf(value)
 	switch v.Kind() {
+	case reflect.Invalid:
+		return true
 	case reflect.String:
 		return v.String() == ""
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		return v.Int() == 0
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
 		return v.Uint() == 0
 	case reflect.Float32, reflect.Float64:
 		return v.Float() == 0
+	case reflect.Complex64, reflect.Complex128:
+		return v.Complex() == 0
 	case reflect.Bool:
 		return !v.Bool()
-	case reflect.Ptr, reflect.Chan, reflect.Map, reflect.Slice:
+	case reflect.Array:
+		return v.Len() == 0
+	case reflect.Chan, reflect.Map, reflect.Slice:
 		return v.IsNil() || v.Len() == 0
-	default:
+	case reflect.Pointer:
+		return v.IsNil()
+	case reflect.Func, reflect.Interface, reflect.UnsafePointer:
+		return v.IsNil()
+	case reflect.Struct:
 		return false
 	}
+	return false
 }
 
 // InAnySlice returns true if needle is equal to any element of haystack.

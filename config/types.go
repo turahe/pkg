@@ -5,14 +5,14 @@ import "time"
 // Configuration holds the full application configuration. All sections are
 // populated from environment variables by buildConfigFromEnv (see parser.go).
 type Configuration struct {
-	Server       ServerConfiguration
-	Cors         CorsConfiguration
-	Database     DatabaseConfiguration
-	DatabaseSite DatabaseConfiguration // Optional second database; leave Dbname empty to disable.
-	Redis        RedisConfiguration
-	GCS          GCSConfiguration
-	RateLimiter  RateLimiterConfiguration
-	Timezone     TimezoneConfiguration
+	Server        ServerConfiguration
+	Cors          CorsConfiguration
+	Database      DatabaseConfiguration
+	DatabaseSite  DatabaseConfiguration // Optional second database; leave Dbname empty to disable.
+	Redis         RedisConfiguration
+	GCS           GCSConfiguration
+	RateLimiter   RateLimiterConfiguration
+	Timezone      TimezoneConfiguration
 	OpenTelemetry OpenTelemetryConfiguration
 	Sentry        SentryConfiguration
 	MTLS          MTLSConfiguration
@@ -57,15 +57,15 @@ type CorsConfiguration struct {
 // DatabaseConfiguration holds database connection and pool settings. Required: Dbname, Username, Password.
 // For Cloud SQL drivers (cloudsql-mysql, cloudsql-postgres), CloudSQLInstance (project:region:instance) is required.
 type DatabaseConfiguration struct {
-	Driver                string
-	Dbname                string
-	Username              string
-	Password              string
-	Host                  string
-	Port                  string
-	Sslmode               bool
-	Logmode               bool
-	CloudSQLInstance      string `mapstructure:"cloud_sql_instance"` // project:region:instance for Cloud SQL
+	Driver                 string
+	Dbname                 string
+	Username               string
+	Password               string
+	Host                   string
+	Port                   string
+	Sslmode                bool
+	Logmode                bool
+	CloudSQLInstance       string `mapstructure:"cloud_sql_instance"` // project:region:instance for Cloud SQL
 	MaxIdleConns           int    // 0 = default 5
 	MaxOpenConns           int    // 0 = default 10
 	ConnMaxLifetimeMinutes int    // 0 = default 1440 (24h)
@@ -74,17 +74,17 @@ type DatabaseConfiguration struct {
 
 // RedisConfiguration holds Redis connection and pool settings. Set Enabled true to use Redis.
 type RedisConfiguration struct {
-	Enabled          bool
-	Host             string
-	Port             string
-	Password         string
-	DB               int    // Database index; ignored in cluster mode
-	ClusterMode      bool   // Use cluster client (e.g. Google Cloud Memorystore)
-	ClusterNodes     string // Comma-separated host:port when ClusterMode is true
-	PoolSize         int    // 0 = client default; use e.g. 100 for high RPS
-	MinIdleConns     int    // 0 = default
-	ReadTimeoutSec   int    // 0 = no timeout
-	WriteTimeoutSec  int    // 0 = no timeout
+	Enabled         bool
+	Host            string
+	Port            string
+	Password        string
+	DB              int    // Database index; ignored in cluster mode
+	ClusterMode     bool   // Use cluster client (e.g. Google Cloud Memorystore)
+	ClusterNodes    string // Comma-separated host:port when ClusterMode is true
+	PoolSize        int    // 0 = client default; use e.g. 100 for high RPS
+	MinIdleConns    int    // 0 = default
+	ReadTimeoutSec  int    // 0 = no timeout
+	WriteTimeoutSec int    // 0 = no timeout
 }
 
 // GCSConfiguration holds Google Cloud Storage settings. BucketName required when Enabled is true.
@@ -112,33 +112,33 @@ type TimezoneConfiguration struct {
 // TracesEndpoint disable OTLP export unless Exporter is gcp. Environment falls back
 // to APP_ENV; ServiceVersion falls back to SENTRY_RELEASE when unset.
 type OpenTelemetryConfiguration struct {
-	Exporter           string // OTEL_TRACES_EXPORTER: otlp (default) or gcp
-	Endpoint           string
-	TracesEndpoint     string
-	Insecure           bool
-	Headers            map[string]string
-	ServiceName        string
-	Environment        string
-	ServiceVersion     string
-	TracesSamplerArg   float64
-	ShutdownTimeout    time.Duration
-	GORMEnabled        bool   // OTEL_GORM_ENABLED; auto-instruments GORM when tracing is enabled
-	GCPProjectID       string // OTEL_GCP_PROJECT_ID; falls back to GOOGLE_CLOUD_PROJECT
-	GCPPropagator      bool   // OTEL_GCP_PROPAGATOR; X-Cloud-Trace-Context propagation
+	Exporter         string // OTEL_TRACES_EXPORTER: otlp (default) or gcp
+	Endpoint         string
+	TracesEndpoint   string
+	Insecure         bool
+	Headers          map[string]string
+	ServiceName      string
+	Environment      string
+	ServiceVersion   string
+	TracesSamplerArg float64
+	ShutdownTimeout  time.Duration
+	GORMEnabled      bool   // OTEL_GORM_ENABLED; auto-instruments GORM when tracing is enabled
+	GCPProjectID     string // OTEL_GCP_PROJECT_ID; falls back to GOOGLE_CLOUD_PROJECT
+	GCPPropagator    bool   // OTEL_GCP_PROPAGATOR; X-Cloud-Trace-Context propagation
 }
 
 // SentryConfiguration holds Sentry error reporting settings. Empty DSN disables Sentry.
 // Environment falls back to APP_ENV when unset.
 type SentryConfiguration struct {
-	DSN                string
-	Environment        string
-	Release            string
-	ServerName         string
-	Debug              bool
-	AttachStacktrace   bool
-	SampleRate         float64
-	TracesSampleRate   float64
-	FlushTimeout       time.Duration
+	DSN              string
+	Environment      string
+	Release          string
+	ServerName       string
+	Debug            bool
+	AttachStacktrace bool
+	SampleRate       float64
+	TracesSampleRate float64
+	FlushTimeout     time.Duration
 }
 
 // MTLSConfiguration holds mutual TLS settings for server listen and client verification.

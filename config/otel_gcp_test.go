@@ -7,10 +7,10 @@ import (
 
 func TestBuildConfigFromEnv_OpenTelemetryGCP(t *testing.T) {
 	envVars := map[string]string{
-		"OTEL_TRACES_EXPORTER":   "gcp",
-		"OTEL_GCP_PROJECT_ID":    "my-gcp-project",
-		"OTEL_GCP_PROPAGATOR":    "true",
-		"OTEL_SERVICE_NAME":      "api",
+		"OTEL_TRACES_EXPORTER": "gcp",
+		"OTEL_GCP_PROJECT_ID":  "my-gcp-project",
+		"OTEL_GCP_PROPAGATOR":  "true",
+		"OTEL_SERVICE_NAME":    "api",
 	}
 	for k, v := range envVars {
 		os.Setenv(k, v)

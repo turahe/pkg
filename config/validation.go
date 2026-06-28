@@ -44,4 +44,3 @@ func validateDatabaseConfig(dbConfig *DatabaseConfiguration, forSite bool) error
 func isEmptyOrPlaceholder(value string) bool {
 	return value == "" || invalidPlaceholders[value]
 }
-

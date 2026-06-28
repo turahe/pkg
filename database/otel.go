@@ -45,7 +45,9 @@ func dbSystemForDriver(driver string) string {
 
 func wrapConnectErr(err error, cleanup func() error) error {
 	if cleanup != nil {
-		_ = cleanup()
+		if cleanupErr := cleanup(); cleanupErr != nil {
+			return fmt.Errorf("otel gorm: %w (cleanup: %w)", err, cleanupErr)
+		}
 	}
 	return fmt.Errorf("otel gorm: %w", err)
 }

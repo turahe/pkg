@@ -34,7 +34,10 @@ func (c *BaseHandler) ValidateReqParams(ctx *gin.Context, requestParams interfac
 	case "":
 		// No Content-Type: bind query params then URI path params (e.g. /:id).
 		err = ctx.ShouldBindQuery(requestParams)
-		_ = ctx.ShouldBindUri(requestParams)
+		if err != nil {
+			return err
+		}
+		return ctx.ShouldBindUri(requestParams)
 	default:
 		err = ctx.ShouldBind(requestParams)
 	}

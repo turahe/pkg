@@ -7,13 +7,13 @@ import (
 
 func TestBuildConfigFromEnv_MTLS(t *testing.T) {
 	envVars := map[string]string{
-		"MTLS_ENABLED":        "true",
-		"MTLS_CA_CERT":        "/custom/ca.crt",
-		"MTLS_SERVER_CERT":    "/custom/server.crt",
-		"MTLS_SERVER_KEY":     "/custom/server.key",
-		"MTLS_CLIENT_CERT":    "/custom/client.crt",
-		"MTLS_CLIENT_KEY":     "/custom/client.key",
-		"MTLS_SKIP_PATHS":     "/live,/ready",
+		"MTLS_ENABLED":     "true",
+		"MTLS_CA_CERT":     "/custom/ca.crt",
+		"MTLS_SERVER_CERT": "/custom/server.crt",
+		"MTLS_SERVER_KEY":  "/custom/server.key",
+		"MTLS_CLIENT_CERT": "/custom/client.crt",
+		"MTLS_CLIENT_KEY":  "/custom/client.key",
+		"MTLS_SKIP_PATHS":  "/live,/ready",
 	}
 	for k, v := range envVars {
 		os.Setenv(k, v)

@@ -1,7 +1,9 @@
 package config
 
 import (
+	"errors"
 	"fmt"
+	"os"
 
 	"github.com/joho/godotenv"
 
@@ -22,11 +24,7 @@ var Config *Configuration
 // Setup returns an error if database validation fails (missing Dbname, Username,
 // Password, or CloudSQLInstance when driver is cloudsql-mysql/cloudsql-postgres).
 func Setup(configPath string) error {
-	if configPath != "" {
-		_ = godotenv.Load(configPath)
-	} else {
-		_ = godotenv.Load()
-	}
+	loadDotEnv(configPath)
 
 	logger.Infof("Config loaded from environment variables")
 
@@ -56,4 +54,17 @@ func GetConfig() *Configuration {
 		Config = buildConfigFromEnv()
 	}
 	return Config
+}
+
+// loadDotEnv loads variables from a .env file. A missing file is ignored; other read errors are logged.
+func loadDotEnv(configPath string) {
+	var err error
+	if configPath != "" {
+		err = godotenv.Load(configPath)
+	} else {
+		err = godotenv.Load()
+	}
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		logger.Warnf("Could not load env file: %v", err)
+	}
 }

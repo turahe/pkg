@@ -83,10 +83,10 @@ func connectCloudSQLPostgres(ctx context.Context, cfg *config.DatabaseConfigurat
 	configurePool(sqlDB, cfg, opts)
 	pingCtx, cancel := context.WithTimeout(ctx, opts.PingTimeout)
 	defer cancel()
-	if err := sqlDB.PingContext(pingCtx); err != nil {
+	if pingErr := sqlDB.PingContext(pingCtx); pingErr != nil {
 		sqlDB.Close()
 		dialer.Close()
-		return nil, nil, fmt.Errorf("ping: %w", err)
+		return nil, nil, fmt.Errorf("ping: %w", pingErr)
 	}
 	connType := "public_ip"
 	if opts.UsePrivateIP {
@@ -145,9 +145,9 @@ func connectCloudSQLMySQL(ctx context.Context, cfg *config.DatabaseConfiguration
 	configurePool(sqlDB, cfg, opts)
 	pingCtx, cancel := context.WithTimeout(ctx, opts.PingTimeout)
 	defer cancel()
-	if err := sqlDB.PingContext(pingCtx); err != nil {
+	if pingErr := sqlDB.PingContext(pingCtx); pingErr != nil {
 		sqlDB.Close()
-		return nil, nil, fmt.Errorf("ping: %w", err)
+		return nil, nil, fmt.Errorf("ping: %w", pingErr)
 	}
 	connType := "public_ip"
 	if opts.UsePrivateIP {
@@ -161,13 +161,16 @@ func connectCloudSQLMySQL(ctx context.Context, cfg *config.DatabaseConfiguration
 	})
 	sqlDBToClose := sqlDB
 	closeFn := func() error {
-		sqlDBToClose.Close()
+		if closeErr := sqlDBToClose.Close(); closeErr != nil {
+			return closeErr
+		}
+		var cleanupErr error
 		mysqlCleanupOnce.Do(func() {
 			if mysqlDriverCleanup != nil {
-				mysqlDriverCleanup()
+				cleanupErr = mysqlDriverCleanup()
 			}
 		})
-		return nil
+		return cleanupErr
 	}
 	return db, closeFn, nil
 }
