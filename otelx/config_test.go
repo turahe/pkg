@@ -8,12 +8,12 @@ import (
 
 func TestNormalizeExporter(t *testing.T) {
 	tests := map[string]string{
-		"":            exporterOTLP,
-		"otlp":        exporterOTLP,
-		"OTLP_HTTP":   exporterOTLP,
-		"gcp":         exporterGCP,
-		"google":      exporterGCP,
-		"cloudtrace":  exporterGCP,
+		"":           exporterOTLP,
+		"otlp":       exporterOTLP,
+		"OTLP_HTTP":  exporterOTLP,
+		"gcp":        exporterGCP,
+		"google":     exporterGCP,
+		"cloudtrace": exporterGCP,
 	}
 	for in, want := range tests {
 		if got := normalizeExporter(in); got != want {

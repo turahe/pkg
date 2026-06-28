@@ -1,8 +1,8 @@
 package otelx
 
 import (
-	"go.opentelemetry.io/otel/propagation"
 	gcppropagator "github.com/GoogleCloudPlatform/opentelemetry-operations-go/propagator"
+	"go.opentelemetry.io/otel/propagation"
 )
 
 func buildTextMapPropagator(useGCP bool) propagation.TextMapPropagator {

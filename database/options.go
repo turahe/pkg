@@ -21,15 +21,15 @@ const (
 
 // Options holds database connection and pool settings. applyDefaults fills zero values with package defaults.
 type Options struct {
-	UseIAM       bool
-	UsePrivateIP bool
-	LogLevel     logger.LogLevel
-	MaxOpenConns int
-	MaxIdleConns int
-	ConnMaxLife  time.Duration
-	ConnMaxIdle  time.Duration
+	UseIAM        bool
+	UsePrivateIP  bool
+	LogLevel      logger.LogLevel
+	MaxOpenConns  int
+	MaxIdleConns  int
+	ConnMaxLife   time.Duration
+	ConnMaxIdle   time.Duration
 	SlowThreshold time.Duration
-	PingTimeout  time.Duration
+	PingTimeout   time.Duration
 	// EnableOpenTelemetry registers the GORM OTel plugin after connect.
 	// When false, auto-enables if OTEL_GORM_ENABLED=true and OTLP endpoint is set.
 	EnableOpenTelemetry bool

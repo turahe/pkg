@@ -8,12 +8,12 @@ import (
 
 func TestDBSystemForDriver(t *testing.T) {
 	tests := map[string]string{
-		"mysql":            "mysql",
-		"cloudsql-mysql":   "mysql",
-		"postgres":         "postgresql",
+		"mysql":             "mysql",
+		"cloudsql-mysql":    "mysql",
+		"postgres":          "postgresql",
 		"cloudsql-postgres": "postgresql",
-		"sqlite":           "sqlite",
-		"sqlserver":        "mssql",
+		"sqlite":            "sqlite",
+		"sqlserver":         "mssql",
 	}
 	for driver, want := range tests {
 		if got := dbSystemForDriver(driver); got != want {

@@ -171,8 +171,8 @@ func TestFintechLogger_Trace_OtherError(t *testing.T) {
 func TestFintechLogger_Trace_SlowQuery(t *testing.T) {
 	ctx := context.Background()
 	l := NewFintechLogger(logger.Config{
-		LogLevel:       logger.Info,
-		SlowThreshold:  10 * time.Millisecond,
+		LogLevel:      logger.Info,
+		SlowThreshold: 10 * time.Millisecond,
 	}).(*fintechLogger)
 	begin := time.Now().Add(-50 * time.Millisecond) // 50ms ago
 	fc := func() (string, int64) { return "SELECT * FROM large_table", 1000 }
@@ -183,8 +183,8 @@ func TestFintechLogger_Trace_SlowQuery(t *testing.T) {
 func TestFintechLogger_Trace_Success(t *testing.T) {
 	ctx := context.Background()
 	l := NewFintechLogger(logger.Config{
-		LogLevel:       logger.Info,
-		SlowThreshold:  time.Second,
+		LogLevel:      logger.Info,
+		SlowThreshold: time.Second,
 	}).(*fintechLogger)
 	begin := time.Now()
 	fc := func() (string, int64) { return "SELECT id FROM users", 5 }

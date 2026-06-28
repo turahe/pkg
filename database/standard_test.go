@@ -9,9 +9,9 @@ import (
 
 func TestBuildDSN(t *testing.T) {
 	tests := []struct {
-		name    string
-		cfg     *config.DatabaseConfiguration
-		wantErr bool
+		name     string
+		cfg      *config.DatabaseConfiguration
+		wantErr  bool
 		contains []string
 	}{
 		{

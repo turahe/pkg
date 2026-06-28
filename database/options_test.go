@@ -35,13 +35,13 @@ func TestOptions_ApplyDefaults(t *testing.T) {
 
 func TestOptions_ApplyDefaults_RespectsExplicit(t *testing.T) {
 	opts := &Options{
-		MaxOpenConns:    50,
-		MaxIdleConns:    20,
-		ConnMaxLife:     time.Hour,
-		ConnMaxIdle:     15 * time.Minute,
-		SlowThreshold:   time.Second,
-		PingTimeout:     10 * time.Second,
-		LogLevel:        logger.Info,
+		MaxOpenConns:  50,
+		MaxIdleConns:  20,
+		ConnMaxLife:   time.Hour,
+		ConnMaxIdle:   15 * time.Minute,
+		SlowThreshold: time.Second,
+		PingTimeout:   10 * time.Second,
+		LogLevel:      logger.Info,
 	}
 	opts.applyDefaults()
 	if opts.MaxOpenConns != 50 {

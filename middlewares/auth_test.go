@@ -24,8 +24,8 @@ func initTestJWT(t *testing.T) *jwt.Manager {
 		Server: config.ServerConfiguration{
 			JWTSigningAlgorithm: "HS256",
 			Secret:              "test-secret-key-for-auth-middleware-tests",
-			AccessTokenExpiry:    1,
-			RefreshTokenExpiry:   7,
+			AccessTokenExpiry:   1,
+			RefreshTokenExpiry:  7,
 		},
 	}
 	manager, err := jwt.NewManager(context.Background(), config.Config)
@@ -244,10 +244,10 @@ func TestAuthMiddleware_ImpersonationContext(t *testing.T) {
 		impersonatorRole, _ := c.Get("impersonator_role")
 
 		c.JSON(http.StatusOK, gin.H{
-			"user_id":          userID,
-			"original_user_id": originalUserID,
-			"is_impersonating": isImpersonating,
-			"impersonator_id":  impersonatorID,
+			"user_id":           userID,
+			"original_user_id":  originalUserID,
+			"is_impersonating":  isImpersonating,
+			"impersonator_id":   impersonatorID,
 			"impersonator_role": impersonatorRole,
 		})
 	})
@@ -272,4 +272,3 @@ func TestAuthMiddleware_ImpersonationContext(t *testing.T) {
 	assert.Equal(t, adminID.String(), resp["impersonator_id"])
 	assert.Equal(t, "admin", resp["impersonator_role"])
 }
-

@@ -30,8 +30,8 @@ func testManagerHS256(t *testing.T) *Manager {
 		Server: config.ServerConfiguration{
 			JWTSigningAlgorithm: "HS256",
 			Secret:              "test-secret-key-for-jwt-tests",
-			AccessTokenExpiry:    1,
-			RefreshTokenExpiry:   7,
+			AccessTokenExpiry:   1,
+			RefreshTokenExpiry:  7,
 		},
 	}
 	m, err := NewManager(context.Background(), cfg)
@@ -242,8 +242,8 @@ func setupRS256Config(t *testing.T) *Manager {
 	cfg := &config.Configuration{
 		Server: config.ServerConfiguration{
 			JWTSigningAlgorithm: "RS256",
-			JWTPrivateKey:        privPath,
-			JWTPublicKey:         pubPath,
+			JWTPrivateKey:       privPath,
+			JWTPublicKey:        pubPath,
 			AccessTokenExpiry:   1,
 			RefreshTokenExpiry:  7,
 		},
@@ -289,8 +289,8 @@ func setupES256Config(t *testing.T) *Manager {
 	cfg := &config.Configuration{
 		Server: config.ServerConfiguration{
 			JWTSigningAlgorithm: "ES256",
-			JWTPrivateKey:        privPath,
-			JWTPublicKey:         pubPath,
+			JWTPrivateKey:       privPath,
+			JWTPublicKey:        pubPath,
 			AccessTokenExpiry:   1,
 			RefreshTokenExpiry:  7,
 		},
@@ -348,11 +348,11 @@ func TestManager_IssuerAudienceAndKid(t *testing.T) {
 		Server: config.ServerConfiguration{
 			JWTSigningAlgorithm: "HS256",
 			Secret:              "test-secret",
-			AccessTokenExpiry:    1,
-			RefreshTokenExpiry:   7,
-			JWTIssuer:            "https://api.example.com",
-			JWTAudience:          "api.example.com,web.example.com",
-			JWTKeyID:             "key-2024",
+			AccessTokenExpiry:   1,
+			RefreshTokenExpiry:  7,
+			JWTIssuer:           "https://api.example.com",
+			JWTAudience:         "api.example.com,web.example.com",
+			JWTKeyID:            "key-2024",
 		},
 	}
 	m, err := NewManager(context.Background(), cfg)

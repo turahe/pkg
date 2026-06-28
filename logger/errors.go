@@ -17,7 +17,7 @@ func (c *Ctx) ErrorStructured(err error) {
 	cfg := globalCfg.get()
 	fields := Fields{
 		"error_type": typeOf(err),
-		"error":       err.Error(),
+		"error":      err.Error(),
 	}
 	if cfg.ErrorStacktrace {
 		fields["stacktrace"] = string(debug.Stack())
