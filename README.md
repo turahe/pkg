@@ -36,6 +36,8 @@ A collection of production-ready Go packages for building web services: database
 - [Testing](#testing)
 - [License](#license)
 
+**Full guides:** [`docs/`](docs/README.md) — getting started, architecture, environment reference, and per-package docs.
+
 ---
 
 ## Installation
@@ -655,6 +657,16 @@ repo.SimplePagination(ctx, &model, &out, page, size, conditions, orders, "User",
 
 ## Documentation
 
+Human-readable guides are in [`docs/`](docs/README.md):
+
+| Guide | Description |
+|-------|-------------|
+| [Getting Started](docs/getting-started.md) | Install, configure, minimal Gin wiring |
+| [Architecture](docs/architecture.md) | Clean architecture layers and dependency rules |
+| [Environment Variables](docs/environment.md) | Env var reference (see also [`.env.example`](.env.example)) |
+| [Development](docs/development.md) | Tests, lint, Docker, Makefile |
+| [Packages](docs/README.md#packages) | Per-package guides for all modules |
+
 All packages follow GoDoc conventions:
 
 - Each package has a **`doc.go`** describing its role, responsibilities, constraints, and what it must not do.
@@ -1037,7 +1049,7 @@ See [`mtls`](#mtls) for server/client wiring examples.
 
 ## Production Wiring Example
 
-See [`cmd/example/main.go`](cmd/example/main.go) for a complete wiring of:
+See [Getting Started](docs/getting-started.md) for a minimal server, and the **Usage** section above for a fuller example. A complete production wiring typically includes:
 
 - `config.Setup` and optional `otelx` / `sentryx` initialization
 - Dependency-injected database with health check and optional GORM tracing

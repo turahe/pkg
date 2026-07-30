@@ -1,9 +1,3 @@
-// Package otelx wraps OpenTelemetry trace setup with configuration from config
-// so the rest of the service doesn't need to know about OTel's surface area.
-//
-// Settings are loaded via config.GetConfig().OpenTelemetry (or config.Setup).
-// Tracing is disabled when OTEL_TRACES_EXPORTER=otlp and OTLP endpoint is empty.
-// Set OTEL_TRACES_EXPORTER=gcp to export directly to Google Cloud Trace via ADC.
 package otelx
 
 import (

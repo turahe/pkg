@@ -57,7 +57,7 @@ tidy: ## Tidy and verify go.mod / go.sum
 	$(GO) mod verify
 
 # ── Docker image ──────────────────────────────────────────────────────────────
-docker-build: ## Build the production Docker image for cmd/example
+docker-build: ## Build a sample production Docker image (see Dockerfile)
 	docker build -t turahe/pkg-example:latest .
 
 # ── Clean ─────────────────────────────────────────────────────────────────────

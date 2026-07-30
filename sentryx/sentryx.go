@@ -1,9 +1,3 @@
-// Package sentryx wraps github.com/getsentry/sentry-go with configuration from config
-// so the rest of the service doesn't need to know about Sentry's surface area.
-//
-// Settings are loaded via config.GetConfig().Sentry (or config.Setup).
-// SENTRY_DSN being empty is the explicit "Sentry is off" signal — Init becomes a
-// no-op and Flush returns immediately.
 package sentryx
 
 import (
