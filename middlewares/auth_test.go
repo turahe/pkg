@@ -2,9 +2,15 @@ package middlewares
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -20,10 +26,24 @@ import (
 
 func initTestJWT(t *testing.T) *jwt.Manager {
 	t.Helper()
+	dir := t.TempDir()
+	privPath := filepath.Join(dir, "priv.pem")
+	pubPath := filepath.Join(dir, "pub.pem")
+
+	priv, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+	privPEM := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(priv)})
+	require.NoError(t, os.WriteFile(privPath, privPEM, 0600))
+	pubDER, err := x509.MarshalPKIXPublicKey(&priv.PublicKey)
+	require.NoError(t, err)
+	pubPEM := pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: pubDER})
+	require.NoError(t, os.WriteFile(pubPath, pubPEM, 0644))
+
 	config.Config = &config.Configuration{
 		Server: config.ServerConfiguration{
-			JWTSigningAlgorithm: "HS256",
-			Secret:              "test-secret-key-for-auth-middleware-tests",
+			JWTSigningAlgorithm: "RS256",
+			JWTPrivateKey:       privPath,
+			JWTPublicKey:        pubPath,
 			AccessTokenExpiry:   1,
 			RefreshTokenExpiry:  7,
 		},

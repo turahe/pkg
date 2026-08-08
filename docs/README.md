@@ -21,7 +21,7 @@ API reference lives on [pkg.go.dev](https://pkg.go.dev/github.com/turahe/pkg). E
 | [database](packages/database.md) | Infrastructure | GORM + Cloud SQL, pool, health |
 | [redis](packages/redis.md) | Infrastructure | Standalone / cluster Redis client |
 | [logger](packages/logger.md) | Infrastructure | Structured slog + Cloud Trace fields |
-| [jwt](packages/jwt.md) | Infrastructure | JWT sign / verify (HS256 / RS256 / ES256) |
+| [jwt](packages/jwt.md) | Infrastructure | JWT sign / verify (RS256 / ES256) |
 | [crypto](packages/crypto.md) | Infrastructure | bcrypt password helpers |
 | [gcs](packages/gcs.md) | Infrastructure | Google Cloud Storage client |
 | [otelx](packages/otelx.md) | Infrastructure | OpenTelemetry tracing (OTLP / GCP) |

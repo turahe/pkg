@@ -29,6 +29,7 @@ const (
 
 // Manager holds JWT signing and verification configuration. Create with NewManager for all-in-one use.
 // For split services use NewSigner (auth server) and NewVerifier (API servers).
+// Supported algorithms: RS256 (default) and ES256.
 type Manager struct {
 	signingMethod jwt.SigningMethod
 	signKey       any
@@ -40,7 +41,7 @@ type Manager struct {
 	kid           string
 }
 
-// Signer issues JWTs (private key or secret only). Use for auth/login services.
+// Signer issues JWTs (private key only). Use for auth/login services.
 type Signer struct {
 	signingMethod jwt.SigningMethod
 	signKey       any
@@ -51,7 +52,7 @@ type Signer struct {
 	kid           string
 }
 
-// Verifier validates JWTs (public key or secret only). Use for API/gateway services that only verify.
+// Verifier validates JWTs (public key only). Use for API/gateway services that only verify.
 type Verifier struct {
 	signingMethod jwt.SigningMethod
 	verifyKey     any
@@ -78,19 +79,16 @@ type Claims struct {
 	OriginalSub      string `json:"original_sub,omitempty"`
 }
 
-// NewManager builds a JWT Manager from config: loads secret or keys from env or file paths.
+// NewManager builds a JWT Manager from config: loads asymmetric keys from env, file paths, or embedded PEM.
 // Returns an error instead of panicking when config is invalid or keys cannot be loaded.
 func NewManager(ctx context.Context, conf *config.Configuration) (*Manager, error) {
 	if conf == nil {
 		return nil, errors.New("config is required")
 	}
 
-	alg := strings.ToUpper(strings.TrimSpace(conf.Server.JWTSigningAlgorithm))
-	if alg == "" {
-		alg = "RS256"
-	}
-	if alg != "HS256" && alg != "RS256" && alg != "ES256" {
-		return nil, fmt.Errorf("JWT signing algorithm must be HS256, RS256, or ES256; got %q", alg)
+	alg, err := normalizeSigningAlgorithm(conf.Server.JWTSigningAlgorithm)
+	if err != nil {
+		return nil, err
 	}
 
 	m := &Manager{
@@ -120,17 +118,14 @@ func NewManager(ctx context.Context, conf *config.Configuration) (*Manager, erro
 	return m, nil
 }
 
-// NewSigner builds a JWT Signer from config (loads only private key or secret). Use for auth services that issue tokens.
+// NewSigner builds a JWT Signer from config (loads only the private key). Use for auth services that issue tokens.
 func NewSigner(ctx context.Context, conf *config.Configuration) (*Signer, error) {
 	if conf == nil {
 		return nil, errors.New("config is required")
 	}
-	alg := strings.ToUpper(strings.TrimSpace(conf.Server.JWTSigningAlgorithm))
-	if alg == "" {
-		alg = "RS256"
-	}
-	if alg != "HS256" && alg != "RS256" && alg != "ES256" {
-		return nil, fmt.Errorf("JWT signing algorithm must be HS256, RS256, or ES256; got %q", alg)
+	alg, err := normalizeSigningAlgorithm(conf.Server.JWTSigningAlgorithm)
+	if err != nil {
+		return nil, err
 	}
 	s := &Signer{
 		accessExpiry:  time.Hour,
@@ -163,12 +158,6 @@ func (s *Signer) loadSignKey(ctx context.Context, conf *config.Configuration, al
 
 func (s *Signer) loadSignKeyFromEnvOrFiles(conf *config.Configuration, alg string) error {
 	switch alg {
-	case "HS256":
-		if conf.Server.Secret == "" {
-			return errors.New("JWT secret is not configured (required for HS256). Set SERVER_SECRET")
-		}
-		s.signingMethod = jwt.SigningMethodHS256
-		s.signKey = []byte(conf.Server.Secret)
 	case "RS256":
 		key, err := getPrivateKey(conf)
 		if err != nil {
@@ -189,21 +178,20 @@ func (s *Signer) loadSignKeyFromEnvOrFiles(conf *config.Configuration, alg strin
 		}
 		s.signingMethod = jwt.SigningMethodES256
 		s.signKey = key
+	default:
+		return fmt.Errorf("JWT signing algorithm must be RS256 or ES256; got %q", alg)
 	}
 	return nil
 }
 
-// NewVerifier builds a JWT Verifier from config (loads only public key or secret). Use for API services that only validate tokens.
+// NewVerifier builds a JWT Verifier from config (loads only the public key). Use for API services that only validate tokens.
 func NewVerifier(ctx context.Context, conf *config.Configuration) (*Verifier, error) {
 	if conf == nil {
 		return nil, errors.New("config is required")
 	}
-	alg := strings.ToUpper(strings.TrimSpace(conf.Server.JWTSigningAlgorithm))
-	if alg == "" {
-		alg = "RS256"
-	}
-	if alg != "HS256" && alg != "RS256" && alg != "ES256" {
-		return nil, fmt.Errorf("JWT signing algorithm must be HS256, RS256, or ES256; got %q", alg)
+	alg, err := normalizeSigningAlgorithm(conf.Server.JWTSigningAlgorithm)
+	if err != nil {
+		return nil, err
 	}
 	v := &Verifier{kid: strings.TrimSpace(conf.Server.JWTKeyID)}
 	if err := v.loadVerifyKey(ctx, conf, alg); err != nil {
@@ -218,12 +206,6 @@ func (v *Verifier) loadVerifyKey(ctx context.Context, conf *config.Configuration
 
 func (v *Verifier) loadVerifyKeyFromEnvOrFiles(conf *config.Configuration, alg string) error {
 	switch alg {
-	case "HS256":
-		if conf.Server.Secret == "" {
-			return errors.New("JWT secret is not configured (required for HS256). Set SERVER_SECRET")
-		}
-		v.signingMethod = jwt.SigningMethodHS256
-		v.verifyKey = []byte(conf.Server.Secret)
 	case "RS256":
 		key, err := getPublicKey(conf)
 		if err != nil {
@@ -244,6 +226,8 @@ func (v *Verifier) loadVerifyKeyFromEnvOrFiles(conf *config.Configuration, alg s
 		}
 		v.signingMethod = jwt.SigningMethodES256
 		v.verifyKey = key
+	default:
+		return fmt.Errorf("JWT signing algorithm must be RS256 or ES256; got %q", alg)
 	}
 	return nil
 }
@@ -351,16 +335,23 @@ func (s *Signer) GenerateImpersonationToken(adminID uuid.UUID, adminRole string,
 	return s.signToken(claims)
 }
 
+// normalizeSigningAlgorithm returns RS256 or ES256. Empty defaults to RS256. HS256 and other algs are rejected.
+func normalizeSigningAlgorithm(raw string) (string, error) {
+	alg := strings.ToUpper(strings.TrimSpace(raw))
+	if alg == "" {
+		return "RS256", nil
+	}
+	if alg == "HS256" {
+		return "", errors.New("JWT HS256 is no longer supported; use RS256 or ES256")
+	}
+	if alg != "RS256" && alg != "ES256" {
+		return "", fmt.Errorf("JWT signing algorithm must be RS256 or ES256; got %q", alg)
+	}
+	return alg, nil
+}
+
 func (m *Manager) loadFromEnvOrFiles(conf *config.Configuration, alg string) error {
 	switch alg {
-	case "HS256":
-		secret := conf.Server.Secret
-		if secret == "" {
-			return errors.New("JWT secret is not configured (required for HS256). Set SERVER_SECRET")
-		}
-		m.signingMethod = jwt.SigningMethodHS256
-		m.signKey = []byte(secret)
-		m.verifyKey = []byte(secret)
 	case "RS256":
 		privateKey, err := getPrivateKey(conf)
 		if err != nil {
@@ -401,6 +392,8 @@ func (m *Manager) loadFromEnvOrFiles(conf *config.Configuration, alg string) err
 		m.signingMethod = jwt.SigningMethodES256
 		m.signKey = ecPrivate
 		m.verifyKey = ecPublic
+	default:
+		return fmt.Errorf("JWT signing algorithm must be RS256 or ES256; got %q", alg)
 	}
 	return nil
 }

@@ -258,7 +258,6 @@ func TestBuildConfigFromEnv_AllSections(t *testing.T) {
 	// Set comprehensive environment variables
 	envVars := map[string]string{
 		"SERVER_PORT":                      "3000",
-		"SERVER_SECRET":                    "test-secret",
 		"SERVER_MODE":                      "release",
 		"SERVER_ACCESS_TOKEN_EXPIRY":       "2",
 		"SERVER_REFRESH_TOKEN_EXPIRY":      "14",
@@ -314,9 +313,6 @@ func TestBuildConfigFromEnv_AllSections(t *testing.T) {
 	// Test Server configuration
 	if cfg.Server.Port != "3000" {
 		t.Errorf("Server.Port = %q, want 3000", cfg.Server.Port)
-	}
-	if cfg.Server.Secret != "test-secret" {
-		t.Errorf("Server.Secret = %q, want test-secret", cfg.Server.Secret)
 	}
 	if cfg.Server.Mode != "release" {
 		t.Errorf("Server.Mode = %q, want release", cfg.Server.Mode)

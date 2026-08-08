@@ -479,7 +479,7 @@ response.CursorPaginated(ctx, data, nextCursor, hasNext)
 
 ### `jwt`
 
-JWT token generation and validation with **HS256**, **RS256** (default), or **ES256**. Keys are loaded from config (env, file paths, or embedded PEM). No global state: use **Manager** (sign + verify), **Signer** (issue tokens only), or **Verifier** (validate only). Supports issuer, audience, key ID (kid), and token type (access, refresh, impersonation).
+JWT token generation and validation with **RS256** (default) or **ES256**. Keys are loaded from config (env, file paths, or embedded PEM). No global state: use **Manager** (sign + verify), **Signer** (issue tokens only), or **Verifier** (validate only). Supports issuer, audience, key ID (kid), and token type (access, refresh, impersonation). HS256 is not supported.
 
 **All-in-one (single service):**
 ```go
@@ -495,13 +495,13 @@ claims, _ := manager.ValidateToken(tokenString)
 
 **Split services (auth server issues, API server only verifies):**
 ```go
-// Auth/login service — needs private key or secret
+// Auth/login service — needs private key
 signer, err := jwt.NewSigner(ctx, config.GetConfig())
 token, _ := signer.GenerateToken(userID)
 refresh, _ := signer.GenerateRefreshToken(userID)
 impersonation, _ := signer.GenerateImpersonationToken(adminID, "admin", targetID, 15*time.Minute)
 
-// API/gateway service — needs only public key or secret
+// API/gateway service — needs only public key
 verifier, err := jwt.NewVerifier(ctx, config.GetConfig())
 router.Use(middlewares.AuthMiddleware(verifier))  // TokenVerifier interface
 claims, _ := verifier.ValidateToken(tokenString)
@@ -511,8 +511,8 @@ claims, _ := verifier.ValidateToken(tokenString)
 | Symbol | Description |
 |--------|-------------|
 | `jwt.NewManager(ctx, cfg)` | All-in-one; loads sign + verify keys; returns error |
-| `jwt.NewSigner(ctx, cfg)` | Signing only (private key or secret) |
-| `jwt.NewVerifier(ctx, cfg)` | Verification only (public key or secret) |
+| `jwt.NewSigner(ctx, cfg)` | Signing only (private key) |
+| `jwt.NewVerifier(ctx, cfg)` | Verification only (public key) |
 | `jwt.TokenVerifier` | Interface: `ValidateToken(string) (*Claims, error)`; implemented by *Manager and *Verifier |
 | `manager.GenerateToken(id)` | Access token (default expiry) |
 | `manager.GenerateTokenWithExpiry(id, expiry)` | Access token with custom expiry |
@@ -522,7 +522,7 @@ claims, _ := verifier.ValidateToken(tokenString)
 | `jwt.ComparePassword(hashed, plain)` | bcrypt comparison |
 | `jwt.GetCurrentUserUUID(ctx)` | Read `user_id` from Gin context (set by AuthMiddleware) |
 
-**Config / env:** Default algorithm is **RS256**. For HS256 set `JWT_SIGNING_ALGORITHM=HS256` and `SERVER_SECRET`. For RS256/ES256 set `JWT_PRIVATE_KEY` and `JWT_PUBLIC_KEY` (file path or inline PEM), or embed keys and assign to config before calling `NewManager`/`NewSigner`/`NewVerifier`. Optional: `JWT_ISSUER`, `JWT_AUDIENCE`, `JWT_KEY_ID`.
+**Config / env:** Default algorithm is **RS256**. Set `JWT_PRIVATE_KEY` and `JWT_PUBLIC_KEY` (file path or inline PEM), or embed keys and assign to config before calling `NewManager`/`NewSigner`/`NewVerifier`. Optional: `JWT_ISSUER`, `JWT_AUDIENCE`, `JWT_KEY_ID`.
 
 **Embed keys (no file paths):** Put PEM files in a package (e.g. `keys/`) and embed them; then set config so the JWT package uses the embedded bytes instead of paths:
 
@@ -874,7 +874,6 @@ cp .env.example .env
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `SERVER_PORT` | `8080` | HTTP listen port |
-| `SERVER_SECRET` | — | JWT secret for **HS256** only; required when `JWT_SIGNING_ALGORITHM=HS256` |
 | `SERVER_MODE` | `debug` | Gin mode: `debug`, `release`, `test` |
 | `SERVER_ACCESS_TOKEN_EXPIRY` | `1` | Access token lifetime (hours) |
 | `SERVER_REFRESH_TOKEN_EXPIRY` | `7` | Refresh token lifetime (days) |
@@ -896,7 +895,7 @@ Allowed headers include `Authorization`, `X-CSRF-Token`, and `X-2FA-Code`.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `JWT_SIGNING_ALGORITHM` | **`RS256`** | `HS256` · `RS256` · `ES256` |
+| `JWT_SIGNING_ALGORITHM` | **`RS256`** | `RS256` · `ES256` (HS256 removed) |
 | `JWT_PRIVATE_KEY` | — | File path or inline PEM private key (RS256/ES256) |
 | `JWT_PUBLIC_KEY` | — | File path or inline PEM public key (RS256/ES256) |
 | `JWT_ISSUER` | — | Issuer (`iss`) claim |

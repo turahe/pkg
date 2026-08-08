@@ -24,23 +24,13 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-func testManagerHS256(t *testing.T) *Manager {
+func testManager(t *testing.T) *Manager {
 	t.Helper()
-	cfg := &config.Configuration{
-		Server: config.ServerConfiguration{
-			JWTSigningAlgorithm: "HS256",
-			Secret:              "test-secret-key-for-jwt-tests",
-			AccessTokenExpiry:   1,
-			RefreshTokenExpiry:  7,
-		},
-	}
-	m, err := NewManager(context.Background(), cfg)
-	require.NoError(t, err)
-	return m
+	return setupRS256Config(t)
 }
 
 func TestGenerateTokenWithExpiry_and_ValidateToken(t *testing.T) {
-	m := testManagerHS256(t)
+	m := testManager(t)
 
 	id := uuid.MustParse("550e8400-e29b-41d4-a716-446655440000")
 
@@ -63,7 +53,7 @@ func TestGenerateTokenWithExpiry_and_ValidateToken(t *testing.T) {
 }
 
 func TestGenerateImpersonationToken_Claims(t *testing.T) {
-	m := testManagerHS256(t)
+	m := testManager(t)
 
 	adminID := uuid.MustParse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
 	targetID := uuid.MustParse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")
@@ -90,7 +80,7 @@ func TestGenerateImpersonationToken_Claims(t *testing.T) {
 }
 
 func TestValidateToken_Invalid(t *testing.T) {
-	m := testManagerHS256(t)
+	m := testManager(t)
 
 	_, err := m.ValidateToken("invalid-token")
 	if err == nil {
@@ -99,7 +89,7 @@ func TestValidateToken_Invalid(t *testing.T) {
 }
 
 func TestValidateToken_Empty(t *testing.T) {
-	m := testManagerHS256(t)
+	m := testManager(t)
 
 	_, err := m.ValidateToken("")
 	if err == nil {
@@ -323,31 +313,43 @@ func TestNewManager_InvalidAlgorithm(t *testing.T) {
 	cfg := &config.Configuration{
 		Server: config.ServerConfiguration{
 			JWTSigningAlgorithm: "HS512",
-			Secret:              "secret",
 		},
 	}
 	_, err := NewManager(context.Background(), cfg)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "HS256, RS256, or ES256")
+	assert.Contains(t, err.Error(), "RS256 or ES256")
 }
 
-func TestNewManager_HS256_NoSecret(t *testing.T) {
+func TestNewManager_HS256_Rejected(t *testing.T) {
 	cfg := &config.Configuration{
 		Server: config.ServerConfiguration{
 			JWTSigningAlgorithm: "HS256",
-			Secret:              "",
 		},
 	}
 	_, err := NewManager(context.Background(), cfg)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "secret is not configured")
+	assert.Contains(t, err.Error(), "HS256 is no longer supported")
 }
 
 func TestManager_IssuerAudienceAndKid(t *testing.T) {
+	dir := t.TempDir()
+	privPath := filepath.Join(dir, "priv.pem")
+	pubPath := filepath.Join(dir, "pub.pem")
+
+	priv, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+	privPEM := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(priv)})
+	require.NoError(t, os.WriteFile(privPath, privPEM, 0600))
+	pubDER, err := x509.MarshalPKIXPublicKey(&priv.PublicKey)
+	require.NoError(t, err)
+	pubPEM := pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: pubDER})
+	require.NoError(t, os.WriteFile(pubPath, pubPEM, 0644))
+
 	cfg := &config.Configuration{
 		Server: config.ServerConfiguration{
-			JWTSigningAlgorithm: "HS256",
-			Secret:              "test-secret",
+			JWTSigningAlgorithm: "RS256",
+			JWTPrivateKey:       privPath,
+			JWTPublicKey:        pubPath,
 			AccessTokenExpiry:   1,
 			RefreshTokenExpiry:  7,
 			JWTIssuer:           "https://api.example.com",
@@ -367,14 +369,26 @@ func TestManager_IssuerAudienceAndKid(t *testing.T) {
 	assert.Equal(t, "https://api.example.com", claims.Issuer)
 	assert.ElementsMatch(t, []string{"api.example.com", "web.example.com"}, claims.Audience)
 	assert.Equal(t, TokenTypeAccess, claims.TokenType)
-	// kid is in header; validation passes so kid matched
 }
 
 func TestNewSigner_NewVerifier_Split(t *testing.T) {
+	dir := t.TempDir()
+	privPath := filepath.Join(dir, "priv.pem")
+	pubPath := filepath.Join(dir, "pub.pem")
+	priv, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+	privPEM := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(priv)})
+	require.NoError(t, os.WriteFile(privPath, privPEM, 0600))
+	pubDER, err := x509.MarshalPKIXPublicKey(&priv.PublicKey)
+	require.NoError(t, err)
+	pubPEM := pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: pubDER})
+	require.NoError(t, os.WriteFile(pubPath, pubPEM, 0644))
+
 	cfg := &config.Configuration{
 		Server: config.ServerConfiguration{
-			JWTSigningAlgorithm: "HS256",
-			Secret:              "split-test-secret",
+			JWTSigningAlgorithm: "RS256",
+			JWTPrivateKey:       privPath,
+			JWTPublicKey:        pubPath,
 			AccessTokenExpiry:   1,
 			RefreshTokenExpiry:  7,
 		},
@@ -395,11 +409,10 @@ func TestNewSigner_NewVerifier_Split(t *testing.T) {
 }
 
 func TestDefaultAlgorithm_RS256(t *testing.T) {
-	// Empty algorithm defaults to RS256, so secret-only config fails (RS256 needs key paths).
+	// Empty algorithm defaults to RS256, so config without keys fails.
 	cfg := &config.Configuration{
 		Server: config.ServerConfiguration{
 			JWTSigningAlgorithm: "",
-			Secret:              "some-secret",
 		},
 	}
 	_, err := NewManager(context.Background(), cfg)

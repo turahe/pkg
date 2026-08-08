@@ -1,6 +1,6 @@
 # jwt
 
-JWT generation and validation with HS256, RS256 (default), or ES256. Keys from env (path or inline PEM), or embedded PEM bytes on `config.Server`.
+JWT generation and validation with RS256 (default) or ES256. Keys from env (path or inline PEM), or embedded PEM bytes on `config.Server`. HS256 is not supported.
 
 **Import:** `github.com/turahe/pkg/jwt`
 
@@ -21,10 +21,10 @@ Infrastructure for auth middleware and login handlers. No use-case logic; no glo
 ## Tokens
 
 ```go
-m, err := jwt.NewManager(ctx, cfg.Server)
-token, err := m.GenerateToken(userID, roles, extras)
+m, err := jwt.NewManager(ctx, cfg)
+token, err := m.GenerateToken(userID)
 refresh, err := m.GenerateRefreshToken(userID)
-imp, err := m.GenerateImpersonationToken(actorID, targetID, roles) // TTL capped at 30m
+imp, err := m.GenerateImpersonationToken(adminID, "admin", targetID, 15*time.Minute) // TTL capped at 30m
 claims, err := m.ValidateToken(tokenString)
 ```
 
@@ -34,10 +34,9 @@ Also: `ComparePassword` (bcrypt), `GetCurrentUserUUID(c *gin.Context)`.
 
 ## Key loading
 
-1. `JWT_SIGNING_ALGORITHM` — default `RS256`
-2. HS256 → `SERVER_SECRET`
-3. RS256/ES256 → `JWT_PRIVATE_KEY` / `JWT_PUBLIC_KEY` (file path **or** inline PEM containing `-----BEGIN`)
-4. Or set `Server.JWTPrivateKeyPEM` / `JWTPublicKeyPEM` (e.g. `//go:embed`) before `New*`
+1. `JWT_SIGNING_ALGORITHM` — default `RS256` (`ES256` also supported; `HS256` rejected)
+2. `JWT_PRIVATE_KEY` / `JWT_PUBLIC_KEY` (file path **or** inline PEM containing `-----BEGIN`)
+3. Or set `Server.JWTPrivateKeyPEM` / `JWTPublicKeyPEM` (e.g. `//go:embed`) before `New*`
 
 Optional claims: `JWT_ISSUER`, `JWT_AUDIENCE`, `JWT_KEY_ID`.
 

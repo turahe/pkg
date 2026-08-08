@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.4] - 2026-08-09
+
+### Removed
+
+- **JWT HS256**: Symmetric JWT signing is no longer supported. Use `RS256` (default) or `ES256` with `JWT_PRIVATE_KEY` / `JWT_PUBLIC_KEY` (or embedded PEM). Setting `JWT_SIGNING_ALGORITHM=HS256` now returns an error.
+- **`SERVER_SECRET` / `config.Server.Secret`**: Removed. JWT no longer uses a shared secret; configure asymmetric keys only.
+
 ## [0.3.7] - 2026-02-28
 
 ### Added
@@ -36,6 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **crypto.ComparePassword**: When the stored hash is empty or shorter than 60 characters (invalid bcrypt), the function now returns `false` without calling bcrypt or logging an error, avoiding `crypto/bcrypt: hashedSecret too short` errors and log noise.
 
-[Unreleased]: https://github.com/turahe/pkg/compare/v0.3.7...HEAD
+[Unreleased]: https://github.com/turahe/pkg/compare/v0.5.4...HEAD
+[0.5.4]: https://github.com/turahe/pkg/compare/v0.5.3...v0.5.4
 [0.3.7]: https://github.com/turahe/pkg/releases/tag/v0.3.7
 [0.3.6]: https://github.com/turahe/pkg/releases/tag/v0.3.6

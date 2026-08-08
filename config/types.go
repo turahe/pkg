@@ -18,10 +18,9 @@ type Configuration struct {
 	MTLS          MTLSConfiguration
 }
 
-// ServerConfiguration holds server and session settings (port, secret, mode, token and session expiry).
+// ServerConfiguration holds server and session settings (port, mode, token and session expiry).
 type ServerConfiguration struct {
 	Port               string // Listen port; default "8080"
-	Secret             string // JWT signing secret (used when JWTSigningAlgorithm is HS256)
 	Mode               string // Gin mode: "debug", "release", "test"
 	AccessTokenExpiry  int    // Access token lifetime in hours
 	RefreshTokenExpiry int    // Refresh token lifetime in days
@@ -31,8 +30,8 @@ type ServerConfiguration struct {
 	SessionHttpOnly    bool   // HttpOnly flag; default true
 	SessionSameSite    string // "strict", "lax", or "none"
 
-	// JWT asymmetric signing: "HS256" (default), "RS256", or "ES256"
-	JWTSigningAlgorithm string // When RS256/ES256, use key paths/PEM or embedded PEM (JWTPrivateKeyPEM/JWTPublicKeyPEM)
+	// JWT asymmetric signing: "RS256" (default) or "ES256"
+	JWTSigningAlgorithm string // Use key paths/PEM or embedded PEM (JWTPrivateKeyPEM/JWTPublicKeyPEM)
 	JWTPrivateKey       string // PEM private key: file path, or inline PEM (value contains -----BEGIN); ignored if JWTPrivateKeyPEM is set
 	JWTPublicKey        string // PEM public key: file path, or inline PEM; ignored if JWTPublicKeyPEM is set
 

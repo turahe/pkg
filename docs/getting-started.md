@@ -11,7 +11,7 @@
 go get github.com/turahe/pkg
 ```
 
-Copy [`.env.example`](../.env.example) to `.env` and fill required values (`DATABASE_*`, JWT keys or `SERVER_SECRET`, etc.).
+Copy [`.env.example`](../.env.example) to `.env` and fill required values (`DATABASE_*`, JWT key paths, etc.).
 
 ## Minimal wiring
 

@@ -10,7 +10,6 @@ Copy [`.env.example`](../.env.example) as a starting point. Tables below match t
 |----------|---------|-------------|
 | `SERVER_PORT` | `8080` | Listen port |
 | `SERVER_MODE` | `debug` | `debug` · `release` · `test` |
-| `SERVER_SECRET` | — | HS256 signing secret |
 | `SERVER_ACCESS_TOKEN_EXPIRY` | `1` | Access token hours |
 | `SERVER_REFRESH_TOKEN_EXPIRY` | `7` | Refresh token days |
 | `SERVER_SESSION_EXPIRY` | `24` | Session hours |
@@ -20,9 +19,9 @@ Copy [`.env.example`](../.env.example) as a starting point. Tables below match t
 | `SERVER_SESSION_SAME_SITE` | `lax` | `strict` · `lax` · `none` |
 | `SERVER_TIMEZONE` | `UTC` | IANA timezone |
 | `APP_ENV` | — | Fallback for Sentry / OTel environment |
-| `JWT_SIGNING_ALGORITHM` | `RS256` | `HS256` · `RS256` · `ES256` |
-| `JWT_PRIVATE_KEY` | — | Path or inline PEM (RS256/ES256) |
-| `JWT_PUBLIC_KEY` | — | Path or inline PEM (RS256/ES256) |
+| `JWT_SIGNING_ALGORITHM` | `RS256` | `RS256` · `ES256` |
+| `JWT_PRIVATE_KEY` | — | Path or inline PEM |
+| `JWT_PUBLIC_KEY` | — | Path or inline PEM |
 | `JWT_ISSUER` | — | Optional `iss` |
 | `JWT_AUDIENCE` | — | Optional `aud` (comma-separated) |
 | `JWT_KEY_ID` | — | Optional `kid` |

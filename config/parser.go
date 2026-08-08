@@ -19,7 +19,6 @@ func buildConfigFromEnv() *Configuration {
 	return &Configuration{
 		Server: ServerConfiguration{
 			Port:                getEnvOrDefault("SERVER_PORT", "8080"),
-			Secret:              getEnvOrDefault("SERVER_SECRET", ""),
 			Mode:                getEnvOrDefault("SERVER_MODE", "debug"),
 			AccessTokenExpiry:   parseInt("SERVER_ACCESS_TOKEN_EXPIRY", 1),
 			RefreshTokenExpiry:  parseInt("SERVER_REFRESH_TOKEN_EXPIRY", 7),

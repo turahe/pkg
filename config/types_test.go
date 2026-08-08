@@ -8,7 +8,6 @@ func TestConfiguration_StructFields(t *testing.T) {
 	cfg := &Configuration{
 		Server: ServerConfiguration{
 			Port:               "8080",
-			Secret:             "s",
 			Mode:               "release",
 			AccessTokenExpiry:  1,
 			RefreshTokenExpiry: 7,
@@ -57,7 +56,6 @@ func TestConfiguration_StructFields(t *testing.T) {
 func TestServerConfiguration_AllFields(t *testing.T) {
 	server := ServerConfiguration{
 		Port:               "8080",
-		Secret:             "secret-key",
 		Mode:               "production",
 		AccessTokenExpiry:  24,
 		RefreshTokenExpiry: 30,
@@ -65,9 +63,6 @@ func TestServerConfiguration_AllFields(t *testing.T) {
 
 	if server.Port != "8080" {
 		t.Errorf("Port = %q, want 8080", server.Port)
-	}
-	if server.Secret != "secret-key" {
-		t.Errorf("Secret = %q, want secret-key", server.Secret)
 	}
 	if server.Mode != "production" {
 		t.Errorf("Mode = %q, want production", server.Mode)
