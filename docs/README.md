@@ -40,5 +40,6 @@ API reference lives on [pkg.go.dev](https://pkg.go.dev/github.com/turahe/pkg). E
 ## Quick links
 
 - [Root README](../README.md) — package overviews and production wiring
+- [AGENTS.md](../AGENTS.md) — conventions for AI coding agents working in this repo
 - [Changelog](../CHANGELOG.md)
 - [License](../LICENSE) (MIT)
