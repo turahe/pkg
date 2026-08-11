@@ -70,12 +70,6 @@ func setupIntegrationBackend(t *testing.T) {
 	t.Skip("No Redis or Valkey available. Start one with: docker compose up -d (Redis:6379 or Valkey:6380)")
 }
 
-// setupIntegrationBackendOrSkip sets config and calls Setup() using the first available
-// backend. Skips the test if no backend is reachable (so go test ./... passes without Redis).
-func setupIntegrationBackendOrSkip(t *testing.T) {
-	setupIntegrationBackend(t)
-}
-
 func TestIntegration_GetSetDelete(t *testing.T) {
 	setupIntegrationBackend(t)
 	defer func() { rdb = nil; rdbCluster = nil }()
@@ -228,7 +222,7 @@ func TestIntegration_Lock(t *testing.T) {
 	if ok2 {
 		t.Error("AcquireLock second time should fail (lock held)")
 	}
-	if err := ReleaseLock(ctx, key); err != nil {
+	if err = ReleaseLock(ctx, key); err != nil {
 		t.Fatalf("ReleaseLock: %v", err)
 	}
 	ok3, err := AcquireLock(ctx, key, "owner3", 5*time.Second)
@@ -263,7 +257,7 @@ func TestIntegration_MSetMGet(t *testing.T) {
 	defer func() { rdb = nil; rdbCluster = nil }()
 
 	ctx := context.Background()
-	k1, k2 := keyPrefix + "mset1", keyPrefix + "mset2"
+	k1, k2 := keyPrefix+"mset1", keyPrefix+"mset2"
 	defer func() { _ = Delete(ctx, k1); _ = Delete(ctx, k2) }()
 
 	if err := MSet(ctx, map[string]interface{}{k1: "a", k2: "b"}); err != nil {

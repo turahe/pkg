@@ -3,6 +3,7 @@ package mtls
 import (
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -15,8 +16,9 @@ func ListenAndServe(handler http.Handler, addr string) error {
 // ListenAndServeConfig starts plain HTTP or mTLS HTTPS using the given configuration.
 func ListenAndServeConfig(handler http.Handler, addr string, cfg Config) error {
 	srv := &http.Server{
-		Addr:    addr,
-		Handler: handler,
+		Addr:              addr,
+		Handler:           handler,
+		ReadHeaderTimeout: 5 * time.Second,
 	}
 	if err := ConfigureServerWithConfig(srv, cfg); err != nil {
 		return err

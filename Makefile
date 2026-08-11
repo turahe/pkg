@@ -8,6 +8,9 @@ GO      := go
 DC      := docker compose
 DC_TEST := docker compose -f docker-compose.test.yml
 
+# Keep in sync with .github/workflows/test.yml (golangci-lint-action version).
+GOLANGCI_LINT_VERSION := v2.12.2
+
 # ── Help ──────────────────────────────────────────────────────────────────────
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*##' $(MAKEFILE_LIST) | \
@@ -46,8 +49,11 @@ services-down: ## Stop and remove local service containers
 	$(DC) down -v
 
 # ── Code quality ─────────────────────────────────────────────────────────────
-lint: ## Run golangci-lint
-	golangci-lint run --timeout=5m
+lint: ## Run golangci-lint in Docker (no local install required)
+	docker run --rm \
+		-v "$(CURDIR):/app" -w /app \
+		golangci/golangci-lint:$(GOLANGCI_LINT_VERSION) \
+		golangci-lint run --timeout=5m
 
 vuln: ## Run govulncheck (dependency vulnerability scan)
 	$(GO) run golang.org/x/vuln/cmd/govulncheck@latest ./...

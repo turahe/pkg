@@ -18,6 +18,7 @@ linters:
       enable-all: true
       disable:
         - fieldalignment # not a correctness issue
+        - inline         # noisy for reflect.Kind comparisons
   exclusions:
     generated: lax
     presets:
@@ -31,6 +32,8 @@ linters:
         linters:
           - errcheck
           - gosec
+          - noctx
+          - ineffassign
       # Generated or example code.
       - path: cmd/example
         linters:

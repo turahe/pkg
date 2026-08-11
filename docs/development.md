@@ -11,7 +11,7 @@ make test-cover      # coverage summary → coverage.out
 make test-docker     # full suite in Docker (Redis + MySQL + Postgres)
 make services-up     # docker compose up -d (local Redis/MySQL/Postgres)
 make services-down   # stop local services
-make lint            # golangci-lint
+make lint            # golangci-lint via Docker (v2.12.2, matches CI)
 make vuln            # govulncheck
 make tidy            # go mod tidy && verify
 make docker-build    # production image

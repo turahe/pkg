@@ -34,7 +34,7 @@ func Setup() error {
 
 	// If credentials file is provided, use it
 	if configuration.GCS.CredentialsFile != "" {
-		opts = append(opts, option.WithCredentialsFile(configuration.GCS.CredentialsFile))
+		opts = append(opts, option.WithAuthCredentialsFile(option.ServiceAccount, configuration.GCS.CredentialsFile))
 	}
 	// Otherwise, use Application Default Credentials (ADC)
 	// This will work when running on GCP or when GOOGLE_APPLICATION_CREDENTIALS env var is set

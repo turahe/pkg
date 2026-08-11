@@ -39,9 +39,9 @@ type IBaseRepository interface {
 // BaseRepository implements IBaseRepository using GORM.
 // Use NewBaseRepository or NewSiteBaseRepository for global DB, or NewBaseRepositoryWithDB for injection.
 type BaseRepository struct {
-	db       *gorm.DB   // optional: when set, used instead of database.GetDB()
-	siteDB   *gorm.DB   // optional: when set, used instead of database.GetDBSite()
-	useSiteDB bool      // when db/siteDB are nil, use GetDBSite() when true else GetDB()
+	db        *gorm.DB // optional: when set, used instead of database.GetDB()
+	siteDB    *gorm.DB // optional: when set, used instead of database.GetDBSite()
+	useSiteDB bool     // when db/siteDB are nil, use GetDBSite() when true else GetDB()
 }
 
 // NewBaseRepository creates a new base repository using the global main database (database.GetDB()).
@@ -314,7 +314,7 @@ func (r *BaseRepository) SimplePagination(ctx context.Context, model, out interf
 	// Check if we have more items than requested
 	// Use reflection to check slice length
 	val := reflect.ValueOf(out)
-	if val.Kind() == reflect.Ptr {
+	if val.Kind() == reflect.Pointer {
 		val = val.Elem()
 	}
 
@@ -339,12 +339,12 @@ func (r *BaseRepository) SimplePagination(ctx context.Context, model, out interf
 // Results are cached by type to reduce allocations and CPU in hot path.
 func (r *BaseRepository) getColumnNames(model interface{}) []string {
 	t := reflect.TypeOf(model)
-	if t.Kind() == reflect.Ptr {
+	if t.Kind() == reflect.Pointer {
 		t = t.Elem()
 	}
 	if t.Kind() == reflect.Slice {
 		t = t.Elem()
-		if t.Kind() == reflect.Ptr {
+		if t.Kind() == reflect.Pointer {
 			t = t.Elem()
 		}
 	}
@@ -359,7 +359,7 @@ func (r *BaseRepository) getColumnNames(model interface{}) []string {
 // getColumnNamesFromType extracts column names from a reflect.Type.
 // Pre-allocates slice to reduce growth allocations.
 func (r *BaseRepository) getColumnNamesFromType(t reflect.Type) []string {
-	if t.Kind() == reflect.Ptr {
+	if t.Kind() == reflect.Pointer {
 		t = t.Elem()
 	}
 	if t.Kind() != reflect.Struct {

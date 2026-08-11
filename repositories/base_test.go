@@ -88,13 +88,13 @@ func getTestEnvOrDefault(key, defaultValue string) string {
 func setupTestDBForRepo(t *testing.T) func() {
 	dbMutex.Lock()
 	defer dbMutex.Unlock()
-	
+
 	// Setup test DB
 	db := setupTestDB(t)
-	
+
 	// Save original setup
 	originalDB := database.DB
-	
+
 	// Set our test DB
 	database.DB = db
 
@@ -105,7 +105,7 @@ func setupTestDBForRepo(t *testing.T) func() {
 	return func() {
 		dbMutex.Lock()
 		defer dbMutex.Unlock()
-		
+
 		// Clean up test data
 		_ = db.Exec("DELETE FROM test_models").Error
 		sqlDB, _ := db.DB()
@@ -375,7 +375,7 @@ func TestBaseRepository_Scan(t *testing.T) {
 	conditions = types.Conditions{
 		"id = ?": 99999,
 	}
-	notFound, err = repo.Scan(ctx, "", &TestModel{}, &notFoundModel, conditions)
+	_, err = repo.Scan(ctx, "", &TestModel{}, &notFoundModel, conditions)
 	assert.NoError(t, err)
 	// Scan returns notFound=false when no records found (unlike First)
 	// The result will just be empty (zero value)
@@ -487,18 +487,18 @@ func TestBaseRepository_SimplePagination(t *testing.T) {
 	var page2 []TestModel
 	total, err = repo.SimplePagination(ctx, &TestModel{}, &page2, 2, 10, types.Conditions{}, []string{})
 	assert.NoError(t, err)
-	assert.Len(t, page2, 5) // Remaining 5 items
+	assert.Len(t, page2, 5)          // Remaining 5 items
 	assert.Equal(t, int64(0), total) // No more pages
 
 	// Test with invalid page number (should default to 1)
 	var pageDefault []TestModel
-	total, err = repo.SimplePagination(ctx, &TestModel{}, &pageDefault, 0, 10, types.Conditions{}, []string{})
+	_, err = repo.SimplePagination(ctx, &TestModel{}, &pageDefault, 0, 10, types.Conditions{}, []string{})
 	assert.NoError(t, err)
 	assert.Len(t, pageDefault, 10)
 
 	// Test with page size exceeding max (should cap at 100)
 	var pageLarge []TestModel
-	total, err = repo.SimplePagination(ctx, &TestModel{}, &pageLarge, 1, 200, types.Conditions{}, []string{})
+	_, err = repo.SimplePagination(ctx, &TestModel{}, &pageLarge, 1, 200, types.Conditions{}, []string{})
 	assert.NoError(t, err)
 	assert.LessOrEqual(t, len(pageLarge), 15) // Should return all available
 
@@ -507,7 +507,7 @@ func TestBaseRepository_SimplePagination(t *testing.T) {
 	conditions := types.Conditions{
 		"name = ?": "User",
 	}
-	total, err = repo.SimplePagination(ctx, &TestModel{}, &filtered, 1, 10, conditions, []string{})
+	_, err = repo.SimplePagination(ctx, &TestModel{}, &filtered, 1, 10, conditions, []string{})
 	assert.NoError(t, err)
 	assert.Greater(t, len(filtered), 0)
 }

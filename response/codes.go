@@ -112,17 +112,17 @@ const (
 	CaseCodeStateConflict          = "69" // State conflict
 
 	// Email change (70-74)
-	CaseCodeEmailChangeRequested   = "70" // Email change OTP sent
-	CaseCodeEmailChangeVerified    = "71" // Email change confirmed
-	CaseCodeEmailChangeCancelled   = "72" // Email change cancelled
-	CaseCodeEmailAlreadyUsed       = "73" // Email already registered to another account
+	CaseCodeEmailChangeRequested    = "70" // Email change OTP sent
+	CaseCodeEmailChangeVerified     = "71" // Email change confirmed
+	CaseCodeEmailChangeCancelled    = "72" // Email change cancelled
+	CaseCodeEmailAlreadyUsed        = "73" // Email already registered to another account
 	CaseCodeEmailVerificationFailed = "74" // Email OTP verification failed
 
 	// Phone change (75-79)
-	CaseCodePhoneChangeRequested   = "75" // Phone change OTP sent
-	CaseCodePhoneChangeVerified    = "76" // Phone change confirmed
-	CaseCodePhoneChangeCancelled   = "77" // Phone change cancelled
-	CaseCodePhoneAlreadyUsed       = "78" // Phone already registered to another account
+	CaseCodePhoneChangeRequested    = "75" // Phone change OTP sent
+	CaseCodePhoneChangeVerified     = "76" // Phone change confirmed
+	CaseCodePhoneChangeCancelled    = "77" // Phone change cancelled
+	CaseCodePhoneAlreadyUsed        = "78" // Phone already registered to another account
 	CaseCodePhoneVerificationFailed = "79" // Phone OTP verification failed
 
 	// Two-factor authentication (80-89)
@@ -138,11 +138,11 @@ const (
 	CaseCode2FARecoveryCodeInvalid = "89" // Recovery code invalid or already used
 
 	// Bank (90-94)
-	CaseCodeBankNotFound       = "90" // Bank not found
-	CaseCodeBankInactive       = "91" // Bank is inactive / not available
-	CaseCodeBankAlreadyExists  = "92" // Bank already registered
-	CaseCodeBankCreated        = "93" // Bank created
-	CaseCodeBankUpdated        = "94" // Bank updated
+	CaseCodeBankNotFound      = "90" // Bank not found
+	CaseCodeBankInactive      = "91" // Bank is inactive / not available
+	CaseCodeBankAlreadyExists = "92" // Bank already registered
+	CaseCodeBankCreated       = "93" // Bank created
+	CaseCodeBankUpdated       = "94" // Bank updated
 
 	// Bank account (95-99)
 	CaseCodeBankAccountNotFound      = "95" // Bank account not found

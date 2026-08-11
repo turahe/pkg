@@ -58,7 +58,7 @@ func setupStandardClient(configuration *config.Configuration) error {
 	if err := client.Ping(context.Background()).Err(); err != nil {
 		// Check if the error is related to cluster mode
 		if strings.Contains(err.Error(), "SELECT is not allowed in cluster mode") {
-			return fmt.Errorf("Redis server is in cluster mode, but REDIS_CLUSTER_MODE is not enabled. Please set REDIS_CLUSTER_MODE=true in your configuration: %w", err)
+			return fmt.Errorf("redis server is in cluster mode, but REDIS_CLUSTER_MODE is not enabled; set REDIS_CLUSTER_MODE=true: %w", err)
 		}
 		return fmt.Errorf("failed to connect to Redis: %w", err)
 	}
@@ -127,11 +127,12 @@ func setupClusterClient(configuration *config.Configuration) error {
 // Useful for tests or health checks before calling Setup().
 func Available(host, port string, timeout time.Duration) bool {
 	addr := net.JoinHostPort(host, port)
-	conn, err := net.DialTimeout("tcp", addr, timeout)
+	d := net.Dialer{Timeout: timeout}
+	conn, err := d.DialContext(context.Background(), "tcp", addr)
 	if err != nil {
 		return false
 	}
-	conn.Close()
+	_ = conn.Close()
 	return true
 }
 

@@ -75,7 +75,7 @@ func TestGenerateImpersonationToken_Claims(t *testing.T) {
 
 	require.NotNil(t, claims.ExpiresAt)
 	require.NotNil(t, claims.IssuedAt)
-	ttl := claims.ExpiresAt.Time.Sub(claims.IssuedAt.Time)
+	ttl := claims.ExpiresAt.Sub(claims.IssuedAt.Time)
 	assert.LessOrEqual(t, ttl, 30*time.Minute+5*time.Second)
 }
 

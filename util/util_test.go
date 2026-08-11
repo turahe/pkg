@@ -193,7 +193,7 @@ func TestFormatPhoneNumber(t *testing.T) {
 		for _, c := range cases {
 			t.Run(c.code, func(t *testing.T) {
 				got := FormatCurrency(1234.56, c.code)
-				if !(strings.Contains(got, c.want) || strings.Contains(got, c.code)) {
+				if !strings.Contains(got, c.want) && !strings.Contains(got, c.code) {
 					t.Errorf("FormatCurrency(%v, %q) = %q, want contains symbol or code %q", 1234.56, c.code, got, c.want)
 				}
 			})

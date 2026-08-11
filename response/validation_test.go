@@ -29,17 +29,17 @@ func TestToCamelCase(t *testing.T) {
 
 func TestGetJSONFieldName(t *testing.T) {
 	type st struct {
-		Normal  string `json:"normal"`
-		Omit    string `json:"omit,omitempty"`
-		Skip    string `json:"-"`
-		NoTag   string
+		Normal   string `json:"normal"`
+		Omit     string `json:"omit,omitempty"`
+		Skip     string `json:"-"`
+		NoTag    string
 		EmptyTag string `json:""`
 	}
 	typ := reflect.TypeOf(st{})
 
 	tests := []struct {
-		field    string
-		want     string
+		field string
+		want  string
 	}{
 		{"Normal", "normal"},
 		{"Omit", "omit"},
