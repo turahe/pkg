@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.6] - 2026-09-14
+
+### Added
+
+- **otelx OTLP/gRPC**: Export traces over gRPC via `OTEL_TRACES_EXPORTER=otlp_grpc` or `OTEL_EXPORTER_OTLP_PROTOCOL=grpc` (default remains OTLP HTTP).
+- **otelx gRPC instrumentation**: `GRPCServerOption` / `GRPCDialOption` (and handler helpers) wrapping otelgrpc stats handlers.
+- **sentryx gRPC**: `ServerOptions` / `DialOptions` and unary/stream interceptors via `sentry-go/grpc`.
+- **JWT `actor_type`**: `ResolveActorType` maps table/actor names (`admins` → `admin`, `users`/`User` → `user`, empty → `service`, `system` → `system`). `GenerateToken` / `GenerateRefreshToken` accept optional actor/table; impersonation tokens set `actor_type=user`. Auth middleware sets `actor_type` in Gin context.
+- **Husky**: `.husky/hooks/pre-commit` runs `go fmt ./...` and `go test -v ./...` before commit.
+
+### Fixed
+
+- **Redis / rate-limiter tests**: Integration and rate-limiter setups skip when Redis requires auth (`NOAUTH`) or Setup fails, instead of failing the suite; honor `REDIS_PASSWORD` when set.
+
+### Changed
+
+- **Config / docs**: `OpenTelemetryConfiguration.Protocol`, `.env.example`, README, and package docs updated for OTLP gRPC and JWT actor types.
+
 ## [0.5.5] - 2026-08-11
 
 ### Fixed
@@ -47,7 +65,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **crypto.ComparePassword**: When the stored hash is empty or shorter than 60 characters (invalid bcrypt), the function now returns `false` without calling bcrypt or logging an error, avoiding `crypto/bcrypt: hashedSecret too short` errors and log noise.
 
-[Unreleased]: https://github.com/turahe/pkg/compare/v0.5.4...HEAD
+[Unreleased]: https://github.com/turahe/pkg/compare/v0.5.6...HEAD
+[0.5.6]: https://github.com/turahe/pkg/compare/v0.5.5...v0.5.6
+[0.5.5]: https://github.com/turahe/pkg/compare/v0.5.4...v0.5.5
 [0.5.4]: https://github.com/turahe/pkg/compare/v0.5.3...v0.5.4
 [0.3.7]: https://github.com/turahe/pkg/releases/tag/v0.3.7
 [0.3.6]: https://github.com/turahe/pkg/releases/tag/v0.3.6
