@@ -11,7 +11,9 @@ Responsibilities:
   - NewSigner: signing only (private key); use for auth/login services that issue tokens.
   - NewVerifier: verification only (public key); use for API/gateway services that only validate tokens.
   - TokenVerifier interface: implemented by *Manager and *Verifier; pass to AuthMiddleware so either can be used.
-  - Manager/Signer: GenerateToken, GenerateTokenWithExpiry, GenerateRefreshToken, GenerateImpersonationToken.
+  - Manager/Signer: GenerateToken, GenerateTokenWithExpiry, GenerateRefreshToken, GenerateImpersonationToken
+    (optional actorOrTable → actor_type: users→user, admins→admin, empty→service).
+  - ResolveActorType: map table/actor name to canonical actor_type claim.
   - Manager/Verifier: ValidateToken.
   - ComparePassword: bcrypt. GetCurrentUserUUID: read user_id from Gin context.
 

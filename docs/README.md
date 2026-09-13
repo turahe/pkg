@@ -24,8 +24,8 @@ API reference lives on [pkg.go.dev](https://pkg.go.dev/github.com/turahe/pkg). E
 | [jwt](packages/jwt.md) | Infrastructure | JWT sign / verify (RS256 / ES256) |
 | [crypto](packages/crypto.md) | Infrastructure | bcrypt password helpers |
 | [gcs](packages/gcs.md) | Infrastructure | Google Cloud Storage client |
-| [otelx](packages/otelx.md) | Infrastructure | OpenTelemetry tracing (OTLP / GCP) |
-| [sentryx](packages/sentryx.md) | Infrastructure | Sentry init / flush |
+| [otelx](packages/otelx.md) | Infrastructure | OpenTelemetry tracing (OTLP HTTP/gRPC / GCP) + gRPC handlers |
+| [sentryx](packages/sentryx.md) | Infrastructure | Sentry init / flush + gRPC interceptors |
 | [mtls](packages/mtls.md) | Infrastructure | Mutual TLS server & client |
 | [middlewares](packages/middlewares.md) | Adapter | Gin middleware stack |
 | [handler](packages/handler.md) | Adapter | Base Gin handler helpers |

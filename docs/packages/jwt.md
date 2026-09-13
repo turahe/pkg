@@ -22,13 +22,25 @@ Infrastructure for auth middleware and login handlers. No use-case logic; no glo
 
 ```go
 m, err := jwt.NewManager(ctx, cfg)
-token, err := m.GenerateToken(userID)
-refresh, err := m.GenerateRefreshToken(userID)
-imp, err := m.GenerateImpersonationToken(adminID, "admin", targetID, 15*time.Minute) // TTL capped at 30m
+token, err := m.GenerateToken(userID, "users")   // actor_type=user (users/User table)
+adminTok, err := m.GenerateToken(adminID, "admins") // actor_type=admin
+svcTok, err := m.GenerateToken(svcID)              // actor_type=service (empty)
+refresh, err := m.GenerateRefreshToken(userID, "users")
+imp, err := m.GenerateImpersonationToken(adminID, "admin", targetID, 15*time.Minute) // actor_type=user
 claims, err := m.ValidateToken(tokenString)
 ```
 
 Token types: `TokenTypeAccess`, `TokenTypeRefresh`, `TokenTypeImpersonation`.
+
+Actor types (`actor_type` claim via `ResolveActorType`):
+
+| Input (type or table) | `actor_type` |
+|-----------------------|--------------|
+| `users` / `User` / `user` | `user` |
+| `admins` / `admin` | `admin` |
+| empty / omitted | `service` |
+| `system` | `system` |
+| `service` | `service` |
 
 Also: `ComparePassword` (bcrypt), `GetCurrentUserUUID(c *gin.Context)`.
 

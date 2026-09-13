@@ -40,6 +40,9 @@ func AuthMiddleware(verifier jwt.TokenVerifier) gin.HandlerFunc {
 		}
 
 		ctx.Set("user_id", claims.UUID)
+		if claims.ActorType != "" {
+			ctx.Set("actor_type", claims.ActorType)
+		}
 
 		originalID := claims.UUID
 		if claims.IsImpersonating && claims.OriginalSub != "" {

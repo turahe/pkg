@@ -1,6 +1,6 @@
 # otelx
 
-OpenTelemetry TracerProvider setup from config: OTLP HTTP or Google Cloud Trace, plus optional GORM instrumentation.
+OpenTelemetry TracerProvider setup from config: OTLP HTTP, OTLP gRPC, or Google Cloud Trace, plus optional GORM and gRPC instrumentation.
 
 **Import:** `github.com/turahe/pkg/otelx`
 
@@ -18,6 +18,10 @@ defer func() { _ = shutdown(context.Background()) }()
 if otelx.GORMEnabled(cfg) {
     _ = otelx.RegisterGORM(gormDB, otelx.GORMOptions{})
 }
+
+// gRPC server / client (after Init)
+srv := grpc.NewServer(otelx.GRPCServerOption())
+conn, err := grpc.NewClient(target, otelx.GRPCDialOption(), /* credentials... */)
 ```
 
 `TracingEnabled(cfg)` — false when exporter is OTLP and endpoint is empty. Invalid config is logged and treated as off (service keeps running).
@@ -26,8 +30,11 @@ if otelx.GORMEnabled(cfg) {
 
 | `OTEL_TRACES_EXPORTER` | Behavior |
 |------------------------|----------|
-| `otlp` (default) | OTLP HTTP; requires `OTEL_EXPORTER_OTLP_ENDPOINT` |
+| `otlp` (default) | OTLP HTTP unless `OTEL_EXPORTER_OTLP_PROTOCOL=grpc`; requires endpoint |
+| `otlp_grpc` / `grpc` | OTLP gRPC; requires endpoint (typically `:4317`) |
 | `gcp` | Cloud Trace via ADC; optional `OTEL_GCP_PROJECT_ID` |
+
+Protocol override: `OTEL_EXPORTER_OTLP_PROTOCOL` or `OTEL_EXPORTER_OTLP_TRACES_PROTOCOL` (`http/protobuf` default, `grpc`).
 
 Sampler: parent-based ratio from `OTEL_TRACES_SAMPLER_ARG` (default `1.0`).
 
@@ -35,13 +42,18 @@ Sampler: parent-based ratio from `OTEL_TRACES_SAMPLER_ARG` (default `1.0`).
 
 When tracing is on and `OTEL_GORM_ENABLED=true` (default), register the GORM plugin so SQL spans appear in traces. Also available via `database.WithOpenTelemetry`.
 
+## gRPC
+
+`GRPCServerOption` / `GRPCDialOption` wrap [otelgrpc](https://pkg.go.dev/go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc) stats handlers using the global TracerProvider and propagator from `Init`.
+
 ## Constraints
 
 - Init failures must not crash the process — log and continue disabled.
-- Call shutdown on graceful exit (after HTTP drain).
+- Call shutdown on graceful exit (after HTTP/gRPC drain).
 
 ## See also
 
 - [Environment — OpenTelemetry](../environment.md#opentelemetry)
 - [logger](logger.md)
 - [middlewares — Trace](middlewares.md)
+- [sentryx](sentryx.md) (gRPC interceptors)

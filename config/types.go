@@ -111,7 +111,8 @@ type TimezoneConfiguration struct {
 // TracesEndpoint disable OTLP export unless Exporter is gcp. Environment falls back
 // to APP_ENV; ServiceVersion falls back to SENTRY_RELEASE when unset.
 type OpenTelemetryConfiguration struct {
-	Exporter         string // OTEL_TRACES_EXPORTER: otlp (default) or gcp
+	Exporter         string // OTEL_TRACES_EXPORTER: otlp (default), otlp_grpc, or gcp
+	Protocol         string // OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf (default) or grpc
 	Endpoint         string
 	TracesEndpoint   string
 	Insecure         bool

@@ -25,7 +25,7 @@ func Init(ctx context.Context, cfg config.OpenTelemetryConfiguration) (func(cont
 	noopShutdown := func(context.Context) error { return nil }
 
 	if !TracingEnabled(cfg) {
-		logger.Infof("otel: disabled (exporter=%s endpoint empty)", normalizeExporter(cfg.Exporter))
+		logger.Infof("otel: disabled (exporter=%s endpoint empty)", exporterName(cfg))
 		return noopShutdown, false
 	}
 
@@ -62,7 +62,7 @@ func Init(ctx context.Context, cfg config.OpenTelemetryConfiguration) (func(cont
 	otel.SetTextMapPropagator(buildTextMapPropagator(useGCPPropagator(cfg)))
 
 	logger.Infof("otel: enabled exporter=%s service=%s environment=%s version=%s sampler=%.2f target=%s gcp_propagator=%t",
-		normalizeExporter(cfg.Exporter), serviceName, cfg.Environment, cfg.ServiceVersion, samplerArg,
+		exporterName(cfg), serviceName, cfg.Environment, cfg.ServiceVersion, samplerArg,
 		exporterDescription(cfg), useGCPPropagator(cfg))
 
 	shutdown := func(shutdownCtx context.Context) error {

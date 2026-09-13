@@ -1,9 +1,9 @@
 # Go Package Collection
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/turahe/pkg.svg)](https://pkg.go.dev/github.com/turahe/pkg)
-[![Test](https://github.com/turahe/pkg/actions/workflows/test.yml/badge.svg)](https://github.com/turahe/pkg/actions/workflows/test.yml)
-[![Go Report Card](https://goreportcard.com/badge/github.com/turahe/pkg)](https://goreportcard.com/report/github.com/turahe/pkg)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+![Go Reference](https://pkg.go.dev/badge/github.com/turahe/pkg.svg)
+![Test](https://github.com/turahe/pkg/actions/workflows/test.yml/badge.svg)
+![Go Report Card](https://goreportcard.com/badge/github.com/turahe/pkg)
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
 A collection of production-ready Go packages for building web services: database, Redis (standard + cluster), JWT, crypto, GCS, structured logging, HTTP middleware, OpenTelemetry (`otelx`), Sentry (`sentryx`), mutual TLS (`mtls`), Prometheus metrics, graceful shutdown, and utilities. Follows clean architecture boundaries — domain, use-case, and infrastructure are separate.
 
@@ -36,9 +36,11 @@ A collection of production-ready Go packages for building web services: database
 - [Testing](#testing)
 - [License](#license)
 
-**Full guides:** [`docs/`](docs/README.md) — getting started, architecture, environment reference, and per-package docs.
+**Full guides:** `[docs/](docs/README.md)` — getting started, architecture, environment reference, and per-package docs.
 
 ---
+
+
 
 ## Installation
 
@@ -50,13 +52,18 @@ Requires Go 1.26+.
 
 ---
 
+
+
 ## Packages
+
+
 
 ### `config`
 
 Loads all configuration from environment variables (or a `.env` file via [godotenv](https://github.com/joho/godotenv)). All packages read from the global `Configuration` singleton.
 
 **API:**
+
 ```go
 config.Setup(configPath string) error   // load .env; "" uses env vars only
 config.GetConfig() *Configuration       // get global config (builds from env if needed)
@@ -64,6 +71,7 @@ config.SetConfig(cfg *Configuration)    // override config (testing / manual wir
 ```
 
 **Configuration struct (abbreviated):**
+
 ```go
 type Configuration struct {
     Server      ServerConfiguration
@@ -82,6 +90,8 @@ type Configuration struct {
 
 ---
 
+
+
 ### `database`
 
 Enterprise-grade GORM database layer. Supports MySQL, Postgres, SQLite, SQL Server, and Google Cloud SQL (Postgres/MySQL) with IAM auth and Private IP. Includes SQL redaction in logs (passwords, tokens, card numbers).
@@ -89,6 +99,7 @@ Enterprise-grade GORM database layer. Supports MySQL, Postgres, SQLite, SQL Serv
 **Drivers:** `mysql` · `postgres` · `sqlite` · `sqlserver` · `cloudsql-mysql` · `cloudsql-postgres`
 
 **New API (recommended — dependency injection):**
+
 ```go
 db, err := database.New(&cfg.Database, database.Options{
     LogLevel: logger.Warn,
@@ -107,30 +118,34 @@ err     = db.Close()                  // close connections + Cloud SQL connector
 
 **Options:**
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `MaxOpenConns` | 30 | Max open DB connections |
-| `MaxIdleConns` | 10 | Max idle DB connections |
-| `ConnMaxLife` | 30 min | Max connection lifetime |
-| `ConnMaxIdle` | 10 min | Max connection idle time |
-| `SlowThreshold` | 500 ms | GORM slow query log threshold |
-| `PingTimeout` | 5 s | Health check ping timeout |
-| `LogLevel` | Warn | GORM log level |
-| `UseIAM` | false | Cloud SQL IAM auth |
-| `UsePrivateIP` | false | Cloud SQL Private IP |
-| `EnableOpenTelemetry` | auto | GORM OTel plugin; auto when tracing enabled (`OTEL_GORM_ENABLED`) |
+
+| Option                | Default | Description                                                       |
+| --------------------- | ------- | ----------------------------------------------------------------- |
+| `MaxOpenConns`        | 30      | Max open DB connections                                           |
+| `MaxIdleConns`        | 10      | Max idle DB connections                                           |
+| `ConnMaxLife`         | 30 min  | Max connection lifetime                                           |
+| `ConnMaxIdle`         | 10 min  | Max connection idle time                                          |
+| `SlowThreshold`       | 500 ms  | GORM slow query log threshold                                     |
+| `PingTimeout`         | 5 s     | Health check ping timeout                                         |
+| `LogLevel`            | Warn    | GORM log level                                                    |
+| `UseIAM`              | false   | Cloud SQL IAM auth                                                |
+| `UsePrivateIP`        | false   | Cloud SQL Private IP                                              |
+| `EnableOpenTelemetry` | auto    | GORM OTel plugin; auto when tracing enabled (`OTEL_GORM_ENABLED`) |
+
 
 **Connection timezone:** set `DATABASE_TIMEZONE` (IANA name) or leave empty to use `SERVER_TIMEZONE` (default `UTC`). Applied to MySQL `loc`, Postgres `timezone`, and Cloud SQL drivers.
 
 **OpenTelemetry GORM:** when `otelx.Init` succeeds (OTLP or GCP exporter), GORM spans are registered automatically unless disabled with `database.WithOpenTelemetry(false)`.
 
 **High-RPS pool preset:**
+
 ```go
 db, err := database.New(&cfg.Database, database.Options{}, database.WithProductionPoolDefaults)
 // sets MaxOpenConns=150, MaxIdleConns=50
 ```
 
 **Legacy API (global, backward-compatible):**
+
 ```go
 database.Setup()          // init from config env vars
 database.GetDB()          // *gorm.DB (panics if not initialized)
@@ -142,11 +157,14 @@ database.Cleanup()        // close all connections
 
 ---
 
+
+
 ### `redis`
 
 Redis client wrapper for both standalone Redis and Redis Cluster (Google Cloud Memorystore). Connection pooling, timeouts, and all common commands included.
 
 **Setup:**
+
 ```go
 redis.Setup() error          // reads config; no-op if REDIS_ENABLED=false
 redis.Close() error          // close client; call on shutdown
@@ -157,6 +175,7 @@ redis.GetRedisCluster() *redis.ClusterClient  // cluster mode only
 ```
 
 **String operations:**
+
 ```go
 redis.Get(key string) (string, error)
 redis.Set(key string, value interface{}, expiration time.Duration) error
@@ -166,6 +185,7 @@ redis.MSet(pairs ...interface{}) error
 ```
 
 **Hash operations:**
+
 ```go
 redis.HGet(key, field string) (string, error)
 redis.HGetAll(key string) (map[string]string, error)
@@ -174,6 +194,7 @@ redis.HSetMap(key string, fields map[string]interface{}) error
 ```
 
 **List operations:**
+
 ```go
 redis.LPush(key string, values ...interface{}) error
 redis.RPop(key string) (string, error)
@@ -181,6 +202,7 @@ redis.LRange(key string, start, stop int64) ([]string, error)
 ```
 
 **Set operations:**
+
 ```go
 redis.SAdd(key string, members ...interface{}) error
 redis.SMembers(key string) ([]string, error)
@@ -188,6 +210,7 @@ redis.SRem(key string, members ...interface{}) error
 ```
 
 **Distributed lock:**
+
 ```go
 redis.AcquireLock(key string, expiration time.Duration) (bool, error)
 redis.ExtendLock(key string, expiration time.Duration) (bool, error)
@@ -195,6 +218,7 @@ redis.ReleaseLock(key string) error
 ```
 
 **Pipeline, Pub/Sub, Scan:**
+
 ```go
 redis.Pipeline(fn func(redis.Pipeliner) error) error
 redis.PipelineSet(pairs map[string]interface{}, expiration time.Duration) error
@@ -205,11 +229,14 @@ redis.ScanKeys(pattern string, count int64) ([]string, error)  // cluster-aware
 
 ---
 
+
+
 ### `logger`
 
 Structured logging built on `log/slog`. Outputs Google Cloud Logging-compatible JSON with `severity`, `time`, `message`, `trace_id`, `correlation_id`, `sourceLocation`, and optional `fields`. Logs to stderr (no log file). The underlying writer is lazy-initialized on first log write (no I/O at startup).
 
 **Plain functions:**
+
 ```go
 logger.Debugf(format string, args ...interface{})
 logger.Infof(format string, args ...interface{})
@@ -219,6 +246,7 @@ logger.Fatalf(format string, args ...interface{})  // calls os.Exit(1)
 ```
 
 **Structured fields:**
+
 ```go
 logger.Debug(msg string, fields logger.Fields)
 logger.Info(msg string, fields logger.Fields)
@@ -226,7 +254,8 @@ logger.Warn(msg string, fields logger.Fields)
 logger.Error(msg string, fields logger.Fields)
 ```
 
-**Context-bound (includes `trace_id` / `correlation_id` automatically):**
+**Context-bound (includes** `trace_id` **/** `correlation_id` **automatically):**
+
 ```go
 // Store IDs in context (done by RequestID / TraceMiddleware):
 ctx = logger.WithTraceID(ctx, traceID)
@@ -247,6 +276,7 @@ logger.ErrorfContext(ctx, "failed: %v", err)
 ```
 
 **Configuration:**
+
 ```go
 logger.SetLogLevel(slog.LevelDebug)  // default: Info
 logger.GetLogger() *slog.Logger
@@ -255,11 +285,14 @@ logger.GetWriter() io.Writer         // stderr (used e.g. by GORM logger)
 
 ---
 
+
+
 ### `middlewares`
 
 Gin middleware collection. Designed to be composed in a specific order for correct behaviour.
 
 **Recommended middleware order:**
+
 ```go
 router := gin.New()
 
@@ -287,30 +320,35 @@ router.NoRoute(middlewares.NoRouteHandler())
 
 **Reference:**
 
-| Middleware | Signature | Description |
-|------------|-----------|-------------|
-| `RecoveryHandler` | `gin.HandlerFunc` | Catches panics; returns structured JSON 500 with stack trace in logs |
-| `RequestID()` | `gin.HandlerFunc` | Reads `X-Request-ID` / `X-Trace-ID` or generates UUID; injects into context and response headers |
-| `TraceMiddleware()` | `gin.HandlerFunc` | Reads `X-Trace-Id`, `X-Correlation-Id`, `X-Request-Id` separately; use when upstream sends distinct trace and correlation IDs |
-| `LoggerMiddleware()` | `gin.HandlerFunc` | Structured request log (method, path, status, latency, IP, user-agent, trace IDs) |
-| `Metrics()` | `gin.HandlerFunc` | Prometheus counters, histogram, and in-flight gauge; uses route pattern to avoid high-cardinality labels |
-| `RequestTimeout(d)` | `gin.HandlerFunc` | Adds `context.WithTimeout` to every request; no-op when `d <= 0` |
-| `CORS()` | `gin.HandlerFunc` | CORS headers; global or per-origin (`CORS_FRONTEND` / `CORS_IPS`) from config |
+
+| Middleware                 | Signature                               | Description                                                                                                                    |
+| -------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `RecoveryHandler`          | `gin.HandlerFunc`                       | Catches panics; returns structured JSON 500 with stack trace in logs                                                           |
+| `RequestID()`              | `gin.HandlerFunc`                       | Reads `X-Request-ID` / `X-Trace-ID` or generates UUID; injects into context and response headers                               |
+| `TraceMiddleware()`        | `gin.HandlerFunc`                       | Reads `X-Trace-Id`, `X-Correlation-Id`, `X-Request-Id` separately; use when upstream sends distinct trace and correlation IDs  |
+| `LoggerMiddleware()`       | `gin.HandlerFunc`                       | Structured request log (method, path, status, latency, IP, user-agent, trace IDs)                                              |
+| `Metrics()`                | `gin.HandlerFunc`                       | Prometheus counters, histogram, and in-flight gauge; uses route pattern to avoid high-cardinality labels                       |
+| `RequestTimeout(d)`        | `gin.HandlerFunc`                       | Adds `context.WithTimeout` to every request; no-op when `d <= 0`                                                               |
+| `CORS()`                   | `gin.HandlerFunc`                       | CORS headers; global or per-origin (`CORS_FRONTEND` / `CORS_IPS`) from config                                                  |
 | `AuthMiddleware(verifier)` | `jwt.TokenVerifier` → `gin.HandlerFunc` | Validates `Bearer` JWT; sets `user_id`, `original_user_id`, `is_impersonating` in context. Pass *jwt.Manager or *jwt.Verifier. |
-| `MTLSMiddleware()` | `gin.HandlerFunc` | Requires verified TLS client cert when `MTLS_ENABLED`; sets `mtls_client_cn` in context |
-| `RateLimiter()` | `gin.HandlerFunc` | Redis Lua single-round-trip rate limiter; sets `X-RateLimit-*` headers; supports IP or user keying and skip-paths |
-| `NoMethodHandler()` | `gin.HandlerFunc` | 405 JSON response |
-| `NoRouteHandler()` | `gin.HandlerFunc` | 404 JSON response |
+| `MTLSMiddleware()`         | `gin.HandlerFunc`                       | Requires verified TLS client cert when `MTLS_ENABLED`; sets `mtls_client_cn` in context                                        |
+| `RateLimiter()`            | `gin.HandlerFunc`                       | Redis Lua single-round-trip rate limiter; sets `X-RateLimit-*` headers; supports IP or user keying and skip-paths              |
+| `NoMethodHandler()`        | `gin.HandlerFunc`                       | 405 JSON response                                                                                                              |
+| `NoRouteHandler()`         | `gin.HandlerFunc`                       | 404 JSON response                                                                                                              |
 
-**Prometheus metrics exposed by `Metrics()`:**
 
-| Metric | Type | Labels |
-|--------|------|--------|
-| `http_requests_total` | Counter | `method`, `path`, `status` |
+**Prometheus metrics exposed by** `Metrics()`**:**
+
+
+| Metric                          | Type      | Labels                     |
+| ------------------------------- | --------- | -------------------------- |
+| `http_requests_total`           | Counter   | `method`, `path`, `status` |
 | `http_request_duration_seconds` | Histogram | `method`, `path`, `status` |
-| `http_requests_in_flight` | Gauge | — |
+| `http_requests_in_flight`       | Gauge     | —                          |
+
 
 Register the scrape endpoint separately:
+
 ```go
 import "github.com/prometheus/client_golang/prometheus/promhttp"
 router.GET("/metrics", gin.WrapH(promhttp.Handler()))
@@ -318,9 +356,11 @@ router.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
 ---
 
+
+
 ### `otelx`
 
-OpenTelemetry trace setup wired to `config.OpenTelemetry`. Supports **OTLP HTTP** or **Google Cloud Trace** (`OTEL_TRACES_EXPORTER=gcp`).
+OpenTelemetry trace setup wired to `config.OpenTelemetry`. Supports **OTLP HTTP**, **OTLP gRPC**, or **Google Cloud Trace** (`OTEL_TRACES_EXPORTER=gcp`).
 
 ```go
 import "github.com/turahe/pkg/otelx"
@@ -332,20 +372,32 @@ if enabled {
 
 // GORM instrumentation (auto when tracing enabled + OTEL_GORM_ENABLED=true)
 db, _ := database.New(&cfg.Database, database.Options{})
+
+// gRPC instrumentation (after Init)
+srv := grpc.NewServer(otelx.GRPCServerOption())
+conn, _ := grpc.NewClient(target, otelx.GRPCDialOption(), /* credentials */)
 ```
 
 **API:**
 
-| Function | Description |
-|----------|-------------|
-| `otelx.LoadConfig()` | Returns `config.OpenTelemetryConfiguration` |
-| `otelx.Init(ctx, cfg)` | Configures global TracerProvider; returns shutdown func + enabled flag |
-| `otelx.RegisterGORM(db, opts)` | Manual GORM OTel plugin registration |
-| `otelx.TracingEnabled(cfg)` | True when OTLP endpoint or `gcp` exporter is configured |
+
+| Function                       | Description                                                            |
+| ------------------------------ | ---------------------------------------------------------------------- |
+| `otelx.LoadConfig()`           | Returns `config.OpenTelemetryConfiguration`                            |
+| `otelx.Init(ctx, cfg)`         | Configures global TracerProvider; returns shutdown func + enabled flag |
+| `otelx.RegisterGORM(db, opts)` | Manual GORM OTel plugin registration                                   |
+| `otelx.TracingEnabled(cfg)`    | True when OTLP endpoint or `gcp` exporter is configured                |
+| `otelx.GRPCServerOption(...)`  | otelgrpc stats handler for `grpc.NewServer`                            |
+| `otelx.GRPCDialOption(...)`    | otelgrpc stats handler for `grpc.NewClient` / Dial                     |
+
 
 **GCP mode:** set `OTEL_TRACES_EXPORTER=gcp` and `GOOGLE_CLOUD_PROJECT` (or `OTEL_GCP_PROJECT_ID`). Uses Application Default Credentials and enables `X-Cloud-Trace-Context` propagation automatically.
 
+**OTLP gRPC:** set `OTEL_TRACES_EXPORTER=otlp_grpc` or `OTEL_EXPORTER_OTLP_PROTOCOL=grpc` (endpoint typically `localhost:4317`).
+
 ---
+
+
 
 ### `sentryx`
 
@@ -357,21 +409,31 @@ import "github.com/turahe/pkg/sentryx"
 if sentryx.Init(config.GetConfig().Sentry) {
     defer sentryx.Flush(config.GetConfig().Sentry.FlushTimeout)
 }
+
+srv := grpc.NewServer(sentryx.ServerOptions()...)
+conn, _ := grpc.NewClient(target, append(sentryx.DialOptions(), /* credentials */)...)
 ```
 
-| Function | Description |
-|----------|-------------|
-| `sentryx.LoadConfig()` | Returns `config.SentryConfiguration` |
-| `sentryx.Init(cfg)` | Initializes Sentry; returns enabled flag |
-| `sentryx.Flush(timeout)` | Drains buffered events on shutdown |
+
+| Function                     | Description                                    |
+| ---------------------------- | ---------------------------------------------- |
+| `sentryx.LoadConfig()`       | Returns `config.SentryConfiguration`           |
+| `sentryx.Init(cfg)`          | Initializes Sentry; returns enabled flag       |
+| `sentryx.Flush(timeout)`     | Drains buffered events on shutdown             |
+| `sentryx.ServerOptions(...)` | Unary + stream Sentry gRPC server interceptors |
+| `sentryx.DialOptions()`      | Unary + stream Sentry gRPC client interceptors |
+
 
 ---
+
+
 
 ### `mtls`
 
 Mutual TLS helpers for backend HTTPS (require client cert) and gateway outbound connections. Config from `config.MTLS`.
 
 **Server (backend):**
+
 ```go
 import "github.com/turahe/pkg/mtls"
 
@@ -383,24 +445,29 @@ router.Use(middlewares.MTLSMiddleware()) // HTTP-layer client cert enforcement
 ```
 
 **Client (gateway outbound):**
+
 ```go
 transport, err := mtls.NewTransport(config.GetConfig().MTLS)
 client := &http.Client{Transport: transport}
 ```
 
-| Function | Description |
-|----------|-------------|
-| `mtls.LoadConfig()` | Returns `config.MTLSConfiguration` |
-| `mtls.ServerTLSConfig(cfg)` | TLS config with `RequireAndVerifyClientCert` |
-| `mtls.ClientTLSConfig(cfg)` | TLS config with client cert for outbound calls |
-| `mtls.ConfigureServer(srv)` | Applies server TLS when `MTLS_ENABLED` |
-| `mtls.ListenConfigured(srv)` | `ListenAndServeTLS` or plain HTTP |
-| `mtls.RunGin(engine, addr)` | Gin drop-in for `engine.Run` with optional mTLS |
-| `mtls.NewTransport(cfg)` | `http.Transport` for gateway upstream HTTPS |
+
+| Function                     | Description                                     |
+| ---------------------------- | ----------------------------------------------- |
+| `mtls.LoadConfig()`          | Returns `config.MTLSConfiguration`              |
+| `mtls.ServerTLSConfig(cfg)`  | TLS config with `RequireAndVerifyClientCert`    |
+| `mtls.ClientTLSConfig(cfg)`  | TLS config with client cert for outbound calls  |
+| `mtls.ConfigureServer(srv)`  | Applies server TLS when `MTLS_ENABLED`          |
+| `mtls.ListenConfigured(srv)` | `ListenAndServeTLS` or plain HTTP               |
+| `mtls.RunGin(engine, addr)`  | Gin drop-in for `engine.Run` with optional mTLS |
+| `mtls.NewTransport(cfg)`     | `http.Transport` for gateway upstream HTTPS     |
+
 
 When `MTLS_ENABLED=false`, all helpers fall back to plain HTTP.
 
 ---
+
+
 
 ### `handler`
 
@@ -441,11 +508,14 @@ func (c *BaseHandler) CheckUserHasRole(userRoles, requiredRoles []string) bool
 
 ---
 
+
+
 ### `response`
 
 Standardised JSON responses with a 7-digit composite code (`HTTP(3) + Service(2) + Case(2)`).
 
 **Success responses:**
+
 ```go
 response.Ok(ctx)
 response.OkWithMessage(ctx, message)
@@ -456,6 +526,7 @@ response.Deleted(ctx)
 ```
 
 **Error responses:**
+
 ```go
 response.FailWithMessage(ctx, message)
 response.FailWithDetailed(ctx, httpStatus, serviceCode, caseCode, data, message)
@@ -468,6 +539,7 @@ response.ConflictError(ctx, serviceCode, caseCode, message)    // 409
 ```
 
 **Pagination responses:**
+
 ```go
 response.SimplePaginated(ctx, data, pageNumber, pageSize, hasNext, hasPrev)
 response.CursorPaginated(ctx, data, nextCursor, hasNext)
@@ -477,11 +549,14 @@ response.CursorPaginated(ctx, data, nextCursor, hasNext)
 
 ---
 
+
+
 ### `jwt`
 
 JWT token generation and validation with **RS256** (default) or **ES256**. Keys are loaded from config (env, file paths, or embedded PEM). No global state: use **Manager** (sign + verify), **Signer** (issue tokens only), or **Verifier** (validate only). Supports issuer, audience, key ID (kid), and token type (access, refresh, impersonation). HS256 is not supported.
 
 **All-in-one (single service):**
+
 ```go
 manager, err := jwt.NewManager(ctx, config.GetConfig())
 if err != nil {
@@ -489,16 +564,17 @@ if err != nil {
 }
 router.Use(middlewares.AuthMiddleware(manager))
 
-token, _ := manager.GenerateToken(userID)
+token, _ := manager.GenerateToken(userID, "users") // actor_type=user
 claims, _ := manager.ValidateToken(tokenString)
 ```
 
 **Split services (auth server issues, API server only verifies):**
+
 ```go
 // Auth/login service — needs private key
 signer, err := jwt.NewSigner(ctx, config.GetConfig())
-token, _ := signer.GenerateToken(userID)
-refresh, _ := signer.GenerateRefreshToken(userID)
+token, _ := signer.GenerateToken(userID, "users")
+refresh, _ := signer.GenerateRefreshToken(userID, "users")
 impersonation, _ := signer.GenerateImpersonationToken(adminID, "admin", targetID, 15*time.Minute)
 
 // API/gateway service — needs only public key
@@ -508,19 +584,25 @@ claims, _ := verifier.ValidateToken(tokenString)
 ```
 
 **API summary:**
-| Symbol | Description |
-|--------|-------------|
-| `jwt.NewManager(ctx, cfg)` | All-in-one; loads sign + verify keys; returns error |
-| `jwt.NewSigner(ctx, cfg)` | Signing only (private key) |
-| `jwt.NewVerifier(ctx, cfg)` | Verification only (public key) |
-| `jwt.TokenVerifier` | Interface: `ValidateToken(string) (*Claims, error)`; implemented by *Manager and *Verifier |
-| `manager.GenerateToken(id)` | Access token (default expiry) |
-| `manager.GenerateTokenWithExpiry(id, expiry)` | Access token with custom expiry |
-| `manager.GenerateRefreshToken(id)` | Refresh token |
-| `manager.GenerateImpersonationToken(adminID, role, targetID, ttl)` | Short-lived impersonation token (max 30 min) |
-| `manager.ValidateToken(token)` / `verifier.ValidateToken(token)` | Parse and verify; return *Claims or error |
-| `jwt.ComparePassword(hashed, plain)` | bcrypt comparison |
-| `jwt.GetCurrentUserUUID(ctx)` | Read `user_id` from Gin context (set by AuthMiddleware) |
+
+
+| Symbol                                                             | Description                                                                                |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
+| `jwt.NewManager(ctx, cfg)`                                         | All-in-one; loads sign + verify keys; returns error                                        |
+| `jwt.NewSigner(ctx, cfg)`                                          | Signing only (private key)                                                                 |
+| `jwt.NewVerifier(ctx, cfg)`                                        | Verification only (public key)                                                             |
+| `jwt.TokenVerifier`                                                | Interface: `ValidateToken(string) (*Claims, error)`; implemented by *Manager and *Verifier |
+| `manager.GenerateToken(id)`                                        | Access token; `actor_type=service` when actor/table omitted                                |
+| `manager.GenerateToken(id, "users")`                               | Access token; `actor_type=user` (User/users table)                                         |
+| `manager.GenerateToken(id, "admins")`                              | Access token; `actor_type=admin` (admins table)                                            |
+| `manager.GenerateTokenWithExpiry(id, expiry, actor?)`              | Access token with custom expiry                                                            |
+| `manager.GenerateRefreshToken(id, actor?)`                         | Refresh token (same actor_type rules)                                                      |
+| `manager.GenerateImpersonationToken(adminID, role, targetID, ttl)` | Short-lived impersonation token (`actor_type=user`, max 30 min)                            |
+| `jwt.ResolveActorType(name)`                                       | Map table/actor name → `user` / `admin` / `service` / `system`                             |
+| `manager.ValidateToken(token)` / `verifier.ValidateToken(token)`   | Parse and verify; return *Claims or error                                                  |
+| `jwt.ComparePassword(hashed, plain)`                               | bcrypt comparison                                                                          |
+| `jwt.GetCurrentUserUUID(ctx)`                                      | Read `user_id` from Gin context (set by AuthMiddleware)                                    |
+
 
 **Config / env:** Default algorithm is **RS256**. Set `JWT_PRIVATE_KEY` and `JWT_PUBLIC_KEY` (file path or inline PEM), or embed keys and assign to config before calling `NewManager`/`NewSigner`/`NewVerifier`. Optional: `JWT_ISSUER`, `JWT_AUDIENCE`, `JWT_KEY_ID`.
 
@@ -544,6 +626,8 @@ func main() {
 
 ---
 
+
+
 ### `crypto`
 
 bcrypt password hashing.
@@ -554,6 +638,8 @@ crypto.ComparePassword(hashedPassword string, plainPassword []byte) bool
 ```
 
 ---
+
+
 
 ### `gcs`
 
@@ -573,6 +659,8 @@ gcs.Close() error
 ```
 
 ---
+
+
 
 ### `types`
 
@@ -597,6 +685,8 @@ type TimeRange struct {
 
 ---
 
+
+
 ### `util`
 
 ```go
@@ -607,6 +697,8 @@ util.FormatPhoneNumber(phone *string, countryCode *string) *string  // E.164 via
 ```
 
 ---
+
+
 
 ### `domain`
 
@@ -620,6 +712,8 @@ var (
 )
 ```
 
+
+
 ### `domain/port`
 
 Port interfaces implemented by infrastructure (e.g. repositories).
@@ -629,6 +723,8 @@ type GetByID interface {
     GetByID(ctx context.Context, id string) (interface{}, bool, error)
 }
 ```
+
+
 
 ### `usecase`
 
@@ -641,6 +737,8 @@ type Func func(ctx context.Context) error  // adapts func to Runner
 // Example: get item by ID; returns domain.ErrNotFound when not found.
 func GetItemByID(ctx context.Context, repo port.GetByID, id string) (interface{}, error)
 ```
+
+
 
 ### `repositories`
 
@@ -655,27 +753,33 @@ repo.SimplePagination(ctx, &model, &out, page, size, conditions, orders, "User",
 
 ---
 
+
+
 ## Documentation
 
-Human-readable guides are in [`docs/`](docs/README.md):
+Human-readable guides are in `[docs/](docs/README.md)`:
 
-| Guide | Description |
-|-------|-------------|
-| [Getting Started](docs/getting-started.md) | Install, configure, minimal Gin wiring |
-| [Architecture](docs/architecture.md) | Clean architecture layers and dependency rules |
-| [Environment Variables](docs/environment.md) | Env var reference (see also [`.env.example`](.env.example)) |
-| [Development](docs/development.md) | Tests, lint, Docker, Makefile |
-| [Packages](docs/README.md#packages) | Per-package guides for all modules |
+
+| Guide                                        | Description                                                 |
+| -------------------------------------------- | ----------------------------------------------------------- |
+| [Getting Started](docs/getting-started.md)   | Install, configure, minimal Gin wiring                      |
+| [Architecture](docs/architecture.md)         | Clean architecture layers and dependency rules              |
+| [Environment Variables](docs/environment.md) | Env var reference (see also `[.env.example](.env.example)`) |
+| [Development](docs/development.md)           | Tests, lint, Docker, Makefile                               |
+| [Packages](docs/README.md#packages)          | Per-package guides for all modules                          |
+
 
 All packages follow GoDoc conventions:
 
-- Each package has a **`doc.go`** describing its role, responsibilities, constraints, and what it must not do.
+- Each package has a `doc.go` describing its role, responsibilities, constraints, and what it must not do.
 - Exported symbols have comments that start with the symbol name and describe behavior clearly.
 - Repository, adapter, and domain packages document contracts, error behavior, and context use.
 
 Run `go doc` or view [pkg.go.dev](https://pkg.go.dev/github.com/turahe/pkg) for the full API.
 
 ---
+
+
 
 ### Minimal server
 
@@ -803,6 +907,8 @@ func main() {
 }
 ```
 
+
+
 ### Repository with dependency injection
 
 ```go
@@ -833,6 +939,8 @@ total, err := repo.SimplePagination(ctx, &MyModel{}, &results, page, size,
 )
 ```
 
+
+
 ### Clean architecture wiring
 
 ```go
@@ -861,6 +969,8 @@ func GetItem(ctx context.Context, repo port.ItemRepository, id string) (*Item, e
 
 ---
 
+
+
 ## Environment Variables
 
 Copy `.env.example` to `.env` and call `config.Setup("")`:
@@ -869,130 +979,164 @@ Copy `.env.example` to `.env` and call `config.Setup("")`:
 cp .env.example .env
 ```
 
+
+
 ### Server
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `SERVER_PORT` | `8080` | HTTP listen port |
-| `SERVER_MODE` | `debug` | Gin mode: `debug`, `release`, `test` |
-| `SERVER_ACCESS_TOKEN_EXPIRY` | `1` | Access token lifetime (hours) |
-| `SERVER_REFRESH_TOKEN_EXPIRY` | `7` | Refresh token lifetime (days) |
-| `SERVER_SESSION_EXPIRY` | `24` | Session lifetime (hours) |
-| `SERVER_TIMEZONE` | `UTC` | IANA timezone (also default for DB when `DATABASE_TIMEZONE` empty) |
-| `APP_ENV` | — | Deployment environment; fallback for OTEL/Sentry when their env vars are empty |
+
+| Variable                      | Default | Description                                                                    |
+| ----------------------------- | ------- | ------------------------------------------------------------------------------ |
+| `SERVER_PORT`                 | `8080`  | HTTP listen port                                                               |
+| `SERVER_MODE`                 | `debug` | Gin mode: `debug`, `release`, `test`                                           |
+| `SERVER_ACCESS_TOKEN_EXPIRY`  | `1`     | Access token lifetime (hours)                                                  |
+| `SERVER_REFRESH_TOKEN_EXPIRY` | `7`     | Refresh token lifetime (days)                                                  |
+| `SERVER_SESSION_EXPIRY`       | `24`    | Session lifetime (hours)                                                       |
+| `SERVER_TIMEZONE`             | `UTC`   | IANA timezone (also default for DB when `DATABASE_TIMEZONE` empty)             |
+| `APP_ENV`                     | —       | Deployment environment; fallback for OTEL/Sentry when their env vars are empty |
+
+
+
 
 ### CORS
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `CORS_GLOBAL` | `true` | Allow all origins (`*`) |
-| `CORS_FRONTEND` | — | Frontend origin URL when `CORS_GLOBAL=false` (e.g. `http://localhost:3000`) |
-| `CORS_IPS` | — | Comma-separated allowed origins when `CORS_GLOBAL=false` |
+
+| Variable        | Default | Description                                                                 |
+| --------------- | ------- | --------------------------------------------------------------------------- |
+| `CORS_GLOBAL`   | `true`  | Allow all origins (`*`)                                                     |
+| `CORS_FRONTEND` | —       | Frontend origin URL when `CORS_GLOBAL=false` (e.g. `http://localhost:3000`) |
+| `CORS_IPS`      | —       | Comma-separated allowed origins when `CORS_GLOBAL=false`                    |
+
 
 Allowed headers include `Authorization`, `X-CSRF-Token`, and `X-2FA-Code`.
 
 ### JWT
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `JWT_SIGNING_ALGORITHM` | **`RS256`** | `RS256` · `ES256` (HS256 removed) |
-| `JWT_PRIVATE_KEY` | — | File path or inline PEM private key (RS256/ES256) |
-| `JWT_PUBLIC_KEY` | — | File path or inline PEM public key (RS256/ES256) |
-| `JWT_ISSUER` | — | Issuer (`iss`) claim |
-| `JWT_AUDIENCE` | — | Audience (`aud`), comma-separated |
-| `JWT_KEY_ID` | — | Key ID (`kid`) in JWT header |
+
+| Variable                | Default | Description                                       |
+| ----------------------- | ------- | ------------------------------------------------- |
+| `JWT_SIGNING_ALGORITHM` | `RS256` | `RS256` · `ES256` (HS256 removed)                 |
+| `JWT_PRIVATE_KEY`       | —       | File path or inline PEM private key (RS256/ES256) |
+| `JWT_PUBLIC_KEY`        | —       | File path or inline PEM public key (RS256/ES256)  |
+| `JWT_ISSUER`            | —       | Issuer (`iss`) claim                              |
+| `JWT_AUDIENCE`          | —       | Audience (`aud`), comma-separated                 |
+| `JWT_KEY_ID`            | —       | Key ID (`kid`) in JWT header                      |
+
 
 Keys can be embedded via `config.Server.JWTPrivateKeyPEM` / `JWTPublicKeyPEM` (see [jwt](#jwt) section).
 
 ### Database
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `DATABASE_DRIVER` | `mysql` | `mysql` · `postgres` · `sqlite` · `sqlserver` · `cloudsql-mysql` · `cloudsql-postgres` |
-| `DATABASE_HOST` | `127.0.0.1` | |
-| `DATABASE_PORT` | `3306` | |
-| `DATABASE_USERNAME` | — | |
-| `DATABASE_PASSWORD` | — | |
-| `DATABASE_DBNAME` | — | |
-| `DATABASE_SSLMODE` | `false` | |
-| `DATABASE_LOGMODE` | `false` | Enable GORM query logging |
-| `DATABASE_TIMEZONE` | — | IANA timezone for DB session (`mysql`/`postgres`/Cloud SQL); empty uses `SERVER_TIMEZONE` |
-| `DATABASE_MAX_IDLE_CONNS` | `0` (→ 10) | Connection pool idle size |
-| `DATABASE_MAX_OPEN_CONNS` | `0` (→ 30) | Connection pool max open |
-| `DATABASE_CONN_MAX_LIFETIME` | `0` (→ 30 min) | Connection lifetime (minutes) |
-| `DATABASE_CLOUD_SQL_INSTANCE` | — | `project:region:instance` for Cloud SQL |
-| `DATABASE_*_SITE` | — | Same keys with `_SITE` suffix for secondary DB |
-| `DATABASE_TIMEZONE_SITE` | — | Site DB timezone; empty uses `SERVER_TIMEZONE` |
+
+| Variable                      | Default        | Description                                                                               |
+| ----------------------------- | -------------- | ----------------------------------------------------------------------------------------- |
+| `DATABASE_DRIVER`             | `mysql`        | `mysql` · `postgres` · `sqlite` · `sqlserver` · `cloudsql-mysql` · `cloudsql-postgres`    |
+| `DATABASE_HOST`               | `127.0.0.1`    |                                                                                           |
+| `DATABASE_PORT`               | `3306`         |                                                                                           |
+| `DATABASE_USERNAME`           | —              |                                                                                           |
+| `DATABASE_PASSWORD`           | —              |                                                                                           |
+| `DATABASE_DBNAME`             | —              |                                                                                           |
+| `DATABASE_SSLMODE`            | `false`        |                                                                                           |
+| `DATABASE_LOGMODE`            | `false`        | Enable GORM query logging                                                                 |
+| `DATABASE_TIMEZONE`           | —              | IANA timezone for DB session (`mysql`/`postgres`/Cloud SQL); empty uses `SERVER_TIMEZONE` |
+| `DATABASE_MAX_IDLE_CONNS`     | `0` (→ 10)     | Connection pool idle size                                                                 |
+| `DATABASE_MAX_OPEN_CONNS`     | `0` (→ 30)     | Connection pool max open                                                                  |
+| `DATABASE_CONN_MAX_LIFETIME`  | `0` (→ 30 min) | Connection lifetime (minutes)                                                             |
+| `DATABASE_CLOUD_SQL_INSTANCE` | —              | `project:region:instance` for Cloud SQL                                                   |
+| `DATABASE_*_SITE`             | —              | Same keys with `_SITE` suffix for secondary DB                                            |
+| `DATABASE_TIMEZONE_SITE`      | —              | Site DB timezone; empty uses `SERVER_TIMEZONE`                                            |
+
+
+
 
 ### Redis
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `REDIS_ENABLED` | `false` | |
-| `REDIS_HOST` | `127.0.0.1` | |
-| `REDIS_PORT` | `6379` | |
-| `REDIS_PASSWORD` | — | |
-| `REDIS_DB` | `0` | Database index (ignored in cluster mode) |
-| `REDIS_CLUSTER_MODE` | `false` | Enable cluster client |
-| `REDIS_CLUSTER_NODES` | — | Comma-separated `host:port` list |
-| `REDIS_POOL_SIZE` | `0` (client default) | Max connections per node |
-| `REDIS_MIN_IDLE_CONNS` | `0` | Min idle connections |
-| `REDIS_READ_TIMEOUT_SEC` | `0` (no timeout) | Read timeout |
-| `REDIS_WRITE_TIMEOUT_SEC` | `0` (no timeout) | Write timeout |
+
+| Variable                  | Default              | Description                              |
+| ------------------------- | -------------------- | ---------------------------------------- |
+| `REDIS_ENABLED`           | `false`              |                                          |
+| `REDIS_HOST`              | `127.0.0.1`          |                                          |
+| `REDIS_PORT`              | `6379`               |                                          |
+| `REDIS_PASSWORD`          | —                    |                                          |
+| `REDIS_DB`                | `0`                  | Database index (ignored in cluster mode) |
+| `REDIS_CLUSTER_MODE`      | `false`              | Enable cluster client                    |
+| `REDIS_CLUSTER_NODES`     | —                    | Comma-separated `host:port` list         |
+| `REDIS_POOL_SIZE`         | `0` (client default) | Max connections per node                 |
+| `REDIS_MIN_IDLE_CONNS`    | `0`                  | Min idle connections                     |
+| `REDIS_READ_TIMEOUT_SEC`  | `0` (no timeout)     | Read timeout                             |
+| `REDIS_WRITE_TIMEOUT_SEC` | `0` (no timeout)     | Write timeout                            |
+
+
+
 
 ### Rate Limiter
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `RATE_LIMITER_ENABLED` | `false` | Requires Redis |
-| `RATE_LIMITER_REQUESTS` | `100` | Requests allowed per window |
-| `RATE_LIMITER_WINDOW` | `60` | Window size (seconds) |
-| `RATE_LIMITER_KEY_BY` | `ip` | `ip` or `user` |
-| `RATE_LIMITER_SKIP_PATHS` | — | Comma-separated paths (e.g. `/health,/metrics`) |
+
+| Variable                  | Default | Description                                     |
+| ------------------------- | ------- | ----------------------------------------------- |
+| `RATE_LIMITER_ENABLED`    | `false` | Requires Redis                                  |
+| `RATE_LIMITER_REQUESTS`   | `100`   | Requests allowed per window                     |
+| `RATE_LIMITER_WINDOW`     | `60`    | Window size (seconds)                           |
+| `RATE_LIMITER_KEY_BY`     | `ip`    | `ip` or `user`                                  |
+| `RATE_LIMITER_SKIP_PATHS` | —       | Comma-separated paths (e.g. `/health,/metrics`) |
+
+
+
 
 ### GCS
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `GCS_ENABLED` | `false` | |
-| `GCS_BUCKET_NAME` | — | |
-| `GCS_CREDENTIALS_FILE` | — | Path to service account JSON; omit to use ADC |
+
+| Variable               | Default | Description                                   |
+| ---------------------- | ------- | --------------------------------------------- |
+| `GCS_ENABLED`          | `false` |                                               |
+| `GCS_BUCKET_NAME`      | —       |                                               |
+| `GCS_CREDENTIALS_FILE` | —       | Path to service account JSON; omit to use ADC |
+
+
+
 
 ### OpenTelemetry
 
-Initialize tracing with `otelx.Init(ctx, config.GetConfig().OpenTelemetry)` after `config.Setup`. Choose an exporter with `OTEL_TRACES_EXPORTER` (`otlp` or `gcp`).
+Initialize tracing with `otelx.Init(ctx, config.GetConfig().OpenTelemetry)` after `config.Setup`. Choose an exporter with `OTEL_TRACES_EXPORTER` (`otlp`, `otlp_grpc`, or `gcp`).
 
 **Shared (all exporters):**
 
-| Variable | Required | Default | Example | Description |
-|----------|----------|---------|---------|-------------|
-| `OTEL_TRACES_EXPORTER` | No | `otlp` | `gcp` | `otlp` (OTLP HTTP) or `gcp` (Google Cloud Trace) |
-| `OTEL_SERVICE_NAME` | No | `app` | `payments-api` | Service name resource attribute |
-| `OTEL_ENVIRONMENT` | No | `APP_ENV` | `production` | Deployment environment; falls back to `APP_ENV` |
-| `OTEL_SERVICE_VERSION` | No | `SENTRY_RELEASE` | `1.4.2` | Service version; falls back to `SENTRY_RELEASE` |
-| `OTEL_TRACES_SAMPLER_ARG` | No | `1.0` | `0.25` | Parent-based ratio sampler (0..1) |
-| `OTEL_SHUTDOWN_TIMEOUT` | No | `5s` | `10s` | Tracer provider shutdown timeout |
-| `OTEL_GORM_ENABLED` | No | `true` | `false` | Register GORM OTel plugin when tracing is enabled |
 
-**OTLP** (`OTEL_TRACES_EXPORTER=otlp`):
+| Variable                  | Required | Default          | Example        | Description                                               |
+| ------------------------- | -------- | ---------------- | -------------- | --------------------------------------------------------- |
+| `OTEL_TRACES_EXPORTER`    | No       | `otlp`           | `otlp_grpc`    | `otlp` (HTTP), `otlp_grpc` (gRPC), or `gcp` (Cloud Trace) |
+| `OTEL_SERVICE_NAME`       | No       | `app`            | `payments-api` | Service name resource attribute                           |
+| `OTEL_ENVIRONMENT`        | No       | `APP_ENV`        | `production`   | Deployment environment; falls back to `APP_ENV`           |
+| `OTEL_SERVICE_VERSION`    | No       | `SENTRY_RELEASE` | `1.4.2`        | Service version; falls back to `SENTRY_RELEASE`           |
+| `OTEL_TRACES_SAMPLER_ARG` | No       | `1.0`            | `0.25`         | Parent-based ratio sampler (0..1)                         |
+| `OTEL_SHUTDOWN_TIMEOUT`   | No       | `5s`             | `10s`          | Tracer provider shutdown timeout                          |
+| `OTEL_GORM_ENABLED`       | No       | `true`           | `false`        | Register GORM OTel plugin when tracing is enabled         |
 
-| Variable | Required | Default | Example | Description |
-|----------|----------|---------|---------|-------------|
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | **Yes** | — | `localhost:4318` | OTLP HTTP endpoint (host:port, no scheme) |
-| `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` | No | — | `otel-collector:4318` | Trace-specific endpoint override |
-| `OTEL_EXPORTER_OTLP_INSECURE` | No | `true` | `false` | Use HTTP instead of HTTPS for OTLP export |
-| `OTEL_EXPORTER_OTLP_HEADERS` | No | — | `Authorization=Bearer token` | Comma-separated `key=value` OTLP headers |
+
+**OTLP** (`OTEL_TRACES_EXPORTER=otlp` or `otlp_grpc`):
+
+
+| Variable                             | Required | Default         | Example                      | Description                                                |
+| ------------------------------------ | -------- | --------------- | ---------------------------- | ---------------------------------------------------------- |
+| `OTEL_EXPORTER_OTLP_ENDPOINT`        | **Yes**  | —               | `localhost:4318`             | OTLP endpoint (host:port, no scheme); use `:4317` for gRPC |
+| `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` | No       | —               | `otel-collector:4318`        | Trace-specific endpoint override                           |
+| `OTEL_EXPORTER_OTLP_PROTOCOL`        | No       | `http/protobuf` | `grpc`                       | Transport; `OTEL_EXPORTER_OTLP_TRACES_PROTOCOL` overrides  |
+| `OTEL_EXPORTER_OTLP_INSECURE`        | No       | `true`          | `false`                      | Use insecure transport for OTLP export                     |
+| `OTEL_EXPORTER_OTLP_HEADERS`         | No       | —               | `Authorization=Bearer token` | Comma-separated `key=value` OTLP headers                   |
+
 
 **GCP Cloud Trace** (`OTEL_TRACES_EXPORTER=gcp`):
 
-| Variable | Required | Default | Example | Description |
-|----------|----------|---------|---------|-------------|
-| `OTEL_GCP_PROJECT_ID` | No | `GOOGLE_CLOUD_PROJECT` | `my-gcp-project` | GCP project; falls back to `GOOGLE_CLOUD_PROJECT` |
-| `OTEL_GCP_PROPAGATOR` | No | `false` | `true` | `X-Cloud-Trace-Context` propagation (auto-on for `gcp`) |
+
+| Variable              | Required | Default                | Example          | Description                                             |
+| --------------------- | -------- | ---------------------- | ---------------- | ------------------------------------------------------- |
+| `OTEL_GCP_PROJECT_ID` | No       | `GOOGLE_CLOUD_PROJECT` | `my-gcp-project` | GCP project; falls back to `GOOGLE_CLOUD_PROJECT`       |
+| `OTEL_GCP_PROPAGATOR` | No       | `false`                | `true`           | `X-Cloud-Trace-Context` propagation (auto-on for `gcp`) |
+
 
 Uses Application Default Credentials. GORM is instrumented automatically when tracing is enabled and `OTEL_GORM_ENABLED=true` (default).
 
 **Example — OTLP (local collector / Jaeger):**
+
 ```bash
 OTEL_TRACES_EXPORTER=otlp
 OTEL_EXPORTER_OTLP_ENDPOINT=localhost:4318
@@ -1004,6 +1148,7 @@ OTEL_GORM_ENABLED=true
 ```
 
 **Example — GCP Cloud Trace:**
+
 ```bash
 OTEL_TRACES_EXPORTER=gcp
 OTEL_GCP_PROJECT_ID=my-gcp-project
@@ -1014,37 +1159,45 @@ OTEL_GORM_ENABLED=true
 # GOOGLE_APPLICATION_CREDENTIALS=/path/to/sa.json  # local dev; omit on GCE/GKE/Cloud Run
 ```
 
+
+
 ### Sentry
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `SENTRY_DSN` | — | Sentry DSN; empty disables Sentry |
-| `SENTRY_ENVIRONMENT` | — | Deployment environment; falls back to `APP_ENV` |
-| `SENTRY_RELEASE` | — | Release identifier (git SHA or semver) |
-| `SENTRY_SERVER_NAME` | — | Server name tag; `sentryx` defaults to `app` |
-| `SENTRY_DEBUG` | `false` | Enable Sentry SDK debug logging |
-| `SENTRY_ATTACH_STACKTRACE` | `true` | Attach stack traces to non-panic messages |
-| `SENTRY_SAMPLE_RATE` | `1.0` | Error event sample rate (0..1) |
-| `SENTRY_TRACES_SAMPLE_RATE` | `0.0` | Performance transaction sample rate (0..1) |
-| `SENTRY_FLUSH_TIMEOUT` | `2s` | Flush timeout at shutdown |
+
+| Variable                    | Default | Description                                     |
+| --------------------------- | ------- | ----------------------------------------------- |
+| `SENTRY_DSN`                | —       | Sentry DSN; empty disables Sentry               |
+| `SENTRY_ENVIRONMENT`        | —       | Deployment environment; falls back to `APP_ENV` |
+| `SENTRY_RELEASE`            | —       | Release identifier (git SHA or semver)          |
+| `SENTRY_SERVER_NAME`        | —       | Server name tag; `sentryx` defaults to `app`    |
+| `SENTRY_DEBUG`              | `false` | Enable Sentry SDK debug logging                 |
+| `SENTRY_ATTACH_STACKTRACE`  | `true`  | Attach stack traces to non-panic messages       |
+| `SENTRY_SAMPLE_RATE`        | `1.0`   | Error event sample rate (0..1)                  |
+| `SENTRY_TRACES_SAMPLE_RATE` | `0.0`   | Performance transaction sample rate (0..1)      |
+| `SENTRY_FLUSH_TIMEOUT`      | `2s`    | Flush timeout at shutdown                       |
+
 
 Initialize Sentry with `sentryx.Init(config.GetConfig().Sentry)` after `config.Setup`.
 
 ### mTLS
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `MTLS_ENABLED` | `false` | Enable mTLS server listen and `MTLSMiddleware` |
-| `MTLS_CA_CERT` | `/etc/mtls/ca.crt` | Shared CA bundle |
-| `MTLS_SERVER_CERT` | `/etc/mtls/server.crt` | Backend server certificate |
-| `MTLS_SERVER_KEY` | `/etc/mtls/server.key` | Backend server private key |
-| `MTLS_CLIENT_CERT` | `/etc/mtls/gateway.crt` | Gateway/client certificate (outbound) |
-| `MTLS_CLIENT_KEY` | `/etc/mtls/gateway.key` | Gateway/client private key |
-| `MTLS_SKIP_PATHS` | `/live,/ready,/metrics` | Paths bypassing `MTLSMiddleware` |
 
-See [`mtls`](#mtls) for server/client wiring examples.
+| Variable           | Default                 | Description                                    |
+| ------------------ | ----------------------- | ---------------------------------------------- |
+| `MTLS_ENABLED`     | `false`                 | Enable mTLS server listen and `MTLSMiddleware` |
+| `MTLS_CA_CERT`     | `/etc/mtls/ca.crt`      | Shared CA bundle                               |
+| `MTLS_SERVER_CERT` | `/etc/mtls/server.crt`  | Backend server certificate                     |
+| `MTLS_SERVER_KEY`  | `/etc/mtls/server.key`  | Backend server private key                     |
+| `MTLS_CLIENT_CERT` | `/etc/mtls/gateway.crt` | Gateway/client certificate (outbound)          |
+| `MTLS_CLIENT_KEY`  | `/etc/mtls/gateway.key` | Gateway/client private key                     |
+| `MTLS_SKIP_PATHS`  | `/live,/ready,/metrics` | Paths bypassing `MTLSMiddleware`               |
+
+
+See `[mtls](#mtls)` for server/client wiring examples.
 
 ---
+
+
 
 ## Production Wiring Example
 
@@ -1058,6 +1211,8 @@ See [Getting Started](docs/getting-started.md) for a minimal server, and the **U
 - `/live` (liveness), `/ready` (readiness with component checks), `/metrics` (Prometheus)
 - HTTP server with all timeouts set
 - Graceful shutdown: readiness gate → `srv.Shutdown(25s)` → Sentry flush → OTel shutdown → Redis close → DB close
+
+
 
 ### Kubernetes probes
 
@@ -1079,6 +1234,8 @@ readinessProbe:
 terminationGracePeriodSeconds: 30
 ```
 
+
+
 ### Docker
 
 ```bash
@@ -1090,23 +1247,30 @@ The multi-stage `Dockerfile` uses `golang:1.26-alpine` to build and `gcr.io/dist
 
 ---
 
+
+
 ## Testing
 
 Run all tests:
+
 ```bash
 go test ./...
 ```
 
 With race detector (requires CGO):
+
 ```bash
 CGO_ENABLED=1 go test -race ./...
 ```
 
 With coverage:
+
 ```bash
 go test -coverprofile=coverage.out ./...
 go tool cover -func=coverage.out
 ```
+
+
 
 ### Run tests with Docker Compose
 
@@ -1128,11 +1292,13 @@ The test runner waits for Redis, MySQL, and Postgres to be healthy, then runs `g
 ### Integration tests (Redis · MySQL · Postgres) — local
 
 Start services with Docker Compose:
+
 ```bash
 docker compose up -d
 ```
 
 Run with environment variables:
+
 ```bash
 REDIS_ENABLED=true REDIS_HOST=127.0.0.1 REDIS_PORT=6379 \
 DATABASE_DRIVER=mysql DATABASE_HOST=127.0.0.1 DATABASE_PORT=3306 \
@@ -1145,6 +1311,8 @@ Integration tests skip automatically when services are unavailable. CI runs the 
 **Packages with tests:** `config`, `crypto`, `database`, `gcs`, `handler`, `jwt`, `logger`, `middlewares`, `mtls`, `otelx`, `redis`, `repositories`, `response`, `sentryx`, `types`, `util`.
 
 ---
+
+
 
 ## License
 

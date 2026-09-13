@@ -100,14 +100,15 @@ See [otelx](packages/otelx.md).
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `OTEL_TRACES_EXPORTER` | `otlp` | `otlp` or `gcp` |
+| `OTEL_TRACES_EXPORTER` | `otlp` | `otlp`, `otlp_grpc`, or `gcp` |
+| `OTEL_EXPORTER_OTLP_PROTOCOL` | `http/protobuf` | `http/protobuf` or `grpc` (traces protocol override via `OTEL_EXPORTER_OTLP_TRACES_PROTOCOL`) |
 | `OTEL_SERVICE_NAME` | `app` | |
 | `OTEL_ENVIRONMENT` | `APP_ENV` | |
 | `OTEL_SERVICE_VERSION` | `SENTRY_RELEASE` | |
 | `OTEL_TRACES_SAMPLER_ARG` | `1.0` | 0..1 |
 | `OTEL_SHUTDOWN_TIMEOUT` | `5s` | |
 | `OTEL_GORM_ENABLED` | `true` | Auto GORM plugin |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | — | Required for OTLP |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | — | Required for OTLP (`:4318` HTTP, `:4317` gRPC) |
 | `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` | — | Override |
 | `OTEL_EXPORTER_OTLP_INSECURE` | `true` | |
 | `OTEL_EXPORTER_OTLP_HEADERS` | — | `key=value,...` |

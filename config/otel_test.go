@@ -38,6 +38,7 @@ func TestBuildConfigFromEnv_OpenTelemetry(t *testing.T) {
 		"OTEL_EXPORTER_OTLP_TRACES_ENDPOINT": "localhost:4319",
 		"OTEL_EXPORTER_OTLP_INSECURE":        "false",
 		"OTEL_EXPORTER_OTLP_HEADERS":         "Authorization=Bearer token",
+		"OTEL_EXPORTER_OTLP_PROTOCOL":        "grpc",
 		"OTEL_SERVICE_NAME":                  "my-service",
 		"OTEL_ENVIRONMENT":                   "staging",
 		"OTEL_SERVICE_VERSION":               "1.2.3",
@@ -63,6 +64,9 @@ func TestBuildConfigFromEnv_OpenTelemetry(t *testing.T) {
 	}
 	if cfg.OpenTelemetry.Headers["Authorization"] != "Bearer token" {
 		t.Errorf("Headers = %#v", cfg.OpenTelemetry.Headers)
+	}
+	if cfg.OpenTelemetry.Protocol != "grpc" {
+		t.Errorf("Protocol = %q, want grpc", cfg.OpenTelemetry.Protocol)
 	}
 	if cfg.OpenTelemetry.ServiceName != "my-service" {
 		t.Errorf("ServiceName = %q", cfg.OpenTelemetry.ServiceName)

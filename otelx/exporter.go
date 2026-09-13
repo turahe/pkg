@@ -8,6 +8,7 @@ import (
 	"github.com/turahe/pkg/config"
 	"github.com/turahe/pkg/logger"
 	"go.opentelemetry.io/contrib/detectors/gcp"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
@@ -34,10 +35,13 @@ func buildTraceExporter(ctx context.Context, cfg config.OpenTelemetryConfigurati
 	if isGCPExporter(cfg) {
 		return newGCPTraceExporter(ctx, cfg)
 	}
-	return newOTLPTraceExporter(ctx, cfg)
+	if useOTLPGRPC(cfg) {
+		return newOTLPGRPCTraceExporter(ctx, cfg)
+	}
+	return newOTLPHTTPTraceExporter(ctx, cfg)
 }
 
-func newOTLPTraceExporter(ctx context.Context, cfg config.OpenTelemetryConfiguration) (sdktrace.SpanExporter, error) {
+func newOTLPHTTPTraceExporter(ctx context.Context, cfg config.OpenTelemetryConfiguration) (sdktrace.SpanExporter, error) {
 	opts := []otlptracehttp.Option{}
 	endpoint := normalizeEndpoint(firstNonEmpty(cfg.TracesEndpoint, cfg.Endpoint))
 	opts = append(opts, otlptracehttp.WithEndpoint(endpoint))
@@ -49,7 +53,24 @@ func newOTLPTraceExporter(ctx context.Context, cfg config.OpenTelemetryConfigura
 	}
 	exporter, err := otlptracehttp.New(ctx, opts...)
 	if err != nil {
-		return nil, fmt.Errorf("otlp exporter: %w", err)
+		return nil, fmt.Errorf("otlp http exporter: %w", err)
+	}
+	return exporter, nil
+}
+
+func newOTLPGRPCTraceExporter(ctx context.Context, cfg config.OpenTelemetryConfiguration) (sdktrace.SpanExporter, error) {
+	opts := []otlptracegrpc.Option{}
+	endpoint := normalizeEndpoint(firstNonEmpty(cfg.TracesEndpoint, cfg.Endpoint))
+	opts = append(opts, otlptracegrpc.WithEndpoint(endpoint))
+	if cfg.Insecure {
+		opts = append(opts, otlptracegrpc.WithInsecure())
+	}
+	if len(cfg.Headers) > 0 {
+		opts = append(opts, otlptracegrpc.WithHeaders(cfg.Headers))
+	}
+	exporter, err := otlptracegrpc.New(ctx, opts...)
+	if err != nil {
+		return nil, fmt.Errorf("otlp grpc exporter: %w", err)
 	}
 	return exporter, nil
 }

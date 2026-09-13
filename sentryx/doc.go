@@ -10,6 +10,7 @@ Responsibilities:
   - Init: configure DSN, environment, release, server name, sample rates, and stack traces.
   - LoadConfig: read SentryConfiguration from the global config package.
   - Flush: drain buffered events with a timeout (safe when Sentry was never initialized).
+  - ServerOptions / DialOptions: gRPC interceptors (github.com/getsentry/sentry-go/grpc).
 
 Constraints:
   - SENTRY_DSN empty is the explicit "Sentry is off" signal — Init is a no-op and returns false.

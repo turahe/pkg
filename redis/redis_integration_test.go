@@ -47,22 +47,29 @@ const keyPrefix = "pkg:integration:"
 
 // setupIntegrationBackend sets config and calls Setup() using the first available
 // backend (Redis or Valkey). Skips the test if none is reachable so go test ./... passes without Redis.
+// Available() is TCP-only; auth failures (e.g. NOAUTH on a password-protected host Redis)
+// are treated as unavailable so a local requirepass instance does not fail the suite.
 func setupIntegrationBackend(t *testing.T) {
 	t.Helper()
+	password := os.Getenv("REDIS_PASSWORD")
 	for _, b := range integrationBackends() {
 		if !Available(b.host, b.port, integrationTimeout) {
 			continue
 		}
 		config.Config = &config.Configuration{
 			Redis: config.RedisConfiguration{
-				Enabled: true,
-				Host:    b.host,
-				Port:    b.port,
-				DB:      0,
+				Enabled:  true,
+				Host:     b.host,
+				Port:     b.port,
+				Password: password,
+				DB:       0,
 			},
 		}
 		if err := Setup(); err != nil {
-			t.Fatalf("%s at %s:%s: Setup failed: %v", b.name, b.host, b.port, err)
+			t.Logf("%s at %s:%s: Setup skipped: %v", b.name, b.host, b.port, err)
+			rdb = nil
+			rdbCluster = nil
+			continue
 		}
 		t.Logf("Using %s at %s:%s", b.name, b.host, b.port)
 		return

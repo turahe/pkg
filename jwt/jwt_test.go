@@ -50,6 +50,50 @@ func TestGenerateTokenWithExpiry_and_ValidateToken(t *testing.T) {
 		t.Errorf("UUID = %q, want %q", claims.UUID, id.String())
 	}
 	assert.Equal(t, TokenTypeAccess, claims.TokenType)
+	assert.Equal(t, ActorTypeService, claims.ActorType)
+}
+
+func TestResolveActorType(t *testing.T) {
+	tests := map[string]string{
+		"":        ActorTypeService,
+		"  ":      ActorTypeService,
+		"user":    ActorTypeUser,
+		"User":    ActorTypeUser,
+		"users":   ActorTypeUser,
+		"admin":   ActorTypeAdmin,
+		"admins":  ActorTypeAdmin,
+		"service": ActorTypeService,
+		"system":  ActorTypeSystem,
+		"unknown": ActorTypeService,
+	}
+	for in, want := range tests {
+		if got := ResolveActorType(in); got != want {
+			t.Errorf("ResolveActorType(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestGenerateToken_ActorTypeFromTable(t *testing.T) {
+	m := testManager(t)
+	id := uuid.MustParse("550e8400-e29b-41d4-a716-446655440000")
+
+	token, err := m.GenerateToken(id, "admins")
+	require.NoError(t, err)
+	claims, err := m.ValidateToken(token)
+	require.NoError(t, err)
+	assert.Equal(t, ActorTypeAdmin, claims.ActorType)
+
+	token, err = m.GenerateToken(id, "User")
+	require.NoError(t, err)
+	claims, err = m.ValidateToken(token)
+	require.NoError(t, err)
+	assert.Equal(t, ActorTypeUser, claims.ActorType)
+
+	token, err = m.GenerateToken(id)
+	require.NoError(t, err)
+	claims, err = m.ValidateToken(token)
+	require.NoError(t, err)
+	assert.Equal(t, ActorTypeService, claims.ActorType)
 }
 
 func TestGenerateImpersonationToken_Claims(t *testing.T) {
@@ -72,6 +116,7 @@ func TestGenerateImpersonationToken_Claims(t *testing.T) {
 	assert.Equal(t, "admin", claims.ImpersonatorRole)
 	assert.Equal(t, adminID.String(), claims.OriginalSub)
 	assert.Equal(t, TokenTypeImpersonation, claims.TokenType)
+	assert.Equal(t, ActorTypeUser, claims.ActorType)
 
 	require.NotNil(t, claims.ExpiresAt)
 	require.NotNil(t, claims.IssuedAt)

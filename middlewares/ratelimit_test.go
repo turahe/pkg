@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 	"time"
 
@@ -19,6 +20,7 @@ import (
 
 // setupTestConfig sets up test configuration for rate limiter. When redisEnabled is true,
 // Redis must be available at 127.0.0.1:6379 or the test is skipped (start Redis or run: make test-docker).
+// Available() is TCP-only; Setup auth failures (NOAUTH) are skipped the same way.
 func setupTestConfig(t *testing.T, rateLimiterEnabled, redisEnabled bool) {
 	t.Helper()
 	config.Config = &config.Configuration{
@@ -30,10 +32,11 @@ func setupTestConfig(t *testing.T, rateLimiterEnabled, redisEnabled bool) {
 			SkipPaths: "/health,/metrics",
 		},
 		Redis: config.RedisConfiguration{
-			Enabled: redisEnabled,
-			Host:    "127.0.0.1",
-			Port:    "6379",
-			DB:      0,
+			Enabled:  redisEnabled,
+			Host:     "127.0.0.1",
+			Port:     "6379",
+			Password: os.Getenv("REDIS_PASSWORD"),
+			DB:       0,
 		},
 	}
 
@@ -41,9 +44,8 @@ func setupTestConfig(t *testing.T, rateLimiterEnabled, redisEnabled bool) {
 		if !redis.Available("127.0.0.1", "6379", 500*time.Millisecond) {
 			t.Skip("Redis is required for this test but 127.0.0.1:6379 is unreachable. Start Redis (e.g. docker compose up -d) or run: make test-docker")
 		}
-		err := redis.Setup()
-		if err != nil {
-			t.Fatalf("Redis setup failed: %v", err)
+		if err := redis.Setup(); err != nil {
+			t.Skipf("Redis is required for this test but Setup failed: %v. Start an open Redis (docker compose up -d) or set REDIS_PASSWORD", err)
 		}
 	}
 }

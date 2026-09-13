@@ -99,6 +99,7 @@ func buildConfigFromEnv() *Configuration {
 		},
 		OpenTelemetry: OpenTelemetryConfiguration{
 			Exporter:         getEnvOrDefault("OTEL_TRACES_EXPORTER", "otlp"),
+			Protocol:         firstNonEmpty(getEnvOrDefault("OTEL_EXPORTER_OTLP_TRACES_PROTOCOL", ""), getEnvOrDefault("OTEL_EXPORTER_OTLP_PROTOCOL", "")),
 			Endpoint:         getEnvOrDefault("OTEL_EXPORTER_OTLP_ENDPOINT", ""),
 			TracesEndpoint:   getEnvOrDefault("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", ""),
 			Insecure:         parseBool("OTEL_EXPORTER_OTLP_INSECURE", true),

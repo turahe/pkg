@@ -27,6 +27,35 @@ const (
 	TokenTypeImpersonation = "impersonation"
 )
 
+// ActorType identifies who the subject represents (user/admin from app tables, or machine identity).
+const (
+	ActorTypeUser    = "user"
+	ActorTypeAdmin   = "admin"
+	ActorTypeService = "service"
+	ActorTypeSystem  = "system"
+)
+
+// ResolveActorType maps an actor type or table name to a canonical actor_type claim.
+// Empty → service. Table "admins" → admin. Table "users"/"User" → user.
+// Explicit "system" / "service" / "user" / "admin" are kept as-is (case-insensitive).
+func ResolveActorType(actorOrTable string) string {
+	s := strings.TrimSpace(strings.ToLower(actorOrTable))
+	switch s {
+	case "":
+		return ActorTypeService
+	case ActorTypeUser, "users":
+		return ActorTypeUser
+	case ActorTypeAdmin, "admins":
+		return ActorTypeAdmin
+	case ActorTypeService, "services":
+		return ActorTypeService
+	case ActorTypeSystem, "systems":
+		return ActorTypeSystem
+	default:
+		return ActorTypeService
+	}
+}
+
 // Manager holds JWT signing and verification configuration. Create with NewManager for all-in-one use.
 // For split services use NewSigner (auth server) and NewVerifier (API servers).
 // Supported algorithms: RS256 (default) and ES256.
@@ -65,12 +94,15 @@ type TokenVerifier interface {
 }
 
 // Claims is the JWT payload. It embeds jwt.RegisteredClaims (exp, iat, nbf, sub, iss, aud, jti)
-// and adds UUID, TokenType, and optional impersonation fields.
+// and adds UUID, ActorType, TokenType, and optional impersonation fields.
 type Claims struct {
 	UUID string `json:"uuid"`
 
 	jwt.RegisteredClaims
 
+	// ActorType is "user" (users table), "admin" (admins table), "service", or "system".
+	// Empty input at issue time resolves to "service" via ResolveActorType.
+	ActorType string `json:"actor_type,omitempty"`
 	TokenType string `json:"token_type,omitempty"` // "access", "refresh", "impersonation"
 
 	ImpersonatorID   string `json:"impersonator_id,omitempty"`
@@ -292,31 +324,36 @@ func (s *Signer) signToken(claims Claims) (string, error) {
 }
 
 // GenerateToken issues a signed JWT (token_type: access).
-func (s *Signer) GenerateToken(id uuid.UUID) (string, error) {
-	return s.GenerateTokenWithExpiry(id, s.accessExpiry)
+// actorOrTable is an actor type ("user","admin","service","system") or table name
+// ("users","admins","User"); empty defaults to service. See ResolveActorType.
+func (s *Signer) GenerateToken(id uuid.UUID, actorOrTable ...string) (string, error) {
+	return s.GenerateTokenWithExpiry(id, s.accessExpiry, actorOrTable...)
 }
 
 // GenerateTokenWithExpiry issues a signed JWT (token_type: access) with custom expiry.
-func (s *Signer) GenerateTokenWithExpiry(id uuid.UUID, expiry time.Duration) (string, error) {
+func (s *Signer) GenerateTokenWithExpiry(id uuid.UUID, expiry time.Duration, actorOrTable ...string) (string, error) {
 	claims := Claims{
 		UUID:             id.String(),
 		RegisteredClaims: s.buildRegisteredClaims(id.String(), expiry),
+		ActorType:        resolveActorArg(actorOrTable...),
 		TokenType:        TokenTypeAccess,
 	}
 	return s.signToken(claims)
 }
 
 // GenerateRefreshToken issues a signed JWT (token_type: refresh).
-func (s *Signer) GenerateRefreshToken(id uuid.UUID) (string, error) {
+func (s *Signer) GenerateRefreshToken(id uuid.UUID, actorOrTable ...string) (string, error) {
 	claims := Claims{
 		UUID:             id.String(),
 		RegisteredClaims: s.buildRegisteredClaims(id.String(), s.refreshExpiry),
+		ActorType:        resolveActorArg(actorOrTable...),
 		TokenType:        TokenTypeRefresh,
 	}
 	return s.signToken(claims)
 }
 
 // GenerateImpersonationToken issues a short-lived JWT (token_type: impersonation). TTL clamped to max 30 minutes.
+// ActorType is always "user" (target subject); ImpersonatorRole carries the admin role.
 func (s *Signer) GenerateImpersonationToken(adminID uuid.UUID, adminRole string, targetUserID uuid.UUID, requestedTTL time.Duration) (string, error) {
 	maxTTL := 30 * time.Minute
 	ttl := requestedTTL
@@ -326,6 +363,7 @@ func (s *Signer) GenerateImpersonationToken(adminID uuid.UUID, adminRole string,
 	claims := Claims{
 		UUID:             targetUserID.String(),
 		RegisteredClaims: s.buildRegisteredClaims(targetUserID.String(), ttl),
+		ActorType:        ActorTypeUser,
 		TokenType:        TokenTypeImpersonation,
 		ImpersonatorID:   adminID.String(),
 		ImpersonatorRole: adminRole,
@@ -333,6 +371,13 @@ func (s *Signer) GenerateImpersonationToken(adminID uuid.UUID, adminRole string,
 		OriginalSub:      adminID.String(),
 	}
 	return s.signToken(claims)
+}
+
+func resolveActorArg(actorOrTable ...string) string {
+	if len(actorOrTable) == 0 {
+		return ResolveActorType("")
+	}
+	return ResolveActorType(actorOrTable[0])
 }
 
 // normalizeSigningAlgorithm returns RS256 or ES256. Empty defaults to RS256. HS256 and other algs are rejected.
@@ -517,32 +562,35 @@ func (m *Manager) GetAccessTokenExpiry() time.Duration {
 }
 
 // GenerateToken issues a signed JWT with the given UUID and default access token expiry (token_type: "access").
-func (m *Manager) GenerateToken(id uuid.UUID) (string, error) {
-	return m.GenerateTokenWithExpiry(id, m.accessExpiry)
+// actorOrTable is an actor type or table name; empty defaults to service. See ResolveActorType.
+func (m *Manager) GenerateToken(id uuid.UUID, actorOrTable ...string) (string, error) {
+	return m.GenerateTokenWithExpiry(id, m.accessExpiry, actorOrTable...)
 }
 
 // GenerateTokenWithExpiry issues a signed JWT with the given UUID and custom expiry (token_type: "access").
-func (m *Manager) GenerateTokenWithExpiry(id uuid.UUID, expiry time.Duration) (string, error) {
+func (m *Manager) GenerateTokenWithExpiry(id uuid.UUID, expiry time.Duration, actorOrTable ...string) (string, error) {
 	claims := Claims{
 		UUID:             id.String(),
 		RegisteredClaims: m.buildRegisteredClaims(id.String(), expiry),
+		ActorType:        resolveActorArg(actorOrTable...),
 		TokenType:        TokenTypeAccess,
 	}
 	return m.signToken(claims)
 }
 
 // GenerateRefreshToken issues a signed JWT with refresh token expiry (token_type: "refresh").
-func (m *Manager) GenerateRefreshToken(id uuid.UUID) (string, error) {
+func (m *Manager) GenerateRefreshToken(id uuid.UUID, actorOrTable ...string) (string, error) {
 	claims := Claims{
 		UUID:             id.String(),
 		RegisteredClaims: m.buildRegisteredClaims(id.String(), m.refreshExpiry),
+		ActorType:        resolveActorArg(actorOrTable...),
 		TokenType:        TokenTypeRefresh,
 	}
 	return m.signToken(claims)
 }
 
 // GenerateImpersonationToken issues a short-lived JWT for admin-as-user (token_type: "impersonation").
-// TTL is clamped to max 30 minutes.
+// TTL is clamped to max 30 minutes. ActorType is always "user" (impersonated subject).
 func (m *Manager) GenerateImpersonationToken(adminID uuid.UUID, adminRole string, targetUserID uuid.UUID, requestedTTL time.Duration) (string, error) {
 	maxTTL := 30 * time.Minute
 	ttl := requestedTTL
@@ -552,6 +600,7 @@ func (m *Manager) GenerateImpersonationToken(adminID uuid.UUID, adminRole string
 	claims := Claims{
 		UUID:             targetUserID.String(),
 		RegisteredClaims: m.buildRegisteredClaims(targetUserID.String(), ttl),
+		ActorType:        ActorTypeUser,
 		TokenType:        TokenTypeImpersonation,
 		ImpersonatorID:   adminID.String(),
 		ImpersonatorRole: adminRole,
