@@ -45,6 +45,7 @@ func AuthMiddleware(verifier jwt.TokenVerifier) gin.HandlerFunc {
 		}
 
 		originalID := claims.UUID
+		ctx.Set("is_impersonating", false)
 		if claims.IsImpersonating && claims.OriginalSub != "" {
 			originalID = claims.OriginalSub
 			ctx.Set("is_impersonating", true)
@@ -52,8 +53,6 @@ func AuthMiddleware(verifier jwt.TokenVerifier) gin.HandlerFunc {
 			if claims.ImpersonatorRole != "" {
 				ctx.Set("impersonator_role", claims.ImpersonatorRole)
 			}
-		} else {
-			ctx.Set("is_impersonating", false)
 		}
 		ctx.Set("original_user_id", originalID)
 

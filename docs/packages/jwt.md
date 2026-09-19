@@ -42,7 +42,7 @@ Actor types (`actor_type` claim via `ResolveActorType`):
 | `system` | `system` |
 | `service` | `service` |
 
-Also: `ComparePassword` (bcrypt), `GetCurrentUserUUID(c *gin.Context)`.
+Also: `ComparePassword` (bcrypt), `GetCurrentUserUUID(c *gin.Context)`, `GetActorType(c *gin.Context)`.
 
 ## Key loading
 

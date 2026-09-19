@@ -153,6 +153,20 @@ func (c *BaseHandler) GetCurrentUserID(ctx *gin.Context) (string, bool) {
 	return id, ok
 }
 
+// GetActorType returns the "actor_type" value from the Gin context (set by auth middleware from JWT claims).
+// Second return is false if missing or not a non-empty string.
+func (c *BaseHandler) GetActorType(ctx *gin.Context) (string, bool) {
+	v, exists := ctx.Get("actor_type")
+	if !exists {
+		return "", false
+	}
+	s, ok := v.(string)
+	if !ok || s == "" {
+		return "", false
+	}
+	return s, true
+}
+
 // CheckUserHasRole returns true if any element of userRoles equals any element of requiredRoles.
 func (c *BaseHandler) CheckUserHasRole(userRoles []string, requiredRoles []string) bool {
 	for _, roleName := range userRoles {

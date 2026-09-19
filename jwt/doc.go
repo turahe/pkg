@@ -15,7 +15,7 @@ Responsibilities:
     (optional actorOrTable → actor_type: users→user, admins→admin, empty→service).
   - ResolveActorType: map table/actor name to canonical actor_type claim.
   - Manager/Verifier: ValidateToken.
-  - ComparePassword: bcrypt. GetCurrentUserUUID: read user_id from Gin context.
+  - ComparePassword: bcrypt. GetCurrentUserUUID / GetActorType: read user_id / actor_type from Gin context.
 
 Constraints:
   - Default algorithm is RS256. Only RS256 and ES256 are supported; HS256 is rejected.

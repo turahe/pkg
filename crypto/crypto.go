@@ -11,6 +11,7 @@ func HashAndSalt(plainPassword []byte) string {
 	hash, err := bcrypt.GenerateFromPassword(plainPassword, bcrypt.MinCost)
 	if err != nil {
 		logger.Errorf("Failed to HashAndSalt: %v", err)
+		return ""
 	}
 	return string(hash)
 }

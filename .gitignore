@@ -15,6 +15,7 @@
 coverage.out
 coverage.html
 test.log
+bench/docker.txt
 
 # Go workspace file (local only)
 go.work

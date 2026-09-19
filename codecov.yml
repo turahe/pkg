@@ -1,0 +1,16 @@
+# Codecov — project coverage is currently ~57%; use auto + soft thresholds
+# so PRs are gated on regression, not an unreachable absolute target.
+coverage:
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 2%
+    patch:
+      default:
+        target: 50%
+        threshold: 5%
+
+comment:
+  layout: "reach,diff,flags,files"
+  behavior: default

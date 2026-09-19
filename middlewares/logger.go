@@ -40,8 +40,8 @@ func LoggerMiddleware() gin.HandlerFunc {
 		// Log request details; use context-bound logger so trace_id/correlation_id appear in JSON
 		log := logger.WithContext(ctx.Request.Context())
 		errorMsg := ctx.Errors.String()
-		if statusCode >= 500 {
-			// Server errors
+		switch {
+		case statusCode >= 500:
 			if errorMsg != "" {
 				log.Errorf("[%s] %s %s %d %v %s - Error: %s",
 					method, path, clientIP, statusCode, latency, ctx.Request.UserAgent(), errorMsg)
@@ -49,8 +49,7 @@ func LoggerMiddleware() gin.HandlerFunc {
 				log.Errorf("[%s] %s %s %d %v %s",
 					method, path, clientIP, statusCode, latency, ctx.Request.UserAgent())
 			}
-		} else if statusCode >= 400 {
-			// Client errors
+		case statusCode >= 400:
 			if errorMsg != "" {
 				log.Warnf("[%s] %s %s %d %v %s - Error: %s",
 					method, path, clientIP, statusCode, latency, ctx.Request.UserAgent(), errorMsg)
@@ -58,8 +57,7 @@ func LoggerMiddleware() gin.HandlerFunc {
 				log.Warnf("[%s] %s %s %d %v %s",
 					method, path, clientIP, statusCode, latency, ctx.Request.UserAgent())
 			}
-		} else {
-			// Success (2xx, 3xx)
+		default:
 			log.Infof("[%s] %s %s %d %v %s",
 				method, path, clientIP, statusCode, latency, ctx.Request.UserAgent())
 		}

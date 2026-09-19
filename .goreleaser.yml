@@ -1,0 +1,16 @@
+# GoReleaser config for this Go library (no binaries).
+# Creates a GitHub Release with changelog on tag push (v*).
+version: 2
+
+builds:
+  - skip: true
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - "^chore:"
+      - "^graphify"

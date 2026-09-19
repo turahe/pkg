@@ -37,45 +37,23 @@ func FormatValidationError(err error) map[string][]string {
 // getFieldName extracts the field name from validation error
 // Converts struct field names to JSON field names using JSON tags
 func getFieldName(fieldError validator.FieldError) string {
-	// Get the struct field name (e.g., "Email", "FirstName")
 	structField := fieldError.StructField()
-
-	// Get the namespace to extract struct type (e.g., "UserCreateRequest.Email")
 	namespace := fieldError.Namespace()
-
-	// Try to extract JSON tag using reflection
-	if structField != "" && namespace != "" {
-		// Parse namespace to get struct type name
-		parts := strings.Split(namespace, ".")
-		if len(parts) >= 2 {
-			// Try to get the struct type using reflection
-			// This requires the struct type to be registered or accessible
-			// For now, we'll use a simpler approach: extract from Field() which often contains JSON tag info
-			fieldName := fieldError.Field()
-
-			// If Field() returns the JSON tag name directly, use it
-			// Otherwise, convert struct field name to camelCase
-			if fieldName != structField && fieldName != "" {
-				// Field() might already be the JSON tag name
-				return fieldName
-			}
-
-			// Convert struct field name to camelCase (e.g., "FirstName" -> "firstName")
-			return toCamelCase(structField)
-		}
-	}
-
-	// Fallback: use Field() if available, otherwise convert StructField() to camelCase
 	fieldName := fieldError.Field()
+
+	hasStructContext := structField != "" && namespace != "" && len(strings.Split(namespace, ".")) >= 2
+	if hasStructContext {
+		if fieldName != "" && fieldName != structField {
+			return fieldName
+		}
+		return toCamelCase(structField)
+	}
 	if fieldName != "" {
 		return fieldName
 	}
-
 	if structField != "" {
 		return toCamelCase(structField)
 	}
-
-	// Last resort: lowercase
 	return strings.ToLower(fieldName)
 }
 
@@ -169,8 +147,8 @@ func getErrorMessage(fieldError validator.FieldError, fieldName string) string {
 	}
 }
 
-// GetJSONFieldName extracts JSON tag name from struct field
-func GetJSONFieldName(structType reflect.Type, fieldName string) string {
+// getJSONFieldName extracts JSON tag name from struct field.
+func getJSONFieldName(structType reflect.Type, fieldName string) string {
 	field, found := structType.FieldByName(fieldName)
 	if !found {
 		return toCamelCase(fieldName)

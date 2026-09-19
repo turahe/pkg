@@ -32,7 +32,7 @@ test-cover: ## Run tests and show coverage summary
 	$(GO) tool cover -func=coverage.out | tail -1
 
 # ── Tests in Docker (all services included, no local setup needed) ─────────────
-test-docker: ## Run full test suite inside Docker (builds runner + starts services)
+test-docker: ## Run tests (race+cover) and benchmarks inside Docker
 	$(DC_TEST) up --build --abort-on-container-exit --exit-code-from test
 	$(DC_TEST) down -v
 
@@ -68,4 +68,4 @@ docker-build: ## Build a sample production Docker image (see Dockerfile)
 
 # ── Clean ─────────────────────────────────────────────────────────────────────
 clean: ## Remove coverage output and test logs
-	rm -f coverage.out test.log
+	rm -f coverage.out test.log bench/docker.txt

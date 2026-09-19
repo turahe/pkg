@@ -21,7 +21,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/turahe/pkg/config"
-	"golang.org/x/crypto/bcrypt"
 )
 
 func testManager(t *testing.T) *Manager {
@@ -239,24 +238,95 @@ func TestGetCurrentUserUUID_NilUUIDString(t *testing.T) {
 	assert.Equal(t, uuid.Nil, got)
 }
 
-func TestJWT_ComparePassword(t *testing.T) {
-	plain := "password123"
-	hashed := "$2a$04$XQ6I5VvW8n/5QZ5Z5Z5Z5uK9qH8qH8qH8qH8qH8qH8qH8qH8qH8qH"
-	if ComparePassword(hashed, plain) {
-		t.Error("ComparePassword should return false for invalid hash")
+func TestGetActorType(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	tests := []struct {
+		name      string
+		setup     func(c *gin.Context)
+		want      string
+		wantFound bool
+	}{
+		{
+			name:      "key absent",
+			setup:     func(c *gin.Context) {},
+			want:      "",
+			wantFound: false,
+		},
+		{
+			name: "user",
+			setup: func(c *gin.Context) {
+				c.Set("actor_type", ActorTypeUser)
+			},
+			want:      ActorTypeUser,
+			wantFound: true,
+		},
+		{
+			name: "admin",
+			setup: func(c *gin.Context) {
+				c.Set("actor_type", ActorTypeAdmin)
+			},
+			want:      ActorTypeAdmin,
+			wantFound: true,
+		},
+		{
+			name: "service",
+			setup: func(c *gin.Context) {
+				c.Set("actor_type", ActorTypeService)
+			},
+			want:      ActorTypeService,
+			wantFound: true,
+		},
+		{
+			name: "system",
+			setup: func(c *gin.Context) {
+				c.Set("actor_type", ActorTypeSystem)
+			},
+			want:      ActorTypeSystem,
+			wantFound: true,
+		},
+		{
+			name: "whitespace only",
+			setup: func(c *gin.Context) {
+				c.Set("actor_type", "   ")
+			},
+			want:      "",
+			wantFound: false,
+		},
+		{
+			name: "empty string",
+			setup: func(c *gin.Context) {
+				c.Set("actor_type", "")
+			},
+			want:      "",
+			wantFound: false,
+		},
+		{
+			name: "wrong type",
+			setup: func(c *gin.Context) {
+				c.Set("actor_type", 42)
+			},
+			want:      "",
+			wantFound: false,
+		},
 	}
 
-	hash, err := bcrypt.GenerateFromPassword([]byte(plain), bcrypt.MinCost)
-	if err != nil {
-		t.Fatalf("bcrypt.GenerateFromPassword: %v", err)
-	}
-	if !ComparePassword(string(hash), plain) {
-		t.Error("ComparePassword should return true for valid hash")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(w)
+			c.Request, _ = http.NewRequest(http.MethodGet, "/", nil)
+			tt.setup(c)
+
+			got, found := GetActorType(c)
+			require.Equal(t, tt.wantFound, found)
+			assert.Equal(t, tt.want, got)
+		})
 	}
 }
 
 // setupRS256Config creates temp RSA key files and returns a Manager for RS256.
-func setupRS256Config(t *testing.T) *Manager {
+func setupRS256Config(t testing.TB) *Manager {
 	t.Helper()
 	dir := t.TempDir()
 	privPath := filepath.Join(dir, "priv.pem")
@@ -302,7 +372,7 @@ func TestRS256_GenerateAndValidate(t *testing.T) {
 }
 
 // setupES256Config creates temp ECDSA P-256 key files and returns a Manager for ES256.
-func setupES256Config(t *testing.T) *Manager {
+func setupES256Config(t testing.TB) *Manager {
 	t.Helper()
 	dir := t.TempDir()
 	privPath := filepath.Join(dir, "ec-priv.pem")

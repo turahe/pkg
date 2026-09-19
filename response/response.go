@@ -13,13 +13,34 @@ type CommonResponse struct {
 	Data    interface{} `json:"data"`
 }
 
-// Result writes a JSON response with the given HTTP status and composite code (BuildResponseCode(httpStatus, serviceCode, caseCode)).
-func Result(ctx *gin.Context, httpStatus int, serviceCode, caseCode string, data interface{}, message string) {
-	responseCode := BuildResponseCode(httpStatus, serviceCode, caseCode)
-	ctx.JSON(httpStatus, CommonResponse{
+// WriteParams groups fields for a standard JSON response write.
+type WriteParams struct {
+	HTTPStatus  int
+	ServiceCode string
+	CaseCode    string
+	Data        interface{}
+	Message     string
+}
+
+// Write writes a JSON response using WriteParams (preferred over Result for call sites with many args).
+func Write(ctx *gin.Context, p WriteParams) {
+	responseCode := BuildResponseCode(p.HTTPStatus, p.ServiceCode, p.CaseCode)
+	ctx.JSON(p.HTTPStatus, CommonResponse{
 		Code:    responseCode,
-		Message: message,
-		Data:    data,
+		Message: p.Message,
+		Data:    p.Data,
+	})
+}
+
+// Result writes a JSON response with the given HTTP status and composite code.
+// Prefer Write with WriteParams for new call sites.
+func Result(ctx *gin.Context, httpStatus int, serviceCode, caseCode string, data interface{}, message string) {
+	Write(ctx, WriteParams{
+		HTTPStatus:  httpStatus,
+		ServiceCode: serviceCode,
+		CaseCode:    caseCode,
+		Data:        data,
+		Message:     message,
 	})
 }
 
@@ -57,14 +78,35 @@ type CursorPaginatedResponse struct {
 }
 
 // CursorPaginated writes a cursor-based paginated JSON response using the given pagination payload.
-func CursorPaginated(ctx *gin.Context, httpStatus int, serviceCode, caseCode string, pagination CursorPaginationResponse, message string) {
-	responseCode := BuildResponseCode(httpStatus, serviceCode, caseCode)
-	ctx.JSON(httpStatus, CursorPaginatedResponse{
+// CursorPaginatedParams groups fields for a cursor-paginated response.
+type CursorPaginatedParams struct {
+	HTTPStatus  int
+	ServiceCode string
+	CaseCode    string
+	Pagination  CursorPaginationResponse
+	Message     string
+}
+
+// WriteCursorPaginated writes a cursor-based paginated JSON response.
+func WriteCursorPaginated(ctx *gin.Context, p CursorPaginatedParams) {
+	responseCode := BuildResponseCode(p.HTTPStatus, p.ServiceCode, p.CaseCode)
+	ctx.JSON(p.HTTPStatus, CursorPaginatedResponse{
 		Code:       responseCode,
-		Message:    message,
-		Data:       pagination.Data,
-		NextCursor: pagination.NextCursor,
-		HasNext:    pagination.HasNext,
+		Message:    p.Message,
+		Data:       p.Pagination.Data,
+		NextCursor: p.Pagination.NextCursor,
+		HasNext:    p.Pagination.HasNext,
+	})
+}
+
+// CursorPaginated writes a cursor-based paginated JSON response. Prefer WriteCursorPaginated.
+func CursorPaginated(ctx *gin.Context, httpStatus int, serviceCode, caseCode string, pagination CursorPaginationResponse, message string) {
+	WriteCursorPaginated(ctx, CursorPaginatedParams{
+		HTTPStatus:  httpStatus,
+		ServiceCode: serviceCode,
+		CaseCode:    caseCode,
+		Pagination:  pagination,
+		Message:     message,
 	})
 }
 
@@ -80,16 +122,37 @@ type SimplePaginatedResponse struct {
 }
 
 // SimplePaginated returns a simple paginated response with fields at the top level
-func SimplePaginated(ctx *gin.Context, httpStatus int, serviceCode, caseCode string, pagination SimplePaginationResponse, message string) {
-	responseCode := BuildResponseCode(httpStatus, serviceCode, caseCode)
-	ctx.JSON(httpStatus, SimplePaginatedResponse{
+// SimplePaginatedParams groups fields for an offset-paginated response.
+type SimplePaginatedParams struct {
+	HTTPStatus  int
+	ServiceCode string
+	CaseCode    string
+	Pagination  SimplePaginationResponse
+	Message     string
+}
+
+// WriteSimplePaginated writes an offset-paginated JSON response.
+func WriteSimplePaginated(ctx *gin.Context, p SimplePaginatedParams) {
+	responseCode := BuildResponseCode(p.HTTPStatus, p.ServiceCode, p.CaseCode)
+	ctx.JSON(p.HTTPStatus, SimplePaginatedResponse{
 		Code:       responseCode,
-		Message:    message,
-		Data:       pagination.Data,
-		PageNumber: pagination.PageNumber,
-		PageSize:   pagination.PageSize,
-		HasNext:    pagination.HasNext,
-		HasPrev:    pagination.HasPrev,
+		Message:    p.Message,
+		Data:       p.Pagination.Data,
+		PageNumber: p.Pagination.PageNumber,
+		PageSize:   p.Pagination.PageSize,
+		HasNext:    p.Pagination.HasNext,
+		HasPrev:    p.Pagination.HasPrev,
+	})
+}
+
+// SimplePaginated writes an offset-paginated JSON response. Prefer WriteSimplePaginated.
+func SimplePaginated(ctx *gin.Context, httpStatus int, serviceCode, caseCode string, pagination SimplePaginationResponse, message string) {
+	WriteSimplePaginated(ctx, SimplePaginatedParams{
+		HTTPStatus:  httpStatus,
+		ServiceCode: serviceCode,
+		CaseCode:    caseCode,
+		Pagination:  pagination,
+		Message:     message,
 	})
 }
 

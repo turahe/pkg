@@ -14,7 +14,14 @@ import (
 // NoMethodHandler returns a handler that responds with 405 Method Not Allowed and a standardized JSON body.
 func NoMethodHandler() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		response.FailWithDetailed(ctx, http.StatusMethodNotAllowed, response.ServiceCodeCommon, response.CaseCodeOperationNotAllowed, nil, "Method Not Allowed")
+		response.FailWithDetailed(
+			ctx,
+			http.StatusMethodNotAllowed,
+			response.ServiceCodeCommon,
+			response.CaseCodeOperationNotAllowed,
+			nil,
+			"Method Not Allowed",
+		)
 	}
 }
 
@@ -34,7 +41,14 @@ func RecoveryHandler(ctx *gin.Context) {
 			logger.GetLogger().LogAttrs(reqCtx, logger.LevelCritical, "panic recovered",
 				slog.String("panic", errorToString(err)),
 				slog.String("stacktrace", string(debug.Stack())))
-			response.FailWithDetailed(ctx, http.StatusInternalServerError, response.ServiceCodeCommon, response.CaseCodeInternalError, nil, errorToString(err))
+			response.FailWithDetailed(
+				ctx,
+				http.StatusInternalServerError,
+				response.ServiceCodeCommon,
+				response.CaseCodeInternalError,
+				nil,
+				errorToString(err),
+			)
 			ctx.Abort()
 		}
 	}()

@@ -47,8 +47,7 @@ func CloudTraceMiddleware() gin.HandlerFunc {
 		req := c.Request
 		ctx := req.Context()
 
-		traceID := ""
-		spanID := ""
+		var traceID, spanID string
 
 		if v := req.Header.Get(HeaderCloudTraceContext); v != "" {
 			if tid, sid, ok := ParseCloudTraceContext(v); ok {
@@ -130,8 +129,7 @@ func TraceMiddleware() gin.HandlerFunc {
 		req := c.Request
 		ctx := req.Context()
 
-		traceID := ""
-		spanID := ""
+		var traceID, spanID string
 		if v := req.Header.Get(HeaderCloudTraceContext); v != "" {
 			var ok bool
 			traceID, spanID, ok = ParseCloudTraceContext(v)

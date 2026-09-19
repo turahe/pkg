@@ -1,5 +1,7 @@
 package response
 
+import "fmt"
+
 // Service codes (2 digits: 00-06)
 const (
 	ServiceCodeCommon                      = "00" // Common/General services
@@ -156,25 +158,11 @@ const (
 // Format: HTTP_STATUS_CODE (3 digits) + SERVICE_CODE (2 digits) + CASE_CODE (2 digits)
 // Example: 2010301 = HTTP 201 + Service 03 (Withdrawal) + Case 01 (Success)
 func BuildResponseCode(httpStatus int, serviceCode, caseCode string) int {
-	// Convert HTTP status to 3-digit string (e.g., 200 -> "200", 404 -> "404")
-	httpStatusStr := ""
-	if httpStatus < 10 {
-		httpStatusStr = "00" + string(rune(httpStatus+'0'))
-	} else if httpStatus < 100 {
-		httpStatusStr = "0" + string(rune(httpStatus/10+'0')) + string(rune(httpStatus%10+'0'))
-	} else {
-		httpStatusStr = string(rune(httpStatus/100+'0')) + string(rune((httpStatus/10)%10+'0')) + string(rune(httpStatus%10+'0'))
-	}
-
-	// Combine: HTTP_STATUS (3) + SERVICE (2) + CASE (2) = 7 digits
-	codeStr := httpStatusStr + serviceCode + caseCode
-
-	// Convert to int
+	codeStr := fmt.Sprintf("%03d%s%s", httpStatus, serviceCode, caseCode)
 	var code int
 	for _, char := range codeStr {
 		code = code*10 + int(char-'0')
 	}
-
 	return code
 }
 

@@ -182,7 +182,7 @@ type gcpLogEntry struct {
 
 // MarshalJSON merges Fields into the same JSON object.
 func (e gcpLogEntry) MarshalJSON() ([]byte, error) {
-	m := make(map[string]interface{}, 12)
+	m := make(map[string]interface{}, 8+len(e.Fields))
 	m["severity"] = e.Severity
 	m["message"] = e.Message
 	m["time"] = e.Time
@@ -210,7 +210,7 @@ func (e gcpLogEntry) MarshalJSON() ([]byte, error) {
 var (
 	entryPool = sync.Pool{
 		New: func() interface{} {
-			return &gcpLogEntry{Fields: make(map[string]interface{}, 8)}
+			return &gcpLogEntry{Fields: make(map[string]interface{})}
 		},
 	}
 	bufPool = sync.Pool{
@@ -313,7 +313,10 @@ func (h *gcpHandler) Handle(ctx context.Context, record slog.Record) error {
 		return true
 	})
 
-	if locFromAttrs.File != "" || locFromAttrs.Line != 0 || locFromAttrs.Function != "" {
+	hasFile := locFromAttrs.File != ""
+	hasLine := locFromAttrs.Line != 0
+	hasFunc := locFromAttrs.Function != ""
+	if hasFile || hasLine || hasFunc {
 		entry.SourceLocation = &locFromAttrs
 	} else if cfg.EnableCaller && record.PC != 0 {
 		fs := runtime.CallersFrames([]uintptr{record.PC})
@@ -329,6 +332,10 @@ func (h *gcpHandler) Handle(ctx context.Context, record slog.Record) error {
 
 	buf := bufPool.Get().(*bytes.Buffer)
 	defer func() { buf.Reset(); bufPool.Put(buf) }()
+	return h.encodeAndWrite(entry, buf)
+}
+
+func (h *gcpHandler) encodeAndWrite(entry *gcpLogEntry, buf *bytes.Buffer) error {
 	enc := json.NewEncoder(buf)
 	enc.SetEscapeHTML(false)
 	if err := enc.Encode(entry); err != nil {

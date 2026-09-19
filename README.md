@@ -502,6 +502,9 @@ func (c *BaseHandler) BuildPaginationResponse(data []interface{}, pageNumber, pa
 // Read "user_id" string from Gin context (set by AuthMiddleware).
 func (c *BaseHandler) GetCurrentUserID(ctx *gin.Context) (string, bool)
 
+// Read "actor_type" string from Gin context (set by AuthMiddleware).
+func (c *BaseHandler) GetActorType(ctx *gin.Context) (string, bool)
+
 // Return true if any userRole matches any requiredRole.
 func (c *BaseHandler) CheckUserHasRole(userRoles, requiredRoles []string) bool
 ```
@@ -602,6 +605,7 @@ claims, _ := verifier.ValidateToken(tokenString)
 | `manager.ValidateToken(token)` / `verifier.ValidateToken(token)`   | Parse and verify; return *Claims or error                                                  |
 | `jwt.ComparePassword(hashed, plain)`                               | bcrypt comparison                                                                          |
 | `jwt.GetCurrentUserUUID(ctx)`                                      | Read `user_id` from Gin context (set by AuthMiddleware)                                    |
+| `jwt.GetActorType(ctx)`                                            | Read `actor_type` from Gin context (set by AuthMiddleware)                                 |
 
 
 **Config / env:** Default algorithm is **RS256**. Set `JWT_PRIVATE_KEY` and `JWT_PUBLIC_KEY` (file path or inline PEM), or embed keys and assign to config before calling `NewManager`/`NewSigner`/`NewVerifier`. Optional: `JWT_ISSUER`, `JWT_AUDIENCE`, `JWT_KEY_ID`.

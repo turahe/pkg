@@ -468,6 +468,69 @@ func TestBaseController_GetCurrentUserID(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
 
+func TestBaseHandler_GetActorType(t *testing.T) {
+	handler := &BaseHandler{}
+
+	tests := []struct {
+		name      string
+		setup     func(c *gin.Context)
+		want      string
+		wantFound bool
+	}{
+		{
+			name:      "key absent",
+			setup:     func(c *gin.Context) {},
+			want:      "",
+			wantFound: false,
+		},
+		{
+			name: "admin",
+			setup: func(c *gin.Context) {
+				c.Set("actor_type", "admin")
+			},
+			want:      "admin",
+			wantFound: true,
+		},
+		{
+			name: "user",
+			setup: func(c *gin.Context) {
+				c.Set("actor_type", "user")
+			},
+			want:      "user",
+			wantFound: true,
+		},
+		{
+			name: "empty string",
+			setup: func(c *gin.Context) {
+				c.Set("actor_type", "")
+			},
+			want:      "",
+			wantFound: false,
+		},
+		{
+			name: "wrong type",
+			setup: func(c *gin.Context) {
+				c.Set("actor_type", 123)
+			},
+			want:      "",
+			wantFound: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(w)
+			c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
+			tt.setup(c)
+
+			got, found := handler.GetActorType(c)
+			assert.Equal(t, tt.wantFound, found)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
 func TestBaseController_CheckUserHasRole(t *testing.T) {
 	handler := &BaseHandler{}
 

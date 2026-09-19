@@ -4,20 +4,15 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"crypto/rsa"
-	"crypto/x509"
-	"encoding/pem"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/turahe/pkg/config"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
-	"golang.org/x/crypto/bcrypt"
 )
 
 // TokenType identifies the kind of JWT (access, refresh, impersonation).
@@ -273,10 +268,9 @@ func (v *Verifier) ValidateToken(tokenString string) (*Claims, error) {
 			if token.Method.Alg() != v.signingMethod.Alg() {
 				return nil, errors.New("unexpected signing method")
 			}
-			if v.kid != "" && token.Header["kid"] != nil {
-				if k, _ := token.Header["kid"].(string); k != v.kid {
-					return nil, errors.New("key id mismatch")
-				}
+			kid, _ := token.Header["kid"].(string)
+			if err := matchConfiguredKid(v.kid, kid); err != nil {
+				return nil, err
 			}
 			return v.verifyKey, nil
 		},
@@ -352,23 +346,37 @@ func (s *Signer) GenerateRefreshToken(id uuid.UUID, actorOrTable ...string) (str
 	return s.signToken(claims)
 }
 
+// ImpersonationParams groups inputs for impersonation token generation.
+type ImpersonationParams struct {
+	AdminID      uuid.UUID
+	AdminRole    string
+	TargetUserID uuid.UUID
+	TTL          time.Duration
+}
+
 // GenerateImpersonationToken issues a short-lived JWT (token_type: impersonation). TTL clamped to max 30 minutes.
 // ActorType is always "user" (target subject); ImpersonatorRole carries the admin role.
 func (s *Signer) GenerateImpersonationToken(adminID uuid.UUID, adminRole string, targetUserID uuid.UUID, requestedTTL time.Duration) (string, error) {
+	return s.GenerateImpersonation(ImpersonationParams{
+		AdminID: adminID, AdminRole: adminRole, TargetUserID: targetUserID, TTL: requestedTTL,
+	})
+}
+
+func (s *Signer) GenerateImpersonation(p ImpersonationParams) (string, error) {
 	maxTTL := 30 * time.Minute
-	ttl := requestedTTL
+	ttl := p.TTL
 	if ttl <= 0 || ttl > maxTTL {
 		ttl = maxTTL
 	}
 	claims := Claims{
-		UUID:             targetUserID.String(),
-		RegisteredClaims: s.buildRegisteredClaims(targetUserID.String(), ttl),
+		UUID:             p.TargetUserID.String(),
+		RegisteredClaims: s.buildRegisteredClaims(p.TargetUserID.String(), ttl),
 		ActorType:        ActorTypeUser,
 		TokenType:        TokenTypeImpersonation,
-		ImpersonatorID:   adminID.String(),
-		ImpersonatorRole: adminRole,
+		ImpersonatorID:   p.AdminID.String(),
+		ImpersonatorRole: p.AdminRole,
 		IsImpersonating:  true,
-		OriginalSub:      adminID.String(),
+		OriginalSub:      p.AdminID.String(),
 	}
 	return s.signToken(claims)
 }
@@ -378,6 +386,16 @@ func resolveActorArg(actorOrTable ...string) string {
 		return ResolveActorType("")
 	}
 	return ResolveActorType(actorOrTable[0])
+}
+
+func matchConfiguredKid(configured, headerKid string) error {
+	if configured == "" {
+		return nil
+	}
+	if headerKid != "" && headerKid != configured {
+		return errors.New("key id mismatch")
+	}
+	return nil
 }
 
 // normalizeSigningAlgorithm returns RS256 or ES256. Empty defaults to RS256. HS256 and other algs are rejected.
@@ -443,92 +461,6 @@ func (m *Manager) loadFromEnvOrFiles(conf *config.Configuration, alg string) err
 	return nil
 }
 
-func loadPrivateKey(path string) (any, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-	return parsePrivateKeyPEM(data)
-}
-
-// getPrivateKey returns the private key from config: embedded PEM (JWTPrivateKeyPEM) if set, otherwise from JWTPrivateKey (path or inline PEM).
-func getPrivateKey(conf *config.Configuration) (any, error) {
-	if len(conf.Server.JWTPrivateKeyPEM) > 0 {
-		return parsePrivateKeyPEM(conf.Server.JWTPrivateKeyPEM)
-	}
-	if conf.Server.JWTPrivateKey == "" {
-		return nil, errors.New("JWT private key required for RS256/ES256: set JWT_PRIVATE_KEY or config.Server.JWTPrivateKeyPEM (e.g. from //go:embed)")
-	}
-	return loadPrivateKeyFromString(conf.Server.JWTPrivateKey)
-}
-
-// getPublicKey returns the public key from config: embedded PEM (JWTPublicKeyPEM) if set, otherwise from JWTPublicKey (path or inline PEM).
-func getPublicKey(conf *config.Configuration) (any, error) {
-	if len(conf.Server.JWTPublicKeyPEM) > 0 {
-		return parsePublicKeyPEM(conf.Server.JWTPublicKeyPEM)
-	}
-	if conf.Server.JWTPublicKey == "" {
-		return nil, errors.New("JWT public key required for RS256/ES256: set JWT_PUBLIC_KEY or config.Server.JWTPublicKeyPEM (e.g. from //go:embed)")
-	}
-	return loadPublicKeyFromString(conf.Server.JWTPublicKey)
-}
-
-// loadPrivateKeyFromString loads a private key from s: if s contains "-----BEGIN", parses as PEM; otherwise treats s as file path.
-func loadPrivateKeyFromString(s string) (any, error) {
-	if strings.Contains(s, "-----BEGIN") {
-		return parsePrivateKeyPEM([]byte(s))
-	}
-	return loadPrivateKey(s)
-}
-
-// loadPublicKeyFromString loads a public key from s: if s contains "-----BEGIN", parses as PEM; otherwise treats s as file path.
-func loadPublicKeyFromString(s string) (any, error) {
-	if strings.Contains(s, "-----BEGIN") {
-		return parsePublicKeyPEM([]byte(s))
-	}
-	return loadPublicKey(s)
-}
-
-func parsePrivateKeyPEM(data []byte) (any, error) {
-	block, _ := pem.Decode(data)
-	if block == nil {
-		return nil, errors.New("no PEM block found")
-	}
-	if key, err := x509.ParsePKCS8PrivateKey(block.Bytes); err == nil {
-		return key, nil
-	}
-	if key, err := x509.ParsePKCS1PrivateKey(block.Bytes); err == nil {
-		return key, nil
-	}
-	if key, err := x509.ParseECPrivateKey(block.Bytes); err == nil {
-		return key, nil
-	}
-	return nil, errors.New("unsupported private key format")
-}
-
-func loadPublicKey(path string) (any, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-	return parsePublicKeyPEM(data)
-}
-
-func parsePublicKeyPEM(data []byte) (any, error) {
-	block, _ := pem.Decode(data)
-	if block == nil {
-		return nil, errors.New("no PEM block found")
-	}
-	if key, err := x509.ParsePKIXPublicKey(block.Bytes); err == nil {
-		return key, nil
-	}
-	if key, err := x509.ParsePKCS1PublicKey(block.Bytes); err == nil {
-		return key, nil
-	}
-	return nil, errors.New("unsupported public key format")
-}
-
-// buildRegisteredClaims sets exp, iat, nbf, sub, jti, iss, aud from Manager.
 func (m *Manager) buildRegisteredClaims(sub string, expiry time.Duration) jwt.RegisteredClaims {
 	now := time.Now()
 	rc := jwt.RegisteredClaims{
@@ -592,20 +524,26 @@ func (m *Manager) GenerateRefreshToken(id uuid.UUID, actorOrTable ...string) (st
 // GenerateImpersonationToken issues a short-lived JWT for admin-as-user (token_type: "impersonation").
 // TTL is clamped to max 30 minutes. ActorType is always "user" (impersonated subject).
 func (m *Manager) GenerateImpersonationToken(adminID uuid.UUID, adminRole string, targetUserID uuid.UUID, requestedTTL time.Duration) (string, error) {
+	return m.GenerateImpersonation(ImpersonationParams{
+		AdminID: adminID, AdminRole: adminRole, TargetUserID: targetUserID, TTL: requestedTTL,
+	})
+}
+
+func (m *Manager) GenerateImpersonation(p ImpersonationParams) (string, error) {
 	maxTTL := 30 * time.Minute
-	ttl := requestedTTL
+	ttl := p.TTL
 	if ttl <= 0 || ttl > maxTTL {
 		ttl = maxTTL
 	}
 	claims := Claims{
-		UUID:             targetUserID.String(),
-		RegisteredClaims: m.buildRegisteredClaims(targetUserID.String(), ttl),
+		UUID:             p.TargetUserID.String(),
+		RegisteredClaims: m.buildRegisteredClaims(p.TargetUserID.String(), ttl),
 		ActorType:        ActorTypeUser,
 		TokenType:        TokenTypeImpersonation,
-		ImpersonatorID:   adminID.String(),
-		ImpersonatorRole: adminRole,
+		ImpersonatorID:   p.AdminID.String(),
+		ImpersonatorRole: p.AdminRole,
 		IsImpersonating:  true,
-		OriginalSub:      adminID.String(),
+		OriginalSub:      p.AdminID.String(),
 	}
 	return m.signToken(claims)
 }
@@ -620,10 +558,9 @@ func (m *Manager) ValidateToken(tokenString string) (*Claims, error) {
 			if token.Method.Alg() != m.signingMethod.Alg() {
 				return nil, errors.New("unexpected signing method")
 			}
-			if m.kid != "" && token.Header["kid"] != nil {
-				if k, _ := token.Header["kid"].(string); k != m.kid {
-					return nil, errors.New("key id mismatch")
-				}
+			kid, _ := token.Header["kid"].(string)
+			if err := matchConfiguredKid(m.kid, kid); err != nil {
+				return nil, err
 			}
 			return m.verifyKey, nil
 		},
@@ -641,30 +578,4 @@ func (m *Manager) ValidateToken(tokenString string) (*Claims, error) {
 		return nil, errors.New("invalid token claims")
 	}
 	return claims, nil
-}
-
-// ComparePassword returns true if plainPassword matches the bcrypt hash hashedPassword.
-func ComparePassword(hashedPassword, plainPassword string) bool {
-	err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(plainPassword))
-	return err == nil
-}
-
-// GetCurrentUserUUID reads "user_id" from the Gin context (set by auth middleware).
-func GetCurrentUserUUID(ctx *gin.Context) (uuid.UUID, bool) {
-	userID, exists := ctx.Get("user_id")
-	if !exists {
-		return uuid.Nil, false
-	}
-	switch v := userID.(type) {
-	case string:
-		parsed, err := uuid.Parse(v)
-		if err != nil {
-			return uuid.Nil, false
-		}
-		return parsed, true
-	case uuid.UUID:
-		return v, true
-	default:
-		return uuid.Nil, false
-	}
 }

@@ -8,21 +8,21 @@ make build           # go build ./...
 make test            # unit/integration (local services if needed)
 make test-race       # CGO_ENABLED=1 race detector
 make test-cover      # coverage summary → coverage.out
-make test-docker     # full suite in Docker (Redis + MySQL + Postgres)
+make test-docker     # race+cover tests + benchmarks in Docker
 make services-up     # docker compose up -d (local Redis/MySQL/Postgres)
 make services-down   # stop local services
 make lint            # golangci-lint via Docker (v2.12.2, matches CI)
 make vuln            # govulncheck
 make tidy            # go mod tidy && verify
 make docker-build    # production image
-make clean           # remove coverage.out / test.log
+make clean           # remove coverage.out / test.log / bench/docker.txt
 ```
 
 ## Testing
 
 ```bash
 go test ./...
-CGO_ENABLED=1 go test -race ./...
+CGO_ENABLED=1 go test -race -shuffle=on ./...
 go test -coverprofile=coverage.out ./...
 go tool cover -func=coverage.out
 ```
@@ -47,6 +47,17 @@ Config: [`.golangci.yml`](../.golangci.yml).
 make lint
 make vuln
 ```
+
+## CI (GitHub Actions)
+
+| Workflow | Trigger | What it does |
+|----------|---------|--------------|
+| [`.github/workflows/test.yml`](../.github/workflows/test.yml) | push/PR → `main` | golangci-lint; `go test -race -shuffle` on Go 1.26 + stable (Redis, Valkey, MySQL, Postgres); coverage artifact + Codecov |
+| [`.github/workflows/security.yml`](../.github/workflows/security.yml) | push/PR → `main`, weekly | `govulncheck`, CodeQL (`security-and-quality`) |
+| [`.github/workflows/release.yml`](../.github/workflows/release.yml) | tags `v*` | GoReleaser library release (changelog only) |
+| [`.github/dependabot.yml`](../.github/dependabot.yml) | weekly | Go modules, Actions, Docker |
+
+Optional: set repository secret `CODECOV_TOKEN` for Codecov uploads (`codecov.yml` uses `target: auto` so coverage gates on regression).
 
 ## Documentation conventions
 

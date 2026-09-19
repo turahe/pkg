@@ -49,9 +49,9 @@ func TestGetJSONFieldName(t *testing.T) {
 		{"Missing", "missing"},
 	}
 	for _, tt := range tests {
-		got := GetJSONFieldName(typ, tt.field)
+		got := getJSONFieldName(typ, tt.field)
 		if got != tt.want {
-			t.Errorf("GetJSONFieldName(_, %q) = %q, want %q", tt.field, got, tt.want)
+			t.Errorf("getJSONFieldName(_, %q) = %q, want %q", tt.field, got, tt.want)
 		}
 	}
 }

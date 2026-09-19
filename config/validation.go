@@ -34,7 +34,10 @@ func validateDatabaseConfig(dbConfig *DatabaseConfiguration, forSite bool) error
 
 	if len(missingFields) > 0 {
 		missingList := strings.Join(missingFields, "\n  - ")
-		return fmt.Errorf("missing or invalid database configuration. Please set the following environment variables in your .env file:\n  - %s\n\nTo get started, copy env.example to .env and update with your actual database credentials:\n  Copy-Item env.example .env", missingList)
+		return fmt.Errorf(
+			"missing or invalid database configuration. Please set the following environment variables in your .env file:\n  - %s\n\nTo get started, copy env.example to .env and update with your actual database credentials:\n  Copy-Item env.example .env",
+			missingList,
+		)
 	}
 
 	return nil

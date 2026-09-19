@@ -84,6 +84,58 @@ func TestAuthMiddleware_ValidToken(t *testing.T) {
 	assert.Equal(t, userID.String(), resp["user_id"])
 }
 
+func TestAuthMiddleware_ActorTypeContext(t *testing.T) {
+	manager := initTestJWT(t)
+	userID := uuid.MustParse("550e8400-e29b-41d4-a716-446655440000")
+
+	tests := []struct {
+		name          string
+		actorOrTable  string
+		wantActorType string
+	}{
+		{name: "admins table", actorOrTable: "admins", wantActorType: jwt.ActorTypeAdmin},
+		{name: "User table", actorOrTable: "User", wantActorType: jwt.ActorTypeUser},
+		{name: "omitted defaults to service", actorOrTable: "", wantActorType: jwt.ActorTypeService},
+		{name: "system", actorOrTable: "system", wantActorType: jwt.ActorTypeSystem},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			router := setupRouter()
+			router.Use(AuthMiddleware(manager))
+			router.GET("/test", func(c *gin.Context) {
+				actorType, ok := jwt.GetActorType(c)
+				if !ok {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "actor_type not found"})
+					return
+				}
+				c.JSON(http.StatusOK, gin.H{"actor_type": actorType})
+			})
+
+			var (
+				token string
+				err   error
+			)
+			if tt.actorOrTable == "" {
+				token, err = manager.GenerateToken(userID)
+			} else {
+				token, err = manager.GenerateToken(userID, tt.actorOrTable)
+			}
+			require.NoError(t, err)
+
+			req := httptest.NewRequest("GET", "/test", nil)
+			req.Header.Set("Authorization", "Bearer "+token)
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+
+			require.Equal(t, http.StatusOK, w.Code)
+			var resp map[string]interface{}
+			require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+			assert.Equal(t, tt.wantActorType, resp["actor_type"])
+		})
+	}
+}
+
 func TestAuthMiddleware_MissingHeader(t *testing.T) {
 	manager := initTestJWT(t)
 

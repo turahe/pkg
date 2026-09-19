@@ -120,7 +120,7 @@ func (r *BaseRepository) Updates(ctx context.Context, where interface{}, value i
 	return r.getDB().WithContext(ctx).Model(where).Updates(value).Error
 }
 
-func (r *BaseRepository) Delete(ctx context.Context, tableName string, model interface{}, conditions types.Conditions) (count int64, err error) {
+func (r *BaseRepository) Delete(ctx context.Context, tableName string, model interface{}, conditions types.Conditions) (int64, error) {
 	db := r.getDB().WithContext(ctx)
 
 	for key, value := range conditions {
@@ -133,16 +133,15 @@ func (r *BaseRepository) Delete(ctx context.Context, tableName string, model int
 		db = db.Delete(model)
 	}
 
-	err = db.Error
+	err := db.Error
 	if err != nil {
 		return 0, err
 	}
 
-	count = db.RowsAffected
-	return
+	return db.RowsAffected, nil
 }
 
-func (r *BaseRepository) First(ctx context.Context, out interface{}, conditions types.Conditions) (notFound bool, err error) {
+func (r *BaseRepository) First(ctx context.Context, out interface{}, conditions types.Conditions) (bool, error) {
 	db := r.getDB().WithContext(ctx)
 
 	for key, value := range conditions {
@@ -154,15 +153,11 @@ func (r *BaseRepository) First(ctx context.Context, out interface{}, conditions 
 
 	// Use Model() to ensure proper table mapping with explicit column selection
 	// Order by created_at DESC only (remove any default ordering by primary key)
-	err = db.Model(out).Select(columns).Order("created_at DESC").First(out).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			notFound = true
-			err = nil // Clear error for "record not found" as it's an expected case
-		}
+	err := db.Model(out).Select(columns).Order("created_at DESC").First(out).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return true, nil
 	}
-
-	return
+	return false, err
 }
 
 func (r *BaseRepository) Find(ctx context.Context, out interface{}, conditions types.Conditions, orders ...string) (err error) {
@@ -187,53 +182,63 @@ func (r *BaseRepository) Find(ctx context.Context, out interface{}, conditions t
 	return db.Model(out).Select(columns).Find(out).Error
 }
 
-func (r *BaseRepository) Scan(ctx context.Context, tableName string, model, out interface{}, conditions types.Conditions, orders ...string) (notFound bool, err error) {
+// ScanOptions groups parameters for Scan / ScanWith.
+type ScanOptions struct {
+	TableName  string
+	Model      interface{}
+	Out        interface{}
+	Conditions types.Conditions
+	Orders     []string
+}
+
+// ScanWith runs a Scan using ScanOptions (preferred for new call sites).
+func (r *BaseRepository) ScanWith(ctx context.Context, opts ScanOptions) (bool, error) {
 	db := r.getDB().WithContext(ctx)
 
-	for key, value := range conditions {
+	for key, value := range opts.Conditions {
 		db = r.applyWhereCondition(db, key, value)
 	}
 
-	if len(orders) > 0 {
-		for _, order := range orders {
+	if len(opts.Orders) > 0 {
+		for _, order := range opts.Orders {
 			db = db.Order(order)
 		}
 	} else {
-		// Default order by created_at DESC if no orders specified
 		db = db.Order("created_at DESC")
 	}
 
-	// Get column names from model or out
-	var columns []string
-	if model != nil {
-		columns = r.getColumnNames(model)
-	} else if out != nil {
-		columns = r.getColumnNames(out)
+	columns := []string{}
+	if opts.Model != nil {
+		columns = r.getColumnNames(opts.Model)
+	} else if opts.Out != nil {
+		columns = r.getColumnNames(opts.Out)
 	}
 
-	if model == nil && tableName != "" {
-		if len(columns) > 0 {
-			db = db.Table(tableName).Select(columns).Scan(out)
-		} else {
-			db = db.Table(tableName).Scan(out)
-		}
+	useTable := opts.Model == nil && opts.TableName != ""
+	if useTable {
+		db = db.Table(opts.TableName)
 	} else {
-		if len(columns) > 0 {
-			db = db.Model(model).Select(columns).Scan(out)
-		} else {
-			db = db.Model(model).Scan(out)
-		}
+		db = db.Model(opts.Model)
 	}
-
-	err = db.Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			notFound = true
-			err = nil // Clear error for "record not found" as it's an expected case
-		}
+	if len(columns) > 0 {
+		db = db.Select(columns)
 	}
+	err := db.Scan(opts.Out).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return true, nil
+	}
+	return false, err
+}
 
-	return
+// Scan runs a Scan. Prefer ScanWith with ScanOptions for new call sites.
+func (r *BaseRepository) Scan(ctx context.Context, tableName string, model, out interface{}, conditions types.Conditions, orders ...string) (bool, error) {
+	return r.ScanWith(ctx, ScanOptions{
+		TableName:  tableName,
+		Model:      model,
+		Out:        out,
+		Conditions: conditions,
+		Orders:     orders,
+	})
 }
 
 func (r *BaseRepository) RawSQL(ctx context.Context, specifyDb *gorm.DB, query string, args ...interface{}) *gorm.DB {
@@ -263,13 +268,22 @@ func (r *BaseRepository) IsEmpty(ctx context.Context, model interface{}) bool {
 	return false
 }
 
-// SimplePagination performs simple offset-based pagination.
-// pageNumber: current page number (default: 1)
-// pageSize: number of items per page (default: 10, max: 100)
-// conditions: filter conditions
-// orders: optional order clauses (defaults to "created_at DESC")
-// preloads: pass association names (e.g. "User", "Items") to avoid N+1 queries when loading relations.
-func (r *BaseRepository) SimplePagination(ctx context.Context, model, out interface{}, pageNumber, pageSize int, conditions types.Conditions, orders []string, preloads ...string) (total int64, err error) {
+// PaginationOptions groups parameters for SimplePagination / Paginate.
+type PaginationOptions struct {
+	Model      interface{}
+	Out        interface{}
+	PageNumber int
+	PageSize   int
+	Conditions types.Conditions
+	Orders     []string
+	Preloads   []string
+}
+
+// Paginate performs offset-based pagination using PaginationOptions (preferred for new call sites).
+// Returns 1 when more pages exist, 0 otherwise.
+func (r *BaseRepository) Paginate(ctx context.Context, opts PaginationOptions) (int64, error) {
+	pageNumber := opts.PageNumber
+	pageSize := opts.PageSize
 	if pageNumber <= 0 {
 		pageNumber = 1
 	}
@@ -280,59 +294,64 @@ func (r *BaseRepository) SimplePagination(ctx context.Context, model, out interf
 	}
 
 	offset := (pageNumber - 1) * pageSize
-	dataDB := r.getDB().WithContext(ctx).Model(model)
+	dataDB := r.getDB().WithContext(ctx).Model(opts.Model)
 
-	// Apply conditions
-	for key, value := range conditions {
+	for key, value := range opts.Conditions {
 		dataDB = r.applyWhereCondition(dataDB, key, value)
 	}
-
-	// Apply preloads
-	for _, preload := range preloads {
+	for _, preload := range opts.Preloads {
 		dataDB = dataDB.Preload(preload)
 	}
-
-	// Apply orders
-	if len(orders) > 0 {
-		for _, order := range orders {
+	if len(opts.Orders) > 0 {
+		for _, order := range opts.Orders {
 			dataDB = dataDB.Order(order)
 		}
 	} else {
-		// Default order by created_at DESC
 		dataDB = dataDB.Order("created_at DESC")
 	}
 
-	// Get column names from struct
-	columns := r.getColumnNames(model)
-
-	// Fetch limit+1 items to check if there's more data (without expensive COUNT query)
+	columns := r.getColumnNames(opts.Model)
 	fetchLimit := pageSize + 1
-	if err := dataDB.Select(columns).Limit(fetchLimit).Offset(offset).Find(out).Error; err != nil {
+	if err := dataDB.Select(columns).Limit(fetchLimit).Offset(offset).Find(opts.Out).Error; err != nil {
 		return 0, err
 	}
 
-	// Check if we have more items than requested
-	// Use reflection to check slice length
-	val := reflect.ValueOf(out)
+	val := reflect.ValueOf(opts.Out)
 	if val.Kind() == reflect.Pointer {
 		val = val.Elem()
 	}
 
-	hasMore := false
+	var hasMore bool
 	if val.Kind() == reflect.Slice && val.Len() > pageSize {
 		hasMore = true
-		// Truncate to requested page size
 		truncatedSlice := reflect.MakeSlice(val.Type(), pageSize, pageSize)
 		reflect.Copy(truncatedSlice, val.Slice(0, pageSize))
 		val.Set(truncatedSlice)
 	}
-
-	// Return hasMore as int64 (1 = has more, 0 = no more)
-	// This allows us to pass the information back to the controller
 	if hasMore {
-		return 1, nil // 1 indicates has more data
+		return 1, nil
 	}
-	return 0, nil // 0 indicates no more data
+	return 0, nil
+}
+
+// SimplePagination performs offset-based pagination. Prefer Paginate with PaginationOptions.
+func (r *BaseRepository) SimplePagination(
+	ctx context.Context,
+	model, out interface{},
+	pageNumber, pageSize int,
+	conditions types.Conditions,
+	orders []string,
+	preloads ...string,
+) (int64, error) {
+	return r.Paginate(ctx, PaginationOptions{
+		Model:      model,
+		Out:        out,
+		PageNumber: pageNumber,
+		PageSize:   pageSize,
+		Conditions: conditions,
+		Orders:     orders,
+		Preloads:   preloads,
+	})
 }
 
 // getColumnNames extracts column names from struct tags using reflection.
@@ -363,7 +382,7 @@ func (r *BaseRepository) getColumnNamesFromType(t reflect.Type) []string {
 		t = t.Elem()
 	}
 	if t.Kind() != reflect.Struct {
-		return nil
+		return []string{}
 	}
 	n := t.NumField()
 	columns := make([]string, 0, n)

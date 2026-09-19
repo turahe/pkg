@@ -39,7 +39,7 @@ func (h *MyHandler) Get(c *gin.Context) {
 | `GetIDFromParam` / `GetIDFromRequestOrParam` | Path / body ID |
 | `HandleServiceError` | Map `domain.ErrNotFound` / `ErrUnauthorized` etc. |
 | `BuildPaginationResponse` | Pagination payload helper |
-| `GetCurrentUserID` / `CheckUserHasRole` | Auth context |
+| `GetCurrentUserID` / `GetActorType` / `CheckUserHasRole` | Auth context |
 
 Re-exports: `handler.ErrNotFound`, `handler.ErrUnauthorized` (domain sentinels).
 

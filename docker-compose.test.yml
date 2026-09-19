@@ -8,7 +8,8 @@
 #   make test-docker
 #
 # The `test` service waits for all dependencies to be healthy (via `depends_on`
-# condition: service_healthy), then runs `go test ./...` and exits.
+# condition: service_healthy), then runs the full unit/integration suite with
+# race+coverage, followed by package benchmarks, and exits.
 # The compose process exits with the test runner's exit code.
 #
 # Redis and Valkey are both started so redis package integration tests can
@@ -61,7 +62,7 @@ services:
 
   # ── Test runner ────────────────────────────────────────────────────────────
   test:
-    image: golang:1.25-alpine
+    image: golang:1.26-alpine
     working_dir: /app
 
     # Mount the project source; do NOT copy — changes are reflected instantly.
@@ -105,17 +106,31 @@ services:
       CGO_ENABLED: "1"
       GOFLAGS: ""
 
-    # Install gcc (required for CGO / race detector on alpine), then run tests.
+    # Install gcc (CGO / race), run tests with race+coverage, then benchmarks.
+    # Write logs then cat so the go test exit code is preserved (ash has no pipefail).
     command: >
       sh -c "
-        apk add --no-cache gcc musl-dev &&
-        go test -v -race -count=1 -coverprofile=/app/coverage.out ./... 2>&1 |
-        tee /app/test.log ;
-        EXIT=$$? ;
+        set -e ;
+        apk add --no-cache gcc musl-dev ;
+        echo '──── Tests (race + coverage) ────' ;
+        set +e ;
+        go test -v -race -count=1 -coverprofile=/app/coverage.out ./... > /tmp/test.out 2>&1 ;
+        TEST_EXIT=$$? ;
+        set -e ;
+        tee /app/test.log < /tmp/test.out ;
         echo '' ;
         echo '──── Coverage summary ────' ;
-        go tool cover -func=/app/coverage.out | tail -1 ;
-        exit $$EXIT
+        if [ -f /app/coverage.out ]; then go tool cover -func=/app/coverage.out | tail -1 ; fi ;
+        echo '' ;
+        echo '──── Benchmarks ────' ;
+        mkdir -p /app/bench ;
+        set +e ;
+        go test -bench=. -benchmem -count=3 -run='^$$' ./... > /tmp/bench.out 2>&1 ;
+        BENCH_EXIT=$$? ;
+        set -e ;
+        tee /app/bench/docker.txt < /tmp/bench.out ;
+        if [ $$TEST_EXIT -ne 0 ]; then exit $$TEST_EXIT ; fi ;
+        exit $$BENCH_EXIT
       "
 
     # Start only after every dependency is confirmed healthy.
