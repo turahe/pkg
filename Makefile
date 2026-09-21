@@ -1,7 +1,7 @@
 # ──────────────────────────────────────────────────────────────────────────────
 # Makefile — developer workflow shortcuts
 # ──────────────────────────────────────────────────────────────────────────────
-.PHONY: help build test test-race test-cover test-docker \
+.PHONY: help build test test-race test-cover test-docker test-versions \
         services-up services-down lint vuln tidy docker-build clean
 
 GO      := go
@@ -10,6 +10,9 @@ DC_TEST := docker compose -f docker-compose.test.yml
 
 # Keep in sync with .github/workflows/test.yml (golangci-lint-action version).
 GOLANGCI_LINT_VERSION := v2.12.2
+
+# Docker tags for local multi-version smoke tests (CI also uses oldstable/stable via setup-go).
+GO_TEST_VERSIONS ?= 1.26 latest
 
 # ── Help ──────────────────────────────────────────────────────────────────────
 help: ## Show this help
@@ -30,6 +33,16 @@ test-race: ## Run tests with race detector (requires CGO_ENABLED=1)
 test-cover: ## Run tests and show coverage summary
 	$(GO) test -v -count=1 -coverprofile=coverage.out ./...
 	$(GO) tool cover -func=coverage.out | tail -1
+
+test-versions: ## Run go test in Docker for each GO_TEST_VERSIONS (default: 1.26 latest)
+	@for v in $(GO_TEST_VERSIONS); do \
+		echo "──── Go $$v ────"; \
+		docker run --rm \
+			-v "$(CURDIR):/app" -w /app \
+			-e CGO_ENABLED=0 \
+			golang:$$v \
+			go test -count=1 ./... || exit 1; \
+	done
 
 # ── Tests in Docker (all services included, no local setup needed) ─────────────
 test-docker: ## Run tests (race+cover) and benchmarks inside Docker

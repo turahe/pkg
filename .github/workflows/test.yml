@@ -41,7 +41,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: ["1.26", "stable"]
+        # Minimum (go.mod), previous stable channel, and current stable.
+        go: ["1.26", "oldstable", "stable"]
 
     services:
       redis:
