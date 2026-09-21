@@ -649,16 +649,18 @@ Google Cloud Storage wrapper. Uses Application Default Credentials (ADC) or an e
 
 ```go
 gcs.Setup() error
+gcs.SetupContext(ctx) error
 gcs.GetClient() *storage.Client
 gcs.GetBucket() *storage.BucketHandle
-gcs.ReadObject(objectName string) ([]byte, error)
-gcs.ReadObjectAsReader(objectName string) (io.ReadCloser, error)
-gcs.WriteObject(objectName string, data []byte, contentType string) error
-gcs.DeleteObject(objectName string) error
-gcs.ObjectExists(objectName string) (bool, error)
-gcs.ListObjects(prefix string) ([]string, error)
+gcs.ReadObject(ctx, objectName string) ([]byte, error)
+gcs.ReadObjectAsReader(ctx, objectName string) (io.ReadCloser, error)
+gcs.WriteObject(ctx, objectName string, data []byte, contentType string) error
+gcs.DeleteObject(ctx, objectName string) error
+gcs.ObjectExists(ctx, objectName string) (bool, error)
+gcs.ListObjects(ctx, prefix string) ([]string, error)
 gcs.Close() error
 ```
+Operations take `context.Context` as the first argument so callers can cancel and deadline GCS I/O.
 
 ---
 

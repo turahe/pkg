@@ -7,7 +7,7 @@ Google Cloud Storage client wrapper driven by config.
 ## Lifecycle
 
 ```go
-if err := gcs.Setup(); err != nil {
+if err := gcs.Setup(); err != nil { // or gcs.SetupContext(ctx)
     log.Fatal(err)
 }
 defer gcs.Close()

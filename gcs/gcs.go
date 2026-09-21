@@ -15,11 +15,16 @@ import (
 var (
 	client     *storage.Client
 	bucketName string
-	ctx        = context.Background()
 )
 
-// Setup initializes the GCS client from config (credentials file or ADC) and optionally verifies bucket access. No-op if GCS.Enabled is false.
+// Setup initializes the GCS client from config (credentials file or ADC) and optionally verifies bucket access.
+// No-op if GCS.Enabled is false. Uses context.Background as the process entry point.
 func Setup() error {
+	return SetupContext(context.Background())
+}
+
+// SetupContext is like Setup but uses the provided context for client creation and bucket verification.
+func SetupContext(ctx context.Context) error {
 	configuration := config.GetConfig()
 
 	if !configuration.GCS.Enabled {
@@ -80,8 +85,8 @@ func GetBucketName() string {
 	return bucketName
 }
 
-// ReadObject reads an object from GCS bucket
-func ReadObject(objectName string) ([]byte, error) {
+// ReadObject reads an object from GCS bucket.
+func ReadObject(ctx context.Context, objectName string) ([]byte, error) {
 	bucket := GetBucket()
 	obj := bucket.Object(objectName)
 
@@ -99,8 +104,8 @@ func ReadObject(objectName string) ([]byte, error) {
 	return data, nil
 }
 
-// ReadObjectAsReader returns a reader for an object from GCS bucket
-func ReadObjectAsReader(objectName string) (io.ReadCloser, error) {
+// ReadObjectAsReader returns a reader for an object from GCS bucket.
+func ReadObjectAsReader(ctx context.Context, objectName string) (io.ReadCloser, error) {
 	bucket := GetBucket()
 	obj := bucket.Object(objectName)
 
@@ -112,8 +117,8 @@ func ReadObjectAsReader(objectName string) (io.ReadCloser, error) {
 	return reader, nil
 }
 
-// WriteObject writes data to an object in GCS bucket
-func WriteObject(objectName string, data []byte, contentType string) error {
+// WriteObject writes data to an object in GCS bucket.
+func WriteObject(ctx context.Context, objectName string, data []byte, contentType string) error {
 	bucket := GetBucket()
 	obj := bucket.Object(objectName)
 
@@ -134,8 +139,8 @@ func WriteObject(objectName string, data []byte, contentType string) error {
 	return nil
 }
 
-// DeleteObject deletes an object from GCS bucket
-func DeleteObject(objectName string) error {
+// DeleteObject deletes an object from GCS bucket.
+func DeleteObject(ctx context.Context, objectName string) error {
 	bucket := GetBucket()
 	obj := bucket.Object(objectName)
 
@@ -146,8 +151,8 @@ func DeleteObject(objectName string) error {
 	return nil
 }
 
-// ObjectExists checks if an object exists in the bucket
-func ObjectExists(objectName string) (bool, error) {
+// ObjectExists checks if an object exists in the bucket.
+func ObjectExists(ctx context.Context, objectName string) (bool, error) {
 	bucket := GetBucket()
 	obj := bucket.Object(objectName)
 
@@ -162,8 +167,8 @@ func ObjectExists(objectName string) (bool, error) {
 	return true, nil
 }
 
-// ListObjects lists objects in the bucket with the given prefix
-func ListObjects(prefix string) ([]string, error) {
+// ListObjects lists objects in the bucket with the given prefix.
+func ListObjects(ctx context.Context, prefix string) ([]string, error) {
 	bucket := GetBucket()
 	query := &storage.Query{
 		Prefix: prefix,
@@ -185,7 +190,7 @@ func ListObjects(prefix string) ([]string, error) {
 	return objectNames, nil
 }
 
-// Close closes the GCS client
+// Close closes the GCS client.
 func Close() error {
 	if client != nil {
 		return client.Close()
