@@ -7,7 +7,7 @@ Role in architecture:
 Responsibilities:
   - Setup / SetupContext: create a storage driver from config.Storage; empty STORAGE_DRIVER disables storage.
   - GetBucketName: access the configured default bucket name.
-  - ReadObject, ReadObjectAsReader, WriteObject, DeleteObject, ObjectExists, ListObjects: delegate to the configured driver; ctx is first parameter.
+  - ReadObject, ReadObjectAsReader, WriteObject, DeleteObject, ObjectExists, ListObjects, PresignUpload: delegate to the configured driver; ctx is first parameter.
   - Close: close the configured driver.
 
 Constraints:

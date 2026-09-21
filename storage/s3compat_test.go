@@ -131,6 +131,40 @@ func TestS3Compat_RustFSIntegration(t *testing.T) {
 	}
 }
 
+func TestS3PresignUpload_ReturnsPUTURL(t *testing.T) {
+	t.Cleanup(func() {
+		config.Config = nil
+		_ = Close()
+	})
+	config.Config = &config.Configuration{Storage: config.StorageConfiguration{
+		Driver: "s3", Bucket: "pkg", Endpoint: "http://127.0.0.1:9000",
+		AccessKey: "rustfsadmin", SecretKey: "rustfsadmin",
+		Region: "us-east-1", ForcePathStyle: boolPtr(true),
+	}}
+	if err := Setup(); err != nil {
+		t.Fatal(err)
+	}
+	out, err := PresignUpload(context.Background(), "uploads/hello.txt", PresignUploadOptions{
+		Expiry:      time.Minute,
+		ContentType: "text/plain",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.Method != "PUT" {
+		t.Fatalf("Method = %q", out.Method)
+	}
+	if out.URL == "" {
+		t.Fatal("empty URL")
+	}
+	if out.Headers["Content-Type"] != "text/plain" {
+		t.Fatalf("Headers = %#v", out.Headers)
+	}
+	if !out.ExpiresAt.After(time.Now()) {
+		t.Fatalf("ExpiresAt = %v", out.ExpiresAt)
+	}
+}
+
 func boolPtr(v bool) *bool {
 	return &v
 }

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **storage `PresignUpload`**: Mint short-lived PUT URLs for client-side direct uploads (`gcs` / `s3` / `r2`). See [docs/packages/storage.md](docs/packages/storage.md).
 - **`storage` package**: Multi-driver object storage (`STORAGE_DRIVER=gcs|s3|r2`) with singleton `Setup` / `SetupContext`, `ErrNotInitialized`, and provider-neutral operations. See [docs/packages/storage.md](docs/packages/storage.md) for env vars, RustFS/R2 examples, and migration steps.
 - **RustFS in Docker Compose**: Local/test S3-compatible endpoint on `:9000` / console `:9001`.
 

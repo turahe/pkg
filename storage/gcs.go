@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"time"
 
 	gcsstorage "cloud.google.com/go/storage"
 	"github.com/turahe/pkg/config"
@@ -121,6 +122,33 @@ func (d *gcsDriver) ListObjects(ctx context.Context, prefix string) ([]string, e
 	}
 
 	return objectNames, nil
+}
+
+func (d *gcsDriver) PresignUpload(ctx context.Context, objectName string, opts PresignUploadOptions) (PresignedUpload, error) {
+	_ = ctx // BucketHandle.SignedURL is not context-aware
+	expiresAt := time.Now().Add(opts.Expiry)
+	signOpts := &gcsstorage.SignedURLOptions{
+		Method:  "PUT",
+		Expires: expiresAt,
+		Scheme:  gcsstorage.SigningSchemeV4,
+	}
+	headers := map[string]string{}
+	if opts.ContentType != "" {
+		signOpts.ContentType = opts.ContentType
+		headers["Content-Type"] = opts.ContentType
+	}
+
+	url, err := d.bucketHandle().SignedURL(objectName, signOpts)
+	if err != nil {
+		return PresignedUpload{}, fmt.Errorf("storage/gcs: presign put %s: %w", objectName, err)
+	}
+
+	return PresignedUpload{
+		URL:       url,
+		Method:    "PUT",
+		Headers:   headers,
+		ExpiresAt: expiresAt,
+	}, nil
 }
 
 func (d *gcsDriver) Close() error {

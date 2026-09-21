@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
@@ -156,6 +157,36 @@ func (d *s3Driver) ListObjects(ctx context.Context, prefix string) ([]string, er
 	}
 
 	return objectNames, nil
+}
+
+func (d *s3Driver) PresignUpload(ctx context.Context, objectName string, opts PresignUploadOptions) (PresignedUpload, error) {
+	input := &s3.PutObjectInput{
+		Bucket: aws.String(d.bucket),
+		Key:    aws.String(objectName),
+	}
+	headers := map[string]string{}
+	if opts.ContentType != "" {
+		input.ContentType = aws.String(opts.ContentType)
+		headers["Content-Type"] = opts.ContentType
+	}
+
+	presigner := s3.NewPresignClient(d.client)
+	out, err := presigner.PresignPutObject(ctx, input, s3.WithPresignExpires(opts.Expiry))
+	if err != nil {
+		return PresignedUpload{}, fmt.Errorf("storage/s3: presign put %s: %w", objectName, err)
+	}
+
+	method := out.Method
+	if method == "" {
+		method = "PUT"
+	}
+
+	return PresignedUpload{
+		URL:       out.URL,
+		Method:    method,
+		Headers:   headers,
+		ExpiresAt: time.Now().Add(opts.Expiry),
+	}, nil
 }
 
 func (d *s3Driver) Close() error {

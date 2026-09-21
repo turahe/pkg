@@ -34,6 +34,12 @@ err = storage.WriteObject(ctx, "path/object", data, "application/octet-stream")
 err = storage.DeleteObject(ctx, "path/object")
 exists, err := storage.ObjectExists(ctx, "path/object")
 names, err := storage.ListObjects(ctx, "prefix/")
+
+out, err := storage.PresignUpload(ctx, "path/object", storage.PresignUploadOptions{
+	Expiry:      15 * time.Minute, // 0 → 15m default; max 7d
+	ContentType: "application/octet-stream", // optional; required on client PUT if set
+})
+// Client: HTTP PUT out.URL with out.Headers and body, before out.ExpiresAt
 ```
 
 ## Local RustFS

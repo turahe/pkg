@@ -18,5 +18,6 @@ type Driver interface {
 	DeleteObject(ctx context.Context, objectName string) error
 	ObjectExists(ctx context.Context, objectName string) (bool, error)
 	ListObjects(ctx context.Context, prefix string) ([]string, error)
+	PresignUpload(ctx context.Context, objectName string, opts PresignUploadOptions) (PresignedUpload, error)
 	Close() error
 }
