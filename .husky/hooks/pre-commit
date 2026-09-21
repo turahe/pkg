@@ -1,2 +1,21 @@
-#!/bin/sh
-go fmt ./... && go test -v ./...
+#!/usr/bin/env sh
+# Pre-commit: format and test via Docker (no local Go toolchain required).
+# Keep GO_IMAGE in sync with docker-compose.test.yml / CI Go version.
+set -e
+
+ROOT="$(CDPATH= cd -- "$(dirname "$0")/../.." && pwd)"
+cd "$ROOT"
+
+GO_IMAGE="${GO_IMAGE:-golang:1.27-alpine}"
+
+docker run --rm \
+	-v "$ROOT:/app" -w /app \
+	-v pkg-go-mod-cache:/go/pkg/mod \
+	"$GO_IMAGE" \
+	go fmt ./...
+
+docker run --rm \
+	-v "$ROOT:/app" -w /app \
+	-v pkg-go-mod-cache:/go/pkg/mod \
+	"$GO_IMAGE" \
+	go test -v -count=1 ./...
