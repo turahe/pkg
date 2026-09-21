@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"errors"
+	"io"
 	"net"
 	"net/url"
 	"testing"
@@ -123,8 +124,40 @@ func TestS3Compat_RustFSIntegration(t *testing.T) {
 	if err != nil || string(data) != "hi" {
 		t.Fatalf("read: %v %q", err, data)
 	}
-	if exists, err := ObjectExists(ctx, key); err != nil || !exists {
-		t.Fatalf("exists: %v %v", exists, err)
+	r, err := ReadObjectAsReader(ctx, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	streamed, err := io.ReadAll(r)
+	_ = r.Close()
+	if err != nil || string(streamed) != "hi" {
+		t.Fatalf("ReadObjectAsReader: %v %q", err, streamed)
+	}
+	exists, existsErr := ObjectExists(ctx, key)
+	if existsErr != nil || !exists {
+		t.Fatalf("exists: %v %v", exists, existsErr)
+	}
+	exists, existsErr = ObjectExists(ctx, key+"-missing")
+	if existsErr != nil || exists {
+		t.Fatalf("missing exists: %v %v", exists, existsErr)
+	}
+	names, err := ListObjects(ctx, "storage-test/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, n := range names {
+		if n == key {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("ListObjects missing %s: %v", key, names)
+	}
+	presigned, err := PresignUpload(ctx, key, PresignUploadOptions{ContentType: "text/plain", Expiry: time.Minute})
+	if err != nil || presigned.Method != "PUT" || presigned.URL == "" {
+		t.Fatalf("PresignUpload: %+v %v", presigned, err)
 	}
 	if err := DeleteObject(ctx, key); err != nil {
 		t.Fatal(err)
@@ -213,6 +246,30 @@ func isS3BucketAlreadyExists(err error) bool {
 		return false
 	}
 }
+
+func TestIsS3NotFound(t *testing.T) {
+	if isS3NotFound(errors.New("nope")) {
+		t.Fatal("expected false for plain error")
+	}
+	for _, code := range []string{"NotFound", "NoSuchKey", "404"} {
+		err := &fakeAPIError{code: code}
+		if !isS3NotFound(err) {
+			t.Fatalf("code %s: expected true", code)
+		}
+	}
+	if isS3NotFound(&fakeAPIError{code: "AccessDenied"}) {
+		t.Fatal("AccessDenied should not be not-found")
+	}
+}
+
+type fakeAPIError struct {
+	code string
+}
+
+func (e *fakeAPIError) Error() string                 { return e.code }
+func (e *fakeAPIError) ErrorCode() string             { return e.code }
+func (e *fakeAPIError) ErrorMessage() string          { return e.code }
+func (e *fakeAPIError) ErrorFault() smithy.ErrorFault { return smithy.FaultUnknown }
 
 func isS3AccessDenied(err error) bool {
 	var apiErr smithy.APIError
