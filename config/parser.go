@@ -125,8 +125,6 @@ func loadOpenTelemetryConfigFromEnv() OpenTelemetryConfiguration {
 		TracesSamplerArg: parseFloatRatio("OTEL_TRACES_SAMPLER_ARG", 1.0),
 		ShutdownTimeout:  parseDuration("OTEL_SHUTDOWN_TIMEOUT", 5*time.Second),
 		GORMEnabled:      parseBool("OTEL_GORM_ENABLED", true),
-		GCPProjectID:     firstNonEmpty(getEnvOrDefault("OTEL_GCP_PROJECT_ID", ""), getEnvOrDefault("GOOGLE_CLOUD_PROJECT", "")),
-		GCPPropagator:    parseBool("OTEL_GCP_PROPAGATOR", false),
 	}
 }
 

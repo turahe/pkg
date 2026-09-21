@@ -108,10 +108,10 @@ type TimezoneConfiguration struct {
 }
 
 // OpenTelemetryConfiguration holds OTLP trace export settings. Empty Endpoint and
-// TracesEndpoint disable OTLP export unless Exporter is gcp. Environment falls back
-// to APP_ENV; ServiceVersion falls back to SENTRY_RELEASE when unset.
+// TracesEndpoint disable export. Environment falls back to APP_ENV; ServiceVersion
+// falls back to SENTRY_RELEASE when unset.
 type OpenTelemetryConfiguration struct {
-	Exporter         string // OTEL_TRACES_EXPORTER: otlp (default), otlp_grpc, or gcp
+	Exporter         string // OTEL_TRACES_EXPORTER: otlp (default) or otlp_grpc
 	Protocol         string // OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf (default) or grpc
 	Endpoint         string
 	TracesEndpoint   string
@@ -122,9 +122,7 @@ type OpenTelemetryConfiguration struct {
 	ServiceVersion   string
 	TracesSamplerArg float64
 	ShutdownTimeout  time.Duration
-	GORMEnabled      bool   // OTEL_GORM_ENABLED; auto-instruments GORM when tracing is enabled
-	GCPProjectID     string // OTEL_GCP_PROJECT_ID; falls back to GOOGLE_CLOUD_PROJECT
-	GCPPropagator    bool   // OTEL_GCP_PROPAGATOR; X-Cloud-Trace-Context propagation
+	GORMEnabled      bool // OTEL_GORM_ENABLED; auto-instruments GORM when tracing is enabled
 }
 
 // SentryConfiguration holds Sentry error reporting settings. Empty DSN disables Sentry.

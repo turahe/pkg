@@ -59,11 +59,11 @@ func Init(ctx context.Context, cfg config.OpenTelemetryConfiguration) (func(cont
 	)
 
 	otel.SetTracerProvider(tp)
-	otel.SetTextMapPropagator(buildTextMapPropagator(useGCPPropagator(cfg)))
+	otel.SetTextMapPropagator(buildTextMapPropagator())
 
-	logger.Infof("otel: enabled exporter=%s service=%s environment=%s version=%s sampler=%.2f target=%s gcp_propagator=%t",
+	logger.Infof("otel: enabled exporter=%s service=%s environment=%s version=%s sampler=%.2f target=%s",
 		exporterName(cfg), serviceName, cfg.Environment, cfg.ServiceVersion, samplerArg,
-		exporterDescription(cfg), useGCPPropagator(cfg))
+		exporterDescription(cfg))
 
 	shutdown := func(shutdownCtx context.Context) error {
 		if shutdownCtx == nil {

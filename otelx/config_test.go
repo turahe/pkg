@@ -8,14 +8,12 @@ import (
 
 func TestNormalizeExporter(t *testing.T) {
 	tests := map[string]string{
-		"":           exporterOTLP,
-		"otlp":       exporterOTLP,
-		"OTLP_HTTP":  exporterOTLP,
-		"otlp_grpc":  exporterOTLPGRPC,
-		"grpc":       exporterOTLPGRPC,
-		"gcp":        exporterGCP,
-		"google":     exporterGCP,
-		"cloudtrace": exporterGCP,
+		"":          exporterOTLP,
+		"otlp":      exporterOTLP,
+		"OTLP_HTTP": exporterOTLP,
+		"otlp_grpc": exporterOTLPGRPC,
+		"grpc":      exporterOTLPGRPC,
+		"gcp":       "gcp",
 	}
 	for in, want := range tests {
 		if got := normalizeExporter(in); got != want {
@@ -51,10 +49,9 @@ func TestUseOTLPGRPC(t *testing.T) {
 	}
 }
 
-func TestTracingEnabled_GCPExporter(t *testing.T) {
-	cfg := config.OpenTelemetryConfiguration{Exporter: "gcp"}
-	if !TracingEnabled(cfg) {
-		t.Fatal("expected tracing enabled for gcp exporter")
+func TestTracingEnabled_UnknownExporter(t *testing.T) {
+	if TracingEnabled(config.OpenTelemetryConfiguration{Exporter: "gcp"}) {
+		t.Fatal("expected tracing disabled for unknown exporter")
 	}
 }
 
@@ -70,28 +67,8 @@ func TestTracingEnabled_OTLPRequiresEndpoint(t *testing.T) {
 	}
 }
 
-func TestUseGCPPropagator(t *testing.T) {
-	if !useGCPPropagator(config.OpenTelemetryConfiguration{Exporter: "gcp"}) {
-		t.Fatal("expected gcp propagator for gcp exporter")
-	}
-	if useGCPPropagator(config.OpenTelemetryConfiguration{Exporter: "otlp"}) {
-		t.Fatal("expected gcp propagator off for otlp by default")
-	}
-	if !useGCPPropagator(config.OpenTelemetryConfiguration{Exporter: "otlp", GCPPropagator: true}) {
-		t.Fatal("expected gcp propagator when explicitly enabled")
-	}
-}
-
 func TestExporterDescription(t *testing.T) {
 	got := exporterDescription(config.OpenTelemetryConfiguration{
-		Exporter:     "gcp",
-		GCPProjectID: "my-project",
-	})
-	if got != "gcp:project=my-project" {
-		t.Fatalf("got %q", got)
-	}
-
-	got = exporterDescription(config.OpenTelemetryConfiguration{
 		Exporter: "otlp",
 		Endpoint: "localhost:4318",
 	})

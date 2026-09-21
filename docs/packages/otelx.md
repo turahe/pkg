@@ -1,6 +1,6 @@
 # otelx
 
-OpenTelemetry TracerProvider setup from config: OTLP HTTP, OTLP gRPC, or Google Cloud Trace, plus optional GORM and gRPC instrumentation.
+OpenTelemetry TracerProvider setup from config: OTLP HTTP or OTLP gRPC, plus optional GORM and gRPC instrumentation.
 
 **Import:** `github.com/turahe/pkg/otelx`
 
@@ -32,11 +32,12 @@ conn, err := grpc.NewClient(target, otelx.GRPCDialOption(), /* credentials... */
 |------------------------|----------|
 | `otlp` (default) | OTLP HTTP unless `OTEL_EXPORTER_OTLP_PROTOCOL=grpc`; requires endpoint |
 | `otlp_grpc` / `grpc` | OTLP gRPC; requires endpoint (typically `:4317`) |
-| `gcp` | Cloud Trace via ADC; optional `OTEL_GCP_PROJECT_ID` |
 
 Protocol override: `OTEL_EXPORTER_OTLP_PROTOCOL` or `OTEL_EXPORTER_OTLP_TRACES_PROTOCOL` (`http/protobuf` default, `grpc`).
 
 Sampler: parent-based ratio from `OTEL_TRACES_SAMPLER_ARG` (default `1.0`).
+
+`Init` always installs the W3C Trace Context (`traceparent`/`tracestate`) and Baggage propagators.
 
 ## GORM
 

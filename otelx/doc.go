@@ -7,15 +7,14 @@ Role in architecture:
   - Settings are loaded via config.GetConfig().OpenTelemetry (or config.Setup).
 
 Responsibilities:
-  - Init: build resource, exporter (OTLP HTTP, OTLP gRPC, or Google Cloud Trace), sampler, and propagator.
+  - Init: build resource, OTLP HTTP or OTLP gRPC exporter, sampler, and W3C Trace Context + Baggage propagator.
   - TracingEnabled: report whether tracing should start (OTLP requires a non-empty endpoint).
   - RegisterGORM / GORMEnabled: optional SQL spans when OTEL_GORM_ENABLED is true.
   - GRPCServerOption / GRPCDialOption: otelgrpc stats handlers for gRPC servers and clients.
   - Return a shutdown func for graceful TracerProvider teardown.
 
 Constraints:
-  - Tracing is disabled when OTLP exporter is selected and the OTLP endpoint is empty.
-  - Set OTEL_TRACES_EXPORTER=gcp to export to Google Cloud Trace via Application Default Credentials.
+  - Tracing is disabled when the OTLP endpoint is empty.
   - Set OTEL_TRACES_EXPORTER=otlp_grpc or OTEL_EXPORTER_OTLP_PROTOCOL=grpc for OTLP over gRPC (default port 4317).
   - Invalid or failed Init is logged and treated as off; the process must keep running.
   - Sampler uses parent-based TraceIDRatioBased from OTEL_TRACES_SAMPLER_ARG (default 1.0).

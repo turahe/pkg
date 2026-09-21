@@ -360,7 +360,7 @@ router.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
 ### `otelx`
 
-OpenTelemetry trace setup wired to `config.OpenTelemetry`. Supports **OTLP HTTP**, **OTLP gRPC**, or **Google Cloud Trace** (`OTEL_TRACES_EXPORTER=gcp`).
+OpenTelemetry trace setup wired to `config.OpenTelemetry`. Supports **OTLP HTTP** or **OTLP gRPC**.
 
 ```go
 import "github.com/turahe/pkg/otelx"
@@ -386,12 +386,10 @@ conn, _ := grpc.NewClient(target, otelx.GRPCDialOption(), /* credentials */)
 | `otelx.LoadConfig()`           | Returns `config.OpenTelemetryConfiguration`                            |
 | `otelx.Init(ctx, cfg)`         | Configures global TracerProvider; returns shutdown func + enabled flag |
 | `otelx.RegisterGORM(db, opts)` | Manual GORM OTel plugin registration                                   |
-| `otelx.TracingEnabled(cfg)`    | True when OTLP endpoint or `gcp` exporter is configured                |
+| `otelx.TracingEnabled(cfg)`    | True when an OTLP endpoint is configured                               |
 | `otelx.GRPCServerOption(...)`  | otelgrpc stats handler for `grpc.NewServer`                            |
 | `otelx.GRPCDialOption(...)`    | otelgrpc stats handler for `grpc.NewClient` / Dial                     |
 
-
-**GCP mode:** set `OTEL_TRACES_EXPORTER=gcp` and `GOOGLE_CLOUD_PROJECT` (or `OTEL_GCP_PROJECT_ID`). Uses Application Default Credentials and enables `X-Cloud-Trace-Context` propagation automatically.
 
 **OTLP gRPC:** set `OTEL_TRACES_EXPORTER=otlp_grpc` or `OTEL_EXPORTER_OTLP_PROTOCOL=grpc` (endpoint typically `localhost:4317`).
 
@@ -1100,14 +1098,14 @@ Keys can be embedded via `config.Server.JWTPrivateKeyPEM` / `JWTPublicKeyPEM` (s
 
 ### OpenTelemetry
 
-Initialize tracing with `otelx.Init(ctx, config.GetConfig().OpenTelemetry)` after `config.Setup`. Choose an exporter with `OTEL_TRACES_EXPORTER` (`otlp`, `otlp_grpc`, or `gcp`).
+Initialize tracing with `otelx.Init(ctx, config.GetConfig().OpenTelemetry)` after `config.Setup`. Choose an exporter with `OTEL_TRACES_EXPORTER` (`otlp` or `otlp_grpc`).
 
 **Shared (all exporters):**
 
 
 | Variable                  | Required | Default          | Example        | Description                                               |
 | ------------------------- | -------- | ---------------- | -------------- | --------------------------------------------------------- |
-| `OTEL_TRACES_EXPORTER`    | No       | `otlp`           | `otlp_grpc`    | `otlp` (HTTP), `otlp_grpc` (gRPC), or `gcp` (Cloud Trace) |
+| `OTEL_TRACES_EXPORTER`    | No       | `otlp`           | `otlp_grpc`    | `otlp` (HTTP) or `otlp_grpc` (gRPC)                       |
 | `OTEL_SERVICE_NAME`       | No       | `app`            | `payments-api` | Service name resource attribute                           |
 | `OTEL_ENVIRONMENT`        | No       | `APP_ENV`        | `production`   | Deployment environment; falls back to `APP_ENV`           |
 | `OTEL_SERVICE_VERSION`    | No       | `SENTRY_RELEASE` | `1.4.2`        | Service version; falls back to `SENTRY_RELEASE`           |
@@ -1128,16 +1126,7 @@ Initialize tracing with `otelx.Init(ctx, config.GetConfig().OpenTelemetry)` afte
 | `OTEL_EXPORTER_OTLP_HEADERS`         | No       | —               | `Authorization=Bearer token` | Comma-separated `key=value` OTLP headers                   |
 
 
-**GCP Cloud Trace** (`OTEL_TRACES_EXPORTER=gcp`):
-
-
-| Variable              | Required | Default                | Example          | Description                                             |
-| --------------------- | -------- | ---------------------- | ---------------- | ------------------------------------------------------- |
-| `OTEL_GCP_PROJECT_ID` | No       | `GOOGLE_CLOUD_PROJECT` | `my-gcp-project` | GCP project; falls back to `GOOGLE_CLOUD_PROJECT`       |
-| `OTEL_GCP_PROPAGATOR` | No       | `false`                | `true`           | `X-Cloud-Trace-Context` propagation (auto-on for `gcp`) |
-
-
-Uses Application Default Credentials. GORM is instrumented automatically when tracing is enabled and `OTEL_GORM_ENABLED=true` (default).
+GORM is instrumented automatically when tracing is enabled and `OTEL_GORM_ENABLED=true` (default).
 
 **Example — OTLP (local collector / Jaeger):**
 
@@ -1150,20 +1139,6 @@ OTEL_ENVIRONMENT=development
 OTEL_TRACES_SAMPLER_ARG=1.0
 OTEL_GORM_ENABLED=true
 ```
-
-**Example — GCP Cloud Trace:**
-
-```bash
-OTEL_TRACES_EXPORTER=gcp
-OTEL_GCP_PROJECT_ID=my-gcp-project
-OTEL_SERVICE_NAME=payments-api
-OTEL_ENVIRONMENT=production
-OTEL_SERVICE_VERSION=1.4.2
-OTEL_GORM_ENABLED=true
-# GOOGLE_APPLICATION_CREDENTIALS=/path/to/sa.json  # local dev; omit on GCE/GKE/Cloud Run
-```
-
-
 
 ### Sentry
 

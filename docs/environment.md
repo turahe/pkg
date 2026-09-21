@@ -100,7 +100,7 @@ See [otelx](packages/otelx.md).
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `OTEL_TRACES_EXPORTER` | `otlp` | `otlp`, `otlp_grpc`, or `gcp` |
+| `OTEL_TRACES_EXPORTER` | `otlp` | `otlp` or `otlp_grpc` |
 | `OTEL_EXPORTER_OTLP_PROTOCOL` | `http/protobuf` | `http/protobuf` or `grpc` (traces protocol override via `OTEL_EXPORTER_OTLP_TRACES_PROTOCOL`) |
 | `OTEL_SERVICE_NAME` | `app` | |
 | `OTEL_ENVIRONMENT` | `APP_ENV` | |
@@ -112,8 +112,6 @@ See [otelx](packages/otelx.md).
 | `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` | — | Override |
 | `OTEL_EXPORTER_OTLP_INSECURE` | `true` | |
 | `OTEL_EXPORTER_OTLP_HEADERS` | — | `key=value,...` |
-| `OTEL_GCP_PROJECT_ID` | `GOOGLE_CLOUD_PROJECT` | |
-| `OTEL_GCP_PROPAGATOR` | `false` | Cloud Trace propagator |
 
 ## Sentry
 
