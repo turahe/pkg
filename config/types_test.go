@@ -5,6 +5,7 @@ import (
 )
 
 func TestConfiguration_StructFields(t *testing.T) {
+	forcePathStyle := true
 	cfg := &Configuration{
 		Server: ServerConfiguration{
 			Port:               "8080",
@@ -35,10 +36,15 @@ func TestConfiguration_StructFields(t *testing.T) {
 			Password: "",
 			DB:       0,
 		},
-		GCS: GCSConfiguration{
-			Enabled:         false,
-			BucketName:      "",
-			CredentialsFile: "",
+		Storage: StorageConfiguration{
+			Driver:          "s3",
+			Bucket:          "bucket",
+			Endpoint:        "http://127.0.0.1:9000",
+			Region:          "us-east-1",
+			AccessKey:       "ak",
+			SecretKey:       "sk",
+			ForcePathStyle:  &forcePathStyle,
+			CredentialsFile: "/path/to/credentials.json",
 		},
 	}
 
@@ -50,6 +56,9 @@ func TestConfiguration_StructFields(t *testing.T) {
 	}
 	if !cfg.Redis.Enabled || cfg.Redis.DB != 0 {
 		t.Error("RedisConfiguration fields not set correctly")
+	}
+	if cfg.Storage.Driver != "s3" || cfg.Storage.Bucket != "bucket" || cfg.Storage.ForcePathStyle == nil || !*cfg.Storage.ForcePathStyle {
+		t.Error("StorageConfiguration fields not set correctly")
 	}
 }
 
@@ -161,21 +170,42 @@ func TestRedisConfiguration_AllFields(t *testing.T) {
 	}
 }
 
-func TestGCSConfiguration_AllFields(t *testing.T) {
-	gcs := GCSConfiguration{
-		Enabled:         true,
-		BucketName:      "my-bucket",
+func TestStorageConfiguration_AllFields(t *testing.T) {
+	forcePathStyle := true
+	storage := StorageConfiguration{
+		Driver:          "s3",
+		Bucket:          "my-bucket",
+		Endpoint:        "http://127.0.0.1:9000",
+		Region:          "us-east-1",
+		AccessKey:       "access-key",
+		SecretKey:       "secret-key",
+		ForcePathStyle:  &forcePathStyle,
 		CredentialsFile: "/path/to/credentials.json",
 	}
 
-	if gcs.Enabled != true {
-		t.Errorf("Enabled = %v, want true", gcs.Enabled)
+	if storage.Driver != "s3" {
+		t.Errorf("Driver = %q, want s3", storage.Driver)
 	}
-	if gcs.BucketName != "my-bucket" {
-		t.Errorf("BucketName = %q, want my-bucket", gcs.BucketName)
+	if storage.Bucket != "my-bucket" {
+		t.Errorf("Bucket = %q, want my-bucket", storage.Bucket)
 	}
-	if gcs.CredentialsFile != "/path/to/credentials.json" {
-		t.Errorf("CredentialsFile = %q, want /path/to/credentials.json", gcs.CredentialsFile)
+	if storage.Endpoint != "http://127.0.0.1:9000" {
+		t.Errorf("Endpoint = %q, want http://127.0.0.1:9000", storage.Endpoint)
+	}
+	if storage.Region != "us-east-1" {
+		t.Errorf("Region = %q, want us-east-1", storage.Region)
+	}
+	if storage.AccessKey != "access-key" {
+		t.Errorf("AccessKey = %q, want access-key", storage.AccessKey)
+	}
+	if storage.SecretKey != "secret-key" {
+		t.Errorf("SecretKey = %q, want secret-key", storage.SecretKey)
+	}
+	if storage.ForcePathStyle == nil || !*storage.ForcePathStyle {
+		t.Error("ForcePathStyle want true")
+	}
+	if storage.CredentialsFile != "/path/to/credentials.json" {
+		t.Errorf("CredentialsFile = %q, want /path/to/credentials.json", storage.CredentialsFile)
 	}
 }
 
@@ -237,8 +267,11 @@ func TestConfiguration_ZeroValues(t *testing.T) {
 	if cfg.Redis.DB != 0 {
 		t.Errorf("Redis.DB zero value = %v, want 0", cfg.Redis.DB)
 	}
-	if cfg.GCS.Enabled != false {
-		t.Errorf("GCS.Enabled zero value = %v, want false", cfg.GCS.Enabled)
+	if cfg.Storage.Driver != "" {
+		t.Errorf("Storage.Driver zero value = %q, want empty string", cfg.Storage.Driver)
+	}
+	if cfg.Storage.ForcePathStyle != nil {
+		t.Errorf("Storage.ForcePathStyle zero value = %v, want nil", cfg.Storage.ForcePathStyle)
 	}
 	if cfg.RateLimiter.Enabled != false {
 		t.Errorf("RateLimiter.Enabled zero value = %v, want false", cfg.RateLimiter.Enabled)

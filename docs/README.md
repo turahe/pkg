@@ -23,7 +23,7 @@ API reference lives on [pkg.go.dev](https://pkg.go.dev/github.com/turahe/pkg). E
 | [logger](packages/logger.md) | Infrastructure | Structured slog + Cloud Trace fields |
 | [jwt](packages/jwt.md) | Infrastructure | JWT sign / verify (RS256 / ES256) |
 | [crypto](packages/crypto.md) | Infrastructure | bcrypt password helpers |
-| [gcs](packages/gcs.md) | Infrastructure | Google Cloud Storage client |
+| [storage](packages/storage.md) | Infrastructure | GCS, S3-compatible, and Cloudflare R2 object storage |
 | [otelx](packages/otelx.md) | Infrastructure | OpenTelemetry tracing (OTLP HTTP/gRPC / GCP) + gRPC handlers |
 | [sentryx](packages/sentryx.md) | Infrastructure | Sentry init / flush + gRPC interceptors |
 | [mtls](packages/mtls.md) | Infrastructure | Mutual TLS server & client |

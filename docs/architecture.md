@@ -20,7 +20,7 @@ This module follows **clean architecture** boundaries: domain and use-cases stay
                            │ implemented by
 ┌──────────────────────────▼──────────────────────────────┐
 │  Infrastructure / Adapters                              │
-│  config · database · redis · jwt · crypto · gcs         │
+│  config · database · redis · jwt · crypto · storage     │
 │  logger · otelx · sentryx · mtls · repositories         │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -32,7 +32,7 @@ This module follows **clean architecture** boundaries: domain and use-cases stay
 | **Domain** | `domain`, `domain/port` | No imports of database, Redis, config, or HTTP |
 | **Application** | `usecase` | Depends on ports only; no Gin / GORM / Redis |
 | **Adapters** | `handler`, `middlewares`, `response`, `repositories` | Translate HTTP/DB into domain/use-case calls |
-| **Infrastructure** | `config`, `database`, `redis`, `jwt`, `crypto`, `gcs`, `logger`, `otelx`, `sentryx`, `mtls` | Tech-specific wiring |
+| **Infrastructure** | `config`, `database`, `redis`, `jwt`, `crypto`, `storage`, `logger`, `otelx`, `sentryx`, `mtls` | Tech-specific wiring |
 | **Shared** | `types`, `util` | No business rules; usable by any layer |
 
 ## Dependency rules

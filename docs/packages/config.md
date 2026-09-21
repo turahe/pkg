@@ -6,7 +6,7 @@ Infrastructure package that loads application configuration from environment var
 
 ## Role
 
-Single source of truth for server, JWT, CORS, database (primary + site), Redis, GCS, rate limiter, timezone, OpenTelemetry, Sentry, and mTLS settings.
+Single source of truth for server, JWT, CORS, database (primary + site), Redis, object storage, rate limiter, timezone, OpenTelemetry, Sentry, and mTLS settings.
 
 ## API
 
@@ -16,7 +16,7 @@ config.GetConfig() *Configuration      // lazy-builds from env if needed
 config.SetConfig(cfg *Configuration)   // override for tests / manual wiring
 ```
 
-Main type: `Configuration` with nested `ServerConfiguration`, `CorsConfiguration`, `DatabaseConfiguration`, `RedisConfiguration`, `GCSConfiguration`, `RateLimiterConfiguration`, `TimezoneConfiguration`, `OpenTelemetryConfiguration`, `SentryConfiguration`, `MTLSConfiguration`.
+Main type: `Configuration` with nested `ServerConfiguration`, `CorsConfiguration`, `DatabaseConfiguration`, `RedisConfiguration`, `StorageConfiguration`, `RateLimiterConfiguration`, `TimezoneConfiguration`, `OpenTelemetryConfiguration`, `SentryConfiguration`, `MTLSConfiguration`.
 
 ## Usage
 

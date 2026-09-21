@@ -29,7 +29,7 @@ go tool cover -func=coverage.out
 
 Integration tests for Redis / MySQL / Postgres **skip** when services are unreachable. CI and `make test-docker` run the full matrix.
 
-Packages with tests: `config`, `crypto`, `database`, `gcs`, `handler`, `jwt`, `logger`, `middlewares`, `mtls`, `otelx`, `redis`, `repositories`, `response`, `sentryx`, `types`, `util`.
+Packages with tests: `config`, `crypto`, `database`, `handler`, `jwt`, `logger`, `middlewares`, `mtls`, `otelx`, `redis`, `repositories`, `response`, `sentryx`, `storage`, `types`, `util`.
 
 ## Local services
 

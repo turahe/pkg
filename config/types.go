@@ -10,7 +10,7 @@ type Configuration struct {
 	Database      DatabaseConfiguration
 	DatabaseSite  DatabaseConfiguration // Optional second database; leave Dbname empty to disable.
 	Redis         RedisConfiguration
-	GCS           GCSConfiguration
+	Storage       StorageConfiguration
 	RateLimiter   RateLimiterConfiguration
 	Timezone      TimezoneConfiguration
 	OpenTelemetry OpenTelemetryConfiguration
@@ -86,11 +86,17 @@ type RedisConfiguration struct {
 	WriteTimeoutSec int    // 0 = no timeout
 }
 
-// GCSConfiguration holds Google Cloud Storage settings. BucketName required when Enabled is true.
-type GCSConfiguration struct {
-	Enabled         bool
-	BucketName      string
-	CredentialsFile string // Optional; omit to use Application Default Credentials
+// StorageConfiguration holds object-storage settings.
+// Empty Driver disables storage (Setup is a no-op).
+type StorageConfiguration struct {
+	Driver          string // gcs | s3 | r2; empty = disabled
+	Bucket          string
+	Endpoint        string
+	Region          string
+	AccessKey       string
+	SecretKey       string
+	ForcePathStyle  *bool  // nil = driver default
+	CredentialsFile string // gcs only; empty = ADC
 }
 
 // RateLimiterConfiguration holds rate limiter settings. Requires Redis when Enabled is true.

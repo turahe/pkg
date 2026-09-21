@@ -60,6 +60,25 @@ services:
       retries: 5
       start_period: 5s
 
+  rustfs:
+    image: rustfs/rustfs:1.0.0-alpha.83
+    environment:
+      RUSTFS_ACCESS_KEY: rustfsadmin
+      RUSTFS_SECRET_KEY: rustfsadmin
+      RUSTFS_VOLUMES: /data
+      RUSTFS_ADDRESS: ":9000"
+      RUSTFS_CONSOLE_ADDRESS: ":9001"
+      RUSTFS_CONSOLE_ENABLE: "true"
+    volumes:
+      - rustfs-data:/data
+    healthcheck:
+      # alpha.83 serves /health/ready as AccessDenied without SigV4; any HTTP response means the API is up.
+      test: ["CMD-SHELL", "curl -sS -o /dev/null --max-time 5 http://127.0.0.1:9000/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
   # ── Test runner ────────────────────────────────────────────────────────────
   test:
     image: golang:1.26-alpine
@@ -102,6 +121,15 @@ services:
       SERVER_SECRET: test-secret-for-ci-only
       SERVER_MODE: test
 
+      # RustFS / S3-compatible storage
+      STORAGE_DRIVER: s3
+      STORAGE_BUCKET: pkg
+      STORAGE_ENDPOINT: http://rustfs:9000
+      STORAGE_REGION: us-east-1
+      STORAGE_ACCESS_KEY: rustfsadmin
+      STORAGE_SECRET_KEY: rustfsadmin
+      STORAGE_FORCE_PATH_STYLE: "true"
+
       # CGO is needed for SQLite and the race detector.
       CGO_ENABLED: "1"
       GOFLAGS: ""
@@ -143,6 +171,9 @@ services:
         condition: service_healthy
       postgres:
         condition: service_healthy
+      rustfs:
+        condition: service_healthy
 
 volumes:
   go-mod-cache:
+  rustfs-data:

@@ -86,13 +86,22 @@ Requires Redis. See [middlewares](packages/middlewares.md).
 | `RATE_LIMITER_KEY_BY` | `ip` | `ip` or `user` |
 | `RATE_LIMITER_SKIP_PATHS` | — | e.g. `/health,/metrics` |
 
-## GCS
+## Storage
+
+See [storage](packages/storage.md) for driver-specific examples, including local RustFS and Cloudflare R2.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `GCS_ENABLED` | `false` | |
-| `GCS_BUCKET_NAME` | — | |
-| `GCS_CREDENTIALS_FILE` | — | SA JSON path; omit for ADC |
+| `STORAGE_DRIVER` | — | `gcs`, `s3`, or `r2`; empty disables storage |
+| `STORAGE_BUCKET` | — | Required when `STORAGE_DRIVER` is set |
+| `STORAGE_ENDPOINT` | — | S3-compatible or R2 endpoint URL |
+| `STORAGE_REGION` | `us-east-1` for `s3`, `auto` for `r2` | Optional region override |
+| `STORAGE_ACCESS_KEY` | — | S3-compatible / R2 access key |
+| `STORAGE_SECRET_KEY` | — | S3-compatible / R2 secret key |
+| `STORAGE_FORCE_PATH_STYLE` | driver default | Optional `true` / `false`; defaults to true for `s3`, false for `r2` |
+| `GCS_CREDENTIALS_FILE` | — | GCS driver only; service-account JSON path, omit for ADC |
+
+`GCS_ENABLED` and `GCS_BUCKET_NAME` are deprecated and are not read by the storage package. Use `STORAGE_DRIVER=gcs` and `STORAGE_BUCKET` for Google Cloud Storage.
 
 ## OpenTelemetry
 

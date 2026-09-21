@@ -116,7 +116,8 @@ func TestBuildConfigFromEnv_Defaults(t *testing.T) {
 	keys := []string{
 		"SERVER_PORT", "SERVER_MODE", "DATABASE_DRIVER", "DATABASE_HOST", "DATABASE_PORT",
 		"REDIS_HOST", "REDIS_PORT", "REDIS_ENABLED", "REDIS_DB",
-		"CORS_GLOBAL", "GCS_ENABLED",
+		"CORS_GLOBAL", "STORAGE_DRIVER", "STORAGE_BUCKET", "STORAGE_ENDPOINT", "STORAGE_REGION",
+		"STORAGE_ACCESS_KEY", "STORAGE_SECRET_KEY", "STORAGE_FORCE_PATH_STYLE", "GCS_CREDENTIALS_FILE",
 	}
 	for _, k := range keys {
 		os.Unsetenv(k)
@@ -151,6 +152,59 @@ func TestBuildConfigFromEnv_Defaults(t *testing.T) {
 	}
 	if cfg.Redis.DB != 1 {
 		t.Errorf("Redis.DB = %v, want 1", cfg.Redis.DB)
+	}
+	if cfg.Storage.Driver != "" {
+		t.Errorf("Storage.Driver = %q, want empty string", cfg.Storage.Driver)
+	}
+	if cfg.Storage.ForcePathStyle != nil {
+		t.Errorf("Storage.ForcePathStyle = %v, want nil", cfg.Storage.ForcePathStyle)
+	}
+}
+
+func TestBuildConfigFromEnv_Storage(t *testing.T) {
+	t.Setenv("STORAGE_DRIVER", "s3")
+	t.Setenv("STORAGE_BUCKET", "pkg")
+	t.Setenv("STORAGE_ENDPOINT", "http://127.0.0.1:9000")
+	t.Setenv("STORAGE_REGION", "us-east-1")
+	t.Setenv("STORAGE_ACCESS_KEY", "ak")
+	t.Setenv("STORAGE_SECRET_KEY", "sk")
+	t.Setenv("STORAGE_FORCE_PATH_STYLE", "true")
+	t.Setenv("GCS_CREDENTIALS_FILE", "/creds.json")
+
+	cfg := buildConfigFromEnv()
+	if cfg.Storage.Driver != "s3" {
+		t.Fatalf("Driver = %q", cfg.Storage.Driver)
+	}
+	if cfg.Storage.Bucket != "pkg" {
+		t.Fatalf("Bucket = %q", cfg.Storage.Bucket)
+	}
+	if cfg.Storage.Endpoint != "http://127.0.0.1:9000" {
+		t.Fatalf("Endpoint = %q", cfg.Storage.Endpoint)
+	}
+	if cfg.Storage.ForcePathStyle == nil || !*cfg.Storage.ForcePathStyle {
+		t.Fatal("ForcePathStyle want true")
+	}
+	if cfg.Storage.CredentialsFile != "/creds.json" {
+		t.Fatalf("CredentialsFile = %q", cfg.Storage.CredentialsFile)
+	}
+}
+
+func TestBuildConfigFromEnv_StorageForcePathStyleUnset(t *testing.T) {
+	t.Setenv("STORAGE_DRIVER", "r2")
+	t.Setenv("STORAGE_BUCKET", "b")
+	cfg := buildConfigFromEnv()
+	if cfg.Storage.ForcePathStyle != nil {
+		t.Fatalf("ForcePathStyle = %v, want nil", cfg.Storage.ForcePathStyle)
+	}
+}
+
+func TestBuildConfigFromEnv_StorageForcePathStyleInvalid(t *testing.T) {
+	t.Setenv("STORAGE_DRIVER", "s3")
+	t.Setenv("STORAGE_BUCKET", "b")
+	t.Setenv("STORAGE_FORCE_PATH_STYLE", "tru")
+	cfg := buildConfigFromEnv()
+	if cfg.Storage.ForcePathStyle != nil {
+		t.Fatalf("ForcePathStyle = %v, want nil for invalid value", cfg.Storage.ForcePathStyle)
 	}
 }
 
@@ -287,8 +341,13 @@ func TestBuildConfigFromEnv_AllSections(t *testing.T) {
 		"REDIS_PORT":                       "6380",
 		"REDIS_PASSWORD":                   "redis-pass",
 		"REDIS_DB":                         "5",
-		"GCS_ENABLED":                      "true",
-		"GCS_BUCKET_NAME":                  "test-bucket",
+		"STORAGE_DRIVER":                   "s3",
+		"STORAGE_BUCKET":                   "test-bucket",
+		"STORAGE_ENDPOINT":                 "http://127.0.0.1:9000",
+		"STORAGE_REGION":                   "us-east-1",
+		"STORAGE_ACCESS_KEY":               "test-access-key",
+		"STORAGE_SECRET_KEY":               "test-secret-key",
+		"STORAGE_FORCE_PATH_STYLE":         "true",
 		"GCS_CREDENTIALS_FILE":             "/path/to/creds.json",
 		"RATE_LIMITER_ENABLED":             "true",
 		"RATE_LIMITER_REQUESTS":            "200",
@@ -407,15 +466,30 @@ func TestBuildConfigFromEnv_AllSections(t *testing.T) {
 		t.Errorf("Redis.DB = %v, want 5", cfg.Redis.DB)
 	}
 
-	// Test GCS configuration
-	if cfg.GCS.Enabled != true {
-		t.Errorf("GCS.Enabled = %v, want true", cfg.GCS.Enabled)
+	// Test Storage configuration
+	if cfg.Storage.Driver != "s3" {
+		t.Errorf("Storage.Driver = %q, want s3", cfg.Storage.Driver)
 	}
-	if cfg.GCS.BucketName != "test-bucket" {
-		t.Errorf("GCS.BucketName = %q, want test-bucket", cfg.GCS.BucketName)
+	if cfg.Storage.Bucket != "test-bucket" {
+		t.Errorf("Storage.Bucket = %q, want test-bucket", cfg.Storage.Bucket)
 	}
-	if cfg.GCS.CredentialsFile != "/path/to/creds.json" {
-		t.Errorf("GCS.CredentialsFile = %q, want /path/to/creds.json", cfg.GCS.CredentialsFile)
+	if cfg.Storage.Endpoint != "http://127.0.0.1:9000" {
+		t.Errorf("Storage.Endpoint = %q, want http://127.0.0.1:9000", cfg.Storage.Endpoint)
+	}
+	if cfg.Storage.Region != "us-east-1" {
+		t.Errorf("Storage.Region = %q, want us-east-1", cfg.Storage.Region)
+	}
+	if cfg.Storage.AccessKey != "test-access-key" {
+		t.Errorf("Storage.AccessKey = %q, want test-access-key", cfg.Storage.AccessKey)
+	}
+	if cfg.Storage.SecretKey != "test-secret-key" {
+		t.Errorf("Storage.SecretKey = %q, want test-secret-key", cfg.Storage.SecretKey)
+	}
+	if cfg.Storage.ForcePathStyle == nil || !*cfg.Storage.ForcePathStyle {
+		t.Error("Storage.ForcePathStyle want true")
+	}
+	if cfg.Storage.CredentialsFile != "/path/to/creds.json" {
+		t.Errorf("Storage.CredentialsFile = %q, want /path/to/creds.json", cfg.Storage.CredentialsFile)
 	}
 
 	// Test RateLimiter configuration

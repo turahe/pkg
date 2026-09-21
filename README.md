@@ -5,7 +5,7 @@
 ![Go Report Card](https://goreportcard.com/badge/github.com/turahe/pkg)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
-A collection of production-ready Go packages for building web services: database, Redis (standard + cluster), JWT, crypto, GCS, structured logging, HTTP middleware, OpenTelemetry (`otelx`), Sentry (`sentryx`), mutual TLS (`mtls`), Prometheus metrics, graceful shutdown, and utilities. Follows clean architecture boundaries — domain, use-case, and infrastructure are separate.
+A collection of production-ready Go packages for building web services: database, Redis (standard + cluster), JWT, crypto, object storage, structured logging, HTTP middleware, OpenTelemetry (`otelx`), Sentry (`sentryx`), mutual TLS (`mtls`), Prometheus metrics, graceful shutdown, and utilities. Follows clean architecture boundaries — domain, use-case, and infrastructure are separate.
 
 ## Contents
 
@@ -23,7 +23,7 @@ A collection of production-ready Go packages for building web services: database
   - [response](#response)
   - [jwt](#jwt)
   - [crypto](#crypto)
-  - [gcs](#gcs)
+  - [storage](#storage)
   - [types](#types)
   - [util](#util)
   - [domain](#domain)
@@ -79,7 +79,7 @@ type Configuration struct {
     Database    DatabaseConfiguration
     DatabaseSite DatabaseConfiguration  // optional second DB
     Redis       RedisConfiguration
-    GCS         GCSConfiguration
+    Storage     StorageConfiguration
     RateLimiter RateLimiterConfiguration
     Timezone    TimezoneConfiguration
     OpenTelemetry OpenTelemetryConfiguration
@@ -643,24 +643,24 @@ crypto.ComparePassword(hashedPassword string, plainPassword []byte) bool
 
 
 
-### `gcs`
+### `storage`
 
-Google Cloud Storage wrapper. Uses Application Default Credentials (ADC) or an explicit service account JSON file.
+Provider-neutral object storage facade for GCS, S3-compatible services, local RustFS, and Cloudflare R2.
 
 ```go
-gcs.Setup() error
-gcs.SetupContext(ctx) error
-gcs.GetClient() *storage.Client
-gcs.GetBucket() *storage.BucketHandle
-gcs.ReadObject(ctx, objectName string) ([]byte, error)
-gcs.ReadObjectAsReader(ctx, objectName string) (io.ReadCloser, error)
-gcs.WriteObject(ctx, objectName string, data []byte, contentType string) error
-gcs.DeleteObject(ctx, objectName string) error
-gcs.ObjectExists(ctx, objectName string) (bool, error)
-gcs.ListObjects(ctx, prefix string) ([]string, error)
-gcs.Close() error
+storage.Setup() error
+storage.SetupContext(ctx) error
+storage.GetBucketName() string
+storage.ReadObject(ctx, objectName string) ([]byte, error)
+storage.ReadObjectAsReader(ctx, objectName string) (io.ReadCloser, error)
+storage.WriteObject(ctx, objectName string, data []byte, contentType string) error
+storage.DeleteObject(ctx, objectName string) error
+storage.ObjectExists(ctx, objectName string) (bool, error)
+storage.ListObjects(ctx, prefix string) ([]string, error)
+storage.Close() error
 ```
-Operations take `context.Context` as the first argument so callers can cancel and deadline GCS I/O.
+
+Set `STORAGE_DRIVER` to `gcs`, `s3`, or `r2`. Leave it empty to disable storage; calls before setup or while disabled return `storage.ErrNotInitialized`. Operations take `context.Context` as the first argument so callers can cancel and deadline object-storage I/O.
 
 ---
 
@@ -1086,14 +1086,45 @@ Keys can be embedded via `config.Server.JWTPrivateKeyPEM` / `JWTPublicKeyPEM` (s
 
 
 
-### GCS
+### Storage
 
 
-| Variable               | Default | Description                                   |
-| ---------------------- | ------- | --------------------------------------------- |
-| `GCS_ENABLED`          | `false` |                                               |
-| `GCS_BUCKET_NAME`      | —       |                                               |
-| `GCS_CREDENTIALS_FILE` | —       | Path to service account JSON; omit to use ADC |
+| Variable                   | Default                               | Description                                   |
+| -------------------------- | ------------------------------------- | --------------------------------------------- |
+| `STORAGE_DRIVER`           | -                                     | `gcs`, `s3`, or `r2`; empty disables storage  |
+| `STORAGE_BUCKET`           | -                                     | Required when `STORAGE_DRIVER` is set         |
+| `STORAGE_ENDPOINT`         | -                                     | S3-compatible or R2 endpoint URL              |
+| `STORAGE_REGION`           | `us-east-1` for `s3`, `auto` for `r2` | Optional region override                      |
+| `STORAGE_ACCESS_KEY`       | -                                     | S3-compatible / R2 access key                 |
+| `STORAGE_SECRET_KEY`       | -                                     | S3-compatible / R2 secret key                 |
+| `STORAGE_FORCE_PATH_STYLE` | driver default                        | Optional `true` / `false` path-style override |
+| `GCS_CREDENTIALS_FILE`     | -                                     | GCS driver only; omit to use ADC              |
+
+Local RustFS example:
+
+```bash
+STORAGE_DRIVER=s3
+STORAGE_BUCKET=pkg
+STORAGE_ENDPOINT=http://127.0.0.1:9000
+STORAGE_REGION=us-east-1
+STORAGE_ACCESS_KEY=rustfsadmin
+STORAGE_SECRET_KEY=rustfsadmin
+STORAGE_FORCE_PATH_STYLE=true
+```
+
+Cloudflare R2 example:
+
+```bash
+STORAGE_DRIVER=r2
+STORAGE_BUCKET=my-bucket
+STORAGE_ENDPOINT=https://<accountid>.r2.cloudflarestorage.com
+STORAGE_ACCESS_KEY=<r2-access-key>
+STORAGE_SECRET_KEY=<r2-secret-key>
+STORAGE_REGION=auto
+STORAGE_FORCE_PATH_STYLE=false
+```
+
+`GCS_ENABLED` and `GCS_BUCKET_NAME` are deprecated and are not read. Use `STORAGE_DRIVER=gcs` and `STORAGE_BUCKET` for Google Cloud Storage.
 
 
 
@@ -1289,7 +1320,7 @@ go test ./...
 
 Integration tests skip automatically when services are unavailable. CI runs the full matrix with these services via GitHub Actions.
 
-**Packages with tests:** `config`, `crypto`, `database`, `gcs`, `handler`, `jwt`, `logger`, `middlewares`, `mtls`, `otelx`, `redis`, `repositories`, `response`, `sentryx`, `types`, `util`.
+**Packages with tests:** `config`, `crypto`, `database`, `handler`, `jwt`, `logger`, `middlewares`, `mtls`, `otelx`, `redis`, `repositories`, `response`, `sentryx`, `storage`, `types`, `util`.
 
 ---
 

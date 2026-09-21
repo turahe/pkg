@@ -1,4 +1,4 @@
-# Docker Compose for integration tests (Redis, Valkey, MySQL, Postgres)
+# Docker Compose for integration tests (Redis, Valkey, MySQL, Postgres, RustFS)
 # Usage: docker compose up -d
 # Then run: go test ./... with:
 #   REDIS_ENABLED=true REDIS_HOST=127.0.0.1 REDIS_PORT=6379
@@ -53,3 +53,28 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+
+  rustfs:
+    image: rustfs/rustfs:1.0.0-alpha.83
+    environment:
+      RUSTFS_ACCESS_KEY: rustfsadmin
+      RUSTFS_SECRET_KEY: rustfsadmin
+      RUSTFS_VOLUMES: /data
+      RUSTFS_ADDRESS: ":9000"
+      RUSTFS_CONSOLE_ADDRESS: ":9001"
+      RUSTFS_CONSOLE_ENABLE: "true"
+    volumes:
+      - rustfs-data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    healthcheck:
+      # alpha.83 serves /health/ready as AccessDenied without SigV4; any HTTP response means the API is up.
+      test: ["CMD-SHELL", "curl -sS -o /dev/null --max-time 5 http://127.0.0.1:9000/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+volumes:
+  rustfs-data:

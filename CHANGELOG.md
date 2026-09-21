@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **`storage` package**: Multi-driver object storage (`STORAGE_DRIVER=gcs|s3|r2`) with singleton `Setup` / `SetupContext`, `ErrNotInitialized`, and provider-neutral operations. See [docs/packages/storage.md](docs/packages/storage.md) for env vars, RustFS/R2 examples, and migration steps.
+- **RustFS in Docker Compose**: Local/test S3-compatible endpoint on `:9000` / console `:9001`.
+
+### Removed
+
+- **`gcs` package**: Import path `github.com/turahe/pkg/gcs` is gone. Use `github.com/turahe/pkg/storage`.
+- **`GCS_ENABLED` / `GCS_BUCKET_NAME`**: Replaced by `STORAGE_DRIVER` / `STORAGE_BUCKET` (no silent aliases). GCS credentials path remains `GCS_CREDENTIALS_FILE`.
+- **`GetClient` / `GetBucket`**: No longer exposed; call package operations only.
+
 ## [0.5.6] - 2026-09-14
 
 ### Added

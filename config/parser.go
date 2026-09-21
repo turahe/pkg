@@ -22,7 +22,7 @@ func buildConfigFromEnv() *Configuration {
 		Database:      loadDatabaseConfigFromEnv(""),
 		DatabaseSite:  loadDatabaseConfigFromEnv("_SITE"),
 		Redis:         loadRedisConfigFromEnv(),
-		GCS:           loadGCSConfigFromEnv(),
+		Storage:       loadStorageConfigFromEnv(),
 		RateLimiter:   loadRateLimiterConfigFromEnv(),
 		Timezone:      TimezoneConfiguration{Timezone: getEnvOrDefault("SERVER_TIMEZONE", "UTC")},
 		OpenTelemetry: loadOpenTelemetryConfigFromEnv(),
@@ -93,11 +93,35 @@ func loadRedisConfigFromEnv() RedisConfiguration {
 	}
 }
 
-func loadGCSConfigFromEnv() GCSConfiguration {
-	return GCSConfiguration{
-		Enabled:         parseBool("GCS_ENABLED", false),
-		BucketName:      getEnvOrDefault("GCS_BUCKET_NAME", ""),
+func loadStorageConfigFromEnv() StorageConfiguration {
+	return StorageConfiguration{
+		Driver:          strings.ToLower(strings.TrimSpace(getEnvOrDefault("STORAGE_DRIVER", ""))),
+		Bucket:          getEnvOrDefault("STORAGE_BUCKET", ""),
+		Endpoint:        getEnvOrDefault("STORAGE_ENDPOINT", ""),
+		Region:          getEnvOrDefault("STORAGE_REGION", ""),
+		AccessKey:       getEnvOrDefault("STORAGE_ACCESS_KEY", ""),
+		SecretKey:       getEnvOrDefault("STORAGE_SECRET_KEY", ""),
+		ForcePathStyle:  parseOptionalBool("STORAGE_FORCE_PATH_STYLE"),
 		CredentialsFile: getEnvOrDefault("GCS_CREDENTIALS_FILE", ""),
+	}
+}
+
+// parseOptionalBool returns nil when unset; otherwise parses true/false.
+func parseOptionalBool(key string) *bool {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return nil
+	}
+	switch strings.ToLower(raw) {
+	case "1", "true", "yes", "y", "on":
+		b := true
+		return &b
+	case "0", "false", "no", "n", "off":
+		b := false
+		return &b
+	default:
+		// Invalid values fall back to driver defaults instead of coercing to false.
+		return nil
 	}
 }
 
