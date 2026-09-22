@@ -53,12 +53,12 @@ func TestBuildDSN(t *testing.T) {
 			contains: []string{"sslmode=require"},
 		},
 		{
-			name: "sqlite",
+			name: "sqlite unsupported",
 			cfg: &config.DatabaseConfiguration{
 				Driver: "sqlite",
 				Dbname: "mydb",
 			},
-			contains: []string{"./mydb.db"},
+			wantErr: true,
 		},
 		{
 			name: "sqlserver",

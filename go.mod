@@ -5,6 +5,7 @@ go 1.26.0
 require (
 	cloud.google.com/go/cloudsqlconn v1.25.2
 	cloud.google.com/go/storage v1.68.0
+	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/aws/aws-sdk-go-v2 v1.47.0
 	github.com/aws/aws-sdk-go-v2/config v1.33.5
 	github.com/aws/aws-sdk-go-v2/credentials v1.20.5
@@ -33,7 +34,6 @@ require (
 	google.golang.org/grpc v1.84.0
 	gorm.io/driver/mysql v1.6.0
 	gorm.io/driver/postgres v1.6.3
-	gorm.io/driver/sqlite v1.6.0
 	gorm.io/driver/sqlserver v1.6.4
 	gorm.io/gorm v1.31.2
 	gorm.io/plugin/opentelemetry v0.1.16

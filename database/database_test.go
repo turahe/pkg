@@ -10,14 +10,13 @@ import (
 )
 
 func TestNew_WithOverride(t *testing.T) {
+	stubConnectStandardWithMock(t)
 	cfg := &config.DatabaseConfiguration{
-		Driver:  "sqlite",
-		Dbname:  "test_override",
-		Logmode: false,
+		Driver: "mysql", Host: "h", Port: "3306", Username: "u", Password: "p", Dbname: "db",
 	}
 	db, err := New(cfg, Options{}, WithLogLevel(logger.Info))
 	if err != nil {
-		t.Skipf("New: %v", err)
+		t.Fatalf("New: %v", err)
 	}
 	defer db.Close()
 	if db.opts.LogLevel != logger.Info {
@@ -26,15 +25,13 @@ func TestNew_WithOverride(t *testing.T) {
 }
 
 func TestNewContext(t *testing.T) {
-	ctx := context.Background()
+	stubConnectStandardWithMock(t)
 	cfg := &config.DatabaseConfiguration{
-		Driver:  "sqlite",
-		Dbname:  "test_newcontext",
-		Logmode: false,
+		Driver: "mysql", Host: "h", Port: "3306", Username: "u", Password: "p", Dbname: "db",
 	}
-	db, err := NewContext(ctx, cfg, Options{})
+	db, err := NewContext(context.Background(), cfg, Options{})
 	if err != nil {
-		t.Skipf("NewContext: %v", err)
+		t.Fatalf("NewContext: %v", err)
 	}
 	defer db.Close()
 	if db == nil {
@@ -57,25 +54,19 @@ func TestNew_InvalidDriver(t *testing.T) {
 	}
 }
 
-func TestNew_SQLite(t *testing.T) {
+func TestNew_MySQLViaStub(t *testing.T) {
+	stubConnectStandardWithMock(t)
 	cfg := &config.DatabaseConfiguration{
-		Driver:  "sqlite",
-		Dbname:  "test_db_sqlite",
-		Logmode: false,
+		Driver: "mysql", Host: "h", Port: "3306", Username: "u", Password: "p", Dbname: "db",
 	}
 	db, err := New(cfg, Options{})
 	if err != nil {
-		t.Skipf("New sqlite: %v (sqlite may not be available)", err)
+		t.Fatalf("New: %v", err)
 	}
-	if db == nil {
-		t.Fatal("db must not be nil")
+	defer db.Close()
+	if db.DB() == nil {
+		t.Fatal("db.DB() nil")
 	}
-	sqlDB, err := db.DB().DB()
-	if err != nil {
-		t.Fatalf("db.DB().DB(): %v", err)
-	}
-	_ = sqlDB.Close()
-	_ = db.Close()
 }
 
 func TestCreateDatabaseConnection_InvalidDriver(t *testing.T) {
@@ -93,42 +84,35 @@ func TestCreateDatabaseConnection_InvalidDriver(t *testing.T) {
 	}
 }
 
-func TestCreateDatabaseConnection_SQLite(t *testing.T) {
+func TestCreateDatabaseConnection_Success(t *testing.T) {
+	stubConnectStandardWithMock(t)
 	cfg := &config.DatabaseConfiguration{
-		Driver:  "sqlite",
-		Dbname:  "test_db_sqlite",
-		Logmode: false,
+		Driver: "mysql", Host: "h", Port: "3306", Username: "u", Password: "p", Dbname: "db",
 	}
 	gormDB, err := CreateDatabaseConnection(cfg)
 	if err != nil {
-		t.Skipf("CreateDatabaseConnection sqlite: %v (sqlite may not be available)", err)
+		t.Fatalf("CreateDatabaseConnection: %v", err)
 	}
 	if gormDB == nil {
 		t.Fatal("gormDB must not be nil")
 	}
-	sqlDB, err := gormDB.DB()
-	if err != nil {
-		t.Fatalf("gormDB.DB(): %v", err)
-	}
-	_ = sqlDB.Close()
+	_ = Cleanup()
 }
 
 func TestSetup_HealthCheck(t *testing.T) {
-	origDB := defaultDB
-	origDBSite := defaultDBSite
-	compatMu.Lock()
-	defaultDB = nil
-	defaultDBSite = nil
-	compatMu.Unlock()
+	stubConnectStandardWithMock(t)
+	orig := config.Config
 	defer func() {
-		Cleanup()
-		compatMu.Lock()
-		defaultDB = origDB
-		defaultDBSite = origDBSite
-		compatMu.Unlock()
+		_ = Cleanup()
+		config.Config = orig
 	}()
+	config.Config = &config.Configuration{
+		Database: config.DatabaseConfiguration{
+			Driver: "mysql", Host: "h", Port: "3306", Username: "u", Password: "p", Dbname: "db",
+		},
+	}
 	if err := Setup(); err != nil {
-		t.Skipf("Setup: %v", err)
+		t.Fatalf("Setup: %v", err)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -138,16 +122,7 @@ func TestSetup_HealthCheck(t *testing.T) {
 }
 
 func TestDatabase_Health(t *testing.T) {
-	cfg := &config.DatabaseConfiguration{
-		Driver:  "sqlite",
-		Dbname:  "test_health",
-		Logmode: false,
-	}
-	db, err := New(cfg, Options{})
-	if err != nil {
-		t.Skipf("New: %v", err)
-	}
-	defer db.Close()
+	db, _ := newMockDatabase(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	if err := db.Health(ctx); err != nil {

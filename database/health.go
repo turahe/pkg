@@ -11,13 +11,13 @@ func (d *Database) Health(ctx context.Context) error {
 	if d.db == nil {
 		return fmt.Errorf("database not initialized")
 	}
-	sqlDB, err := d.db.DB()
+	sqlDB, err := gormSQLDB(d.db)
 	if err != nil {
 		return fmt.Errorf("get sql.DB: %w", err)
 	}
 	pingCtx, cancel := context.WithTimeout(ctx, d.opts.PingTimeout)
 	defer cancel()
-	if err := sqlDB.PingContext(pingCtx); err != nil {
+	if err := pingSQLDB(pingCtx, sqlDB); err != nil {
 		return fmt.Errorf("ping: %w", err)
 	}
 	return nil

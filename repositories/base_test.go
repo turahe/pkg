@@ -31,48 +31,44 @@ func (TestModel) TableName() string {
 	return "test_models"
 }
 
-// setupTestDB creates a test database connection
-// Tries MySQL first (for CI), falls back to SQLite (for local development)
+// setupTestDB creates a test database connection (MySQL, then Postgres). Skips if neither is reachable.
 func setupTestDB(t *testing.T) *gorm.DB {
-	// Try MySQL first (for CI environments)
-	mysqlCfg := &config.DatabaseConfiguration{
-		Driver:   "mysql",
-		Dbname:   getTestEnvOrDefault("DATABASE_DBNAME", "testing"),
-		Username: getTestEnvOrDefault("DATABASE_USERNAME", "root"),
-		Password: getTestEnvOrDefault("DATABASE_PASSWORD", "secret"),
-		Host:     getTestEnvOrDefault("DATABASE_HOST", "127.0.0.1"),
-		Port:     getTestEnvOrDefault("DATABASE_PORT", "3306"),
-		Logmode:  false,
+	t.Helper()
+	candidates := []*config.DatabaseConfiguration{
+		{
+			Driver:   "mysql",
+			Dbname:   getTestEnvOrDefault("DATABASE_DBNAME", "testing"),
+			Username: getTestEnvOrDefault("DATABASE_USERNAME", "root"),
+			Password: getTestEnvOrDefault("DATABASE_PASSWORD", "secret"),
+			Host:     getTestEnvOrDefault("DATABASE_HOST", "127.0.0.1"),
+			Port:     getTestEnvOrDefault("DATABASE_PORT", "3306"),
+			Logmode:  false,
+		},
+		{
+			Driver:   "postgres",
+			Dbname:   getTestEnvOrDefault("DATABASE_DBNAME", "testing"),
+			Username: getTestEnvOrDefault("DATABASE_USERNAME", "postgres"),
+			Password: getTestEnvOrDefault("DATABASE_PASSWORD", "secret"),
+			Host:     getTestEnvOrDefault("DATABASE_HOST", "127.0.0.1"),
+			Port:     getTestEnvOrDefault("DATABASE_PORT", "5432"),
+			Logmode:  false,
+		},
 	}
-
-	db, err := database.CreateDatabaseConnection(mysqlCfg)
-	if err == nil {
-		// MySQL connection successful
-		// Auto-migrate test model
-		err = db.AutoMigrate(&TestModel{})
-		require.NoError(t, err, "Failed to migrate test model")
+	var lastErr error
+	for _, cfg := range candidates {
+		db, err := database.CreateDatabaseConnection(cfg)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		if err = db.AutoMigrate(&TestModel{}); err != nil {
+			lastErr = err
+			continue
+		}
 		return db
 	}
-
-	// Fallback to SQLite for local development
-	sqliteCfg := &config.DatabaseConfiguration{
-		Driver:  "sqlite",
-		Dbname:  ":memory:",
-		Logmode: false,
-	}
-
-	db, err = database.CreateDatabaseConnection(sqliteCfg)
-	if err != nil {
-		// Skip test if neither MySQL nor SQLite is available
-		t.Skipf("Database not available (MySQL: %v, SQLite: CGO may be disabled)", err)
-		return nil
-	}
-
-	// Auto-migrate test model
-	err = db.AutoMigrate(&TestModel{})
-	require.NoError(t, err, "Failed to migrate test model")
-
-	return db
+	t.Skipf("Database not available (tried mysql/postgres): %v", lastErr)
+	return nil
 }
 
 // getTestEnvOrDefault gets environment variable or returns default value for testing

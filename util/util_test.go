@@ -3,34 +3,62 @@ package util
 import (
 	"strings"
 	"testing"
+	"unsafe"
 )
 
 func TestIsEmpty(t *testing.T) {
+	var (
+		nilFunc   func()
+		nilIface  interface{ M() }
+		nilUnsafe unsafe.Pointer
+		n         = 1
+		chEmpty   = make(chan int)
+		chVal     = make(chan int, 1)
+	)
+	chVal <- 1
+
 	tests := []struct {
 		name  string
 		value interface{}
 		want  bool
 	}{
+		{"nil interface (Invalid)", nil, true},
 		{"empty string", "", true},
 		{"non-empty string", "x", false},
 		{"zero int", 0, true},
 		{"non-zero int", 1, false},
 		{"zero int64", int64(0), true},
+		{"zero uint", uint(0), true},
+		{"non-zero uint8", uint8(3), false},
 		{"zero float64", 0.0, true},
 		{"non-zero float64", 1.5, false},
+		{"zero complex64", complex64(0), true},
+		{"non-zero complex128", complex128(1 + 2i), false},
 		{"false bool", false, true},
 		{"true bool", true, false},
+		{"empty array", [0]int{}, true},
+		{"non-empty array", [1]int{}, false},
 		{"nil slice", ([]int)(nil), true},
 		{"empty slice", []int{}, true},
 		{"non-empty slice", []int{1}, false},
 		{"nil map", (map[string]int)(nil), true},
 		{"empty map", map[string]int{}, true},
+		{"non-empty map", map[string]int{"a": 1}, false},
+		{"nil chan", (chan int)(nil), true},
+		{"empty chan", chEmpty, true},
+		{"non-empty chan", chVal, false},
 		{"nil ptr", (*int)(nil), true},
+		{"non-nil ptr", &n, false},
+		{"nil func", nilFunc, true},
+		{"nil interface", nilIface, true},
+		{"nil unsafe.Pointer", nilUnsafe, true},
+		{"struct", struct{}{}, false},
+		{"non-empty struct", struct{ X int }{X: 1}, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := IsEmpty(tt.value); got != tt.want {
-				t.Errorf("IsEmpty() = %v, want %v", got, tt.want)
+				t.Errorf("IsEmpty(%#v) = %v, want %v", tt.value, got, tt.want)
 			}
 		})
 	}
@@ -88,6 +116,12 @@ func TestRemoveDuplicates(t *testing.T) {
 			t.Errorf("len = %d (got %v), zeros should be excluded", len(got), got)
 		}
 	})
+	t.Run("empty strings omitted", func(t *testing.T) {
+		got := RemoveDuplicates([]string{"", "a", "", "b"})
+		if len(got) != 2 || got[0] != "a" || got[1] != "b" {
+			t.Errorf("RemoveDuplicates() = %v, want [a b]", got)
+		}
+	})
 }
 
 func TestFormatPhoneNumber(t *testing.T) {
@@ -115,7 +149,6 @@ func TestFormatPhoneNumber(t *testing.T) {
 		if got == nil {
 			t.Fatal("FormatPhoneNumber returned nil")
 		}
-		// E.164 for US (650) 253-0000
 		if *got != "+16502530000" {
 			t.Errorf("FormatPhoneNumber(%q, nil) = %q, want +16502530000", phone, *got)
 		}
@@ -140,7 +173,6 @@ func TestFormatPhoneNumber(t *testing.T) {
 		if got == nil {
 			t.Fatal("FormatPhoneNumber returned nil")
 		}
-		// Indonesian mobile in E.164
 		if *got != "+628123456789" {
 			t.Errorf("FormatPhoneNumber(%q, ID) = %q, want +628123456789", phone, *got)
 		}
@@ -179,9 +211,10 @@ func TestFormatPhoneNumber(t *testing.T) {
 			t.Errorf("FormatPhoneNumber(%q, &\"\") = %q, want +16502530000 (US default)", phone, *got)
 		}
 	})
+}
 
-	// currency formatting tests
-	t.Run("format currency", func(t *testing.T) {
+func TestFormatCurrency(t *testing.T) {
+	t.Run("known codes", func(t *testing.T) {
 		cases := []struct {
 			code string
 			want string
@@ -200,10 +233,17 @@ func TestFormatPhoneNumber(t *testing.T) {
 		}
 	})
 
-	t.Run("format currency empty code", func(t *testing.T) {
+	t.Run("empty code", func(t *testing.T) {
 		got := FormatCurrency(987.65, "")
 		if got != "987.65" {
 			t.Errorf("FormatCurrency with empty code = %q, want 987.65", got)
+		}
+	})
+
+	t.Run("invalid ISO code falls back", func(t *testing.T) {
+		got := FormatCurrency(12.5, "NOTREAL")
+		if got != "12.50 NOTREAL" {
+			t.Errorf("FormatCurrency(12.5, NOTREAL) = %q, want %q", got, "12.50 NOTREAL")
 		}
 	})
 }

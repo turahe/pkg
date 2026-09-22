@@ -45,30 +45,20 @@ func TestIsAlive_NotInitialized(t *testing.T) {
 }
 
 func TestIsAlive_Initialized(t *testing.T) {
+	db, _ := newMockDatabase(t)
+
 	compatMu.Lock()
 	origDB := defaultDB
 	origDBPtr := DB
+	defaultDB = db
+	DB = db.DB()
 	compatMu.Unlock()
 	defer func() {
-		Cleanup()
 		compatMu.Lock()
 		defaultDB = origDB
 		DB = origDBPtr
 		compatMu.Unlock()
 	}()
-	cfg := &config.DatabaseConfiguration{
-		Driver:  "sqlite",
-		Dbname:  "test_isalive",
-		Logmode: false,
-	}
-	db, err := New(cfg, Options{})
-	if err != nil {
-		t.Skipf("New: %v", err)
-	}
-	compatMu.Lock()
-	defaultDB = db
-	DB = db.DB()
-	compatMu.Unlock()
 	if !IsAlive() {
 		t.Error("IsAlive() should be true when connected")
 	}
@@ -77,5 +67,20 @@ func TestIsAlive_Initialized(t *testing.T) {
 func TestErrNotInitialized(t *testing.T) {
 	if ErrNotInitialized.Error() != "database not initialized" {
 		t.Errorf("ErrNotInitialized.Error() = %q", ErrNotInitialized.Error())
+	}
+}
+
+func TestCreateDatabaseConnection_UsesStub(t *testing.T) {
+	stubConnectStandardWithMock(t)
+	defer Cleanup()
+	cfg := &config.DatabaseConfiguration{
+		Driver: "mysql", Host: "h", Port: "3306", Username: "u", Password: "p", Dbname: "db",
+	}
+	gormDB, err := CreateDatabaseConnection(cfg)
+	if err != nil {
+		t.Fatalf("CreateDatabaseConnection: %v", err)
+	}
+	if gormDB == nil {
+		t.Fatal("nil")
 	}
 }

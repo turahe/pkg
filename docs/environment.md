@@ -40,7 +40,7 @@ Embed PEM at build time via `config.Server.JWTPrivateKeyPEM` / `JWTPublicKeyPEM`
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DATABASE_DRIVER` | `mysql` | `mysql` · `postgres` · `sqlite` · `sqlserver` · `cloudsql-mysql` · `cloudsql-postgres` |
+| `DATABASE_DRIVER` | `mysql` | `mysql` · `postgres` · `sqlserver` · `cloudsql-mysql` · `cloudsql-postgres` |
 | `DATABASE_HOST` | `127.0.0.1` | |
 | `DATABASE_PORT` | `3306` | |
 | `DATABASE_USERNAME` | — | Required |
@@ -55,6 +55,8 @@ Embed PEM at build time via `config.Server.JWTPrivateKeyPEM` / `JWTPublicKeyPEM`
 | `DATABASE_CLOUD_SQL_INSTANCE` | — | `project:region:instance` |
 
 Secondary DB: same keys with `_SITE` suffix. Leave `DATABASE_DBNAME_SITE` empty to disable.
+
+Integration tests for SQL Server also accept `SQLSERVER_HOST` / `SQLSERVER_PORT` / `SQLSERVER_USERNAME` / `SQLSERVER_PASSWORD` / `SQLSERVER_DBNAME` (defaults: `127.0.0.1`, `1433`, `sa`, `Test_Password123`, `master`) when the compose `sqlserver` service is up.
 
 Cloud SQL **IAM** and **Private IP** are set in code via `database.Options` (`WithIAM`, `WithPrivateIP`), not env.
 

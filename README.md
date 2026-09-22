@@ -94,9 +94,9 @@ type Configuration struct {
 
 ### `database`
 
-Enterprise-grade GORM database layer. Supports MySQL, Postgres, SQLite, SQL Server, and Google Cloud SQL (Postgres/MySQL) with IAM auth and Private IP. Includes SQL redaction in logs (passwords, tokens, card numbers).
+Enterprise-grade GORM database layer. Supports MySQL, Postgres, SQL Server, and Google Cloud SQL (Postgres/MySQL) with IAM auth and Private IP. Includes SQL redaction in logs (passwords, tokens, card numbers).
 
-**Drivers:** `mysql` · `postgres` · `sqlite` · `sqlserver` · `cloudsql-mysql` · `cloudsql-postgres`
+**Drivers:** `mysql` · `postgres` · `sqlserver` · `cloudsql-mysql` · `cloudsql-postgres`
 
 **New API (recommended — dependency injection):**
 
@@ -1033,7 +1033,7 @@ Keys can be embedded via `config.Server.JWTPrivateKeyPEM` / `JWTPublicKeyPEM` (s
 
 | Variable                      | Default        | Description                                                                               |
 | ----------------------------- | -------------- | ----------------------------------------------------------------------------------------- |
-| `DATABASE_DRIVER`             | `mysql`        | `mysql` · `postgres` · `sqlite` · `sqlserver` · `cloudsql-mysql` · `cloudsql-postgres`    |
+| `DATABASE_DRIVER`             | `mysql`        | `mysql` · `postgres` · `sqlserver` · `cloudsql-mysql` · `cloudsql-postgres`    |
 | `DATABASE_HOST`               | `127.0.0.1`    |                                                                                           |
 | `DATABASE_PORT`               | `3306`         |                                                                                           |
 | `DATABASE_USERNAME`           | —              |                                                                                           |
@@ -1299,9 +1299,9 @@ docker compose -f docker-compose.test.yml up --build --abort-on-container-exit -
 docker compose -f docker-compose.test.yml down -v
 ```
 
-The test runner waits for Redis, MySQL, and Postgres to be healthy, then runs `go test -v -race -count=1 ./...`. Coverage is written to `coverage.out` and a summary is printed.
+The test runner waits for Redis, MySQL, Postgres, and SQL Server to be healthy, then runs `go test -v -race -count=1 ./...`. Coverage is written to `coverage.out` and a summary is printed.
 
-### Integration tests (Redis · MySQL · Postgres) — local
+### Integration tests (Redis · MySQL · Postgres · SQL Server) — local
 
 Start services with Docker Compose:
 
@@ -1315,6 +1315,8 @@ Run with environment variables:
 REDIS_ENABLED=true REDIS_HOST=127.0.0.1 REDIS_PORT=6379 \
 DATABASE_DRIVER=mysql DATABASE_HOST=127.0.0.1 DATABASE_PORT=3306 \
 DATABASE_USERNAME=root DATABASE_PASSWORD=root DATABASE_DBNAME=testdb \
+SQLSERVER_HOST=127.0.0.1 SQLSERVER_PORT=1433 \
+SQLSERVER_USERNAME=sa SQLSERVER_PASSWORD=Test_Password123 SQLSERVER_DBNAME=master \
 go test ./...
 ```
 

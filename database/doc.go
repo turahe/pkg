@@ -1,5 +1,5 @@
 /*
-Package database provides a GORM-based database layer with support for MySQL, Postgres, SQLite, SQL Server, and Google Cloud SQL (Postgres/MySQL with optional IAM and Private IP).
+Package database provides a GORM-based database layer with support for MySQL, Postgres, SQL Server, and Google Cloud SQL (Postgres/MySQL with optional IAM and Private IP).
 
 Role in architecture:
   - Infrastructure: connects to the database, configures pool, exposes *gorm.DB. No business logic.

@@ -60,6 +60,23 @@ services:
       retries: 5
       start_period: 5s
 
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "Test_Password123"
+      MSSQL_PID: Developer
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          '/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "Test_Password123" -C -Q "SELECT 1" || exit 1',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 40s
+
   rustfs:
     image: rustfs/rustfs:1.0.0-alpha.83
     environment:
@@ -117,6 +134,13 @@ services:
       DATABASE_PASSWORD_SITE: test
       DATABASE_DBNAME_SITE: testdb
 
+      # Optional SQL Server for database sqlserver integration tests
+      SQLSERVER_HOST: sqlserver
+      SQLSERVER_PORT: "1433"
+      SQLSERVER_USERNAME: sa
+      SQLSERVER_PASSWORD: "Test_Password123"
+      SQLSERVER_DBNAME: master
+
       # Stub values required by config validation
       SERVER_SECRET: test-secret-for-ci-only
       SERVER_MODE: test
@@ -130,7 +154,7 @@ services:
       STORAGE_SECRET_KEY: rustfsadmin
       STORAGE_FORCE_PATH_STYLE: "true"
 
-      # CGO is needed for SQLite and the race detector.
+      # CGO is needed for the race detector.
       CGO_ENABLED: "1"
       GOFLAGS: ""
 
@@ -170,6 +194,8 @@ services:
       mysql:
         condition: service_healthy
       postgres:
+        condition: service_healthy
+      sqlserver:
         condition: service_healthy
       rustfs:
         condition: service_healthy

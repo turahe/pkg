@@ -1,9 +1,11 @@
-# Docker Compose for integration tests (Redis, Valkey, MySQL, Postgres, RustFS)
+# Docker Compose for integration tests (Redis, Valkey, MySQL, Postgres, SQL Server, RustFS)
 # Usage: docker compose up -d
 # Then run: go test ./... with:
 #   REDIS_ENABLED=true REDIS_HOST=127.0.0.1 REDIS_PORT=6379
 #   DATABASE_DRIVER=mysql DATABASE_HOST=127.0.0.1 DATABASE_PORT=3306
 #   DATABASE_USERNAME=root DATABASE_PASSWORD=root DATABASE_DBNAME=testdb
+#   # SQL Server: DATABASE_DRIVER=sqlserver DATABASE_HOST=127.0.0.1 DATABASE_PORT=1433
+#   #             DATABASE_USERNAME=sa DATABASE_PASSWORD=Test_Password123 DATABASE_DBNAME=master
 
 services:
   redis:
@@ -53,6 +55,25 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "Test_Password123"
+      MSSQL_PID: Developer
+    ports:
+      - "1433:1433"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          '/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "Test_Password123" -C -Q "SELECT 1" || exit 1',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 40s
 
   rustfs:
     image: rustfs/rustfs:1.0.0-alpha.83

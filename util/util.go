@@ -36,10 +36,10 @@ func IsEmpty(value interface{}) bool {
 		return v.IsNil()
 	case reflect.Func, reflect.Interface, reflect.UnsafePointer:
 		return v.IsNil()
-	case reflect.Struct:
+	default:
+		// Struct and any future kinds are treated as non-empty.
 		return false
 	}
-	return false
 }
 
 // InAnySlice returns true if needle is equal to any element of haystack.

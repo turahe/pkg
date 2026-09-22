@@ -92,6 +92,21 @@ jobs:
           --health-timeout 3s
           --health-retries 5
 
+      sqlserver:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: Y
+          MSSQL_SA_PASSWORD: Test_Password123
+          MSSQL_PID: Developer
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P Test_Password123 -C -Q \"SELECT 1\" || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 20
+          --health-start-period 40s
+
       rustfs:
         image: rustfs/rustfs:1.0.0-alpha.83
         env:
@@ -134,6 +149,12 @@ jobs:
       DATABASE_USERNAME_SITE: test
       DATABASE_PASSWORD_SITE: test
       DATABASE_DBNAME_SITE: testdb
+
+      SQLSERVER_HOST: 127.0.0.1
+      SQLSERVER_PORT: "1433"
+      SQLSERVER_USERNAME: sa
+      SQLSERVER_PASSWORD: Test_Password123
+      SQLSERVER_DBNAME: master
 
       STORAGE_DRIVER: s3
       STORAGE_BUCKET: pkg

@@ -21,9 +21,50 @@ import (
 
 var (
 	postgresDriverOnce sync.Once
-	mysqlDriverOnce    sync.Once
+	mysqlDriverMu      sync.Mutex
+	mysqlDriverReady   bool
 	mysqlDriverCleanup func() error
+
+	// pingSQLDB is the pool ping used after open; overridden in tests to avoid needing a live Cloud SQL instance.
+	pingSQLDB = func(ctx context.Context, db *sql.DB) error {
+		return db.PingContext(ctx)
+	}
+
+	newCloudSQLDialer = cloudsqlconn.NewDialer
+	registerCloudSQLMySQL = cloudsqlmysql.RegisterDriver
+	cloudSQLMySQLDriverName = "cloudsql-mysql"
+	sqlOpen = sql.Open
+	gormSQLDB = func(db *gorm.DB) (*sql.DB, error) { return db.DB() }
+	sqlDBClose = func(db *sql.DB) error { return db.Close() }
+	cloudSQLDial = func(ctx context.Context, dialer *cloudsqlconn.Dialer, instance string) (net.Conn, error) {
+		return dialer.Dial(ctx, instance)
+	}
+
+	connectCloudSQLPostgresFn = connectCloudSQLPostgres
+	connectCloudSQLMySQLFn    = connectCloudSQLMySQL
+	connectStandardFn         = connectStandard
+
+	openCloudSQLPostgresGORM = func(sqlDB *sql.DB, opts *Options) (*gorm.DB, error) {
+		return gorm.Open(postgres.New(postgres.Config{Conn: sqlDB}), &gorm.Config{
+			Logger:      newFintechLogger(opts),
+			PrepareStmt: true,
+		})
+	}
+	openCloudSQLMySQLGORM = func(cfg *config.DatabaseConfiguration, opts *Options, loc string) (*gorm.DB, error) {
+		dsn := fmt.Sprintf("%s:%s@%s(%s)/%s?parseTime=true&loc=%s",
+			cfg.Username, cfg.Password, cloudSQLMySQLDriverName, cfg.CloudSQLInstance, cfg.Dbname, loc)
+		if opts.UseIAM {
+			dsn = fmt.Sprintf("%s@%s(%s)/%s?parseTime=true&loc=%s", cfg.Username, cloudSQLMySQLDriverName, cfg.CloudSQLInstance, cfg.Dbname, loc)
+		}
+		return gorm.Open(mysql.New(mysql.Config{
+			DriverName: cloudSQLMySQLDriverName,
+			DSN:        dsn,
+		}), &gorm.Config{Logger: newFintechLogger(opts), PrepareStmt: true})
+	}
 )
+
+// defaultCloudSQLDial retains the package default for coverage tests that override cloudSQLDial.
+var defaultCloudSQLDial = cloudSQLDial
 
 func buildDialerOptions(opts *Options) []cloudsqlconn.Option {
 	var dialOpts []cloudsqlconn.DialOption
@@ -44,7 +85,7 @@ func connectCloudSQLPostgres(ctx context.Context, cfg *config.DatabaseConfigurat
 	if cfg.CloudSQLInstance == "" {
 		return nil, nil, fmt.Errorf("cloud_sql_instance required for cloudsql-postgres")
 	}
-	dialer, err := cloudsqlconn.NewDialer(ctx, buildDialerOptions(opts)...)
+	dialer, err := newCloudSQLDialer(ctx, buildDialerOptions(opts)...)
 	if err != nil {
 		return nil, nil, fmt.Errorf("create dialer: %w", err)
 	}
@@ -63,19 +104,14 @@ func connectCloudSQLPostgres(ctx context.Context, cfg *config.DatabaseConfigurat
 		dialer.Close()
 		return nil, nil, err
 	}
-	if pgxConfig.RuntimeParams == nil {
-		pgxConfig.RuntimeParams = make(map[string]string)
-	}
 	pgxConfig.RuntimeParams["timezone"] = tz
 	instance := cfg.CloudSQLInstance
-	pgxConfig.DialFunc = func(ctx context.Context, _, _ string) (net.Conn, error) {
-		return dialer.Dial(ctx, instance)
-	}
+	pgxConfig.DialFunc = makeCloudSQLDialFunc(dialer, instance)
 	postgresDriverOnce.Do(func() {
 		sql.Register("cloudsql-postgres", stdlib.GetDefaultDriver())
 	})
 	connStr := stdlib.RegisterConnConfig(pgxConfig)
-	sqlDB, err := sql.Open("cloudsql-postgres", connStr)
+	sqlDB, err := sqlOpen("cloudsql-postgres", connStr)
 	if err != nil {
 		dialer.Close()
 		return nil, nil, fmt.Errorf("open: %w", err)
@@ -83,7 +119,7 @@ func connectCloudSQLPostgres(ctx context.Context, cfg *config.DatabaseConfigurat
 	configurePool(sqlDB, cfg, opts)
 	pingCtx, cancel := context.WithTimeout(ctx, opts.PingTimeout)
 	defer cancel()
-	if pingErr := sqlDB.PingContext(pingCtx); pingErr != nil {
+	if pingErr := pingSQLDB(pingCtx, sqlDB); pingErr != nil {
 		sqlDB.Close()
 		dialer.Close()
 		return nil, nil, fmt.Errorf("ping: %w", pingErr)
@@ -98,10 +134,7 @@ func connectCloudSQLPostgres(ctx context.Context, cfg *config.DatabaseConfigurat
 		"connection_type": connType,
 		"iam_auth":        opts.UseIAM,
 	})
-	db, err := gorm.Open(postgres.New(postgres.Config{Conn: sqlDB}), &gorm.Config{
-		Logger:      newFintechLogger(opts),
-		PrepareStmt: true,
-	})
+	db, err := openCloudSQLPostgresGORM(sqlDB, opts)
 	if err != nil {
 		sqlDB.Close()
 		dialer.Close()
@@ -114,38 +147,34 @@ func connectCloudSQLMySQL(ctx context.Context, cfg *config.DatabaseConfiguration
 	if cfg.CloudSQLInstance == "" {
 		return nil, nil, fmt.Errorf("cloud_sql_instance required for cloudsql-mysql")
 	}
-	var registerErr error
-	mysqlDriverOnce.Do(func() {
-		mysqlDriverCleanup, registerErr = cloudsqlmysql.RegisterDriver("cloudsql-mysql", buildDialerOptions(opts)...)
-	})
-	if registerErr != nil {
-		return nil, nil, fmt.Errorf("register cloudsql-mysql driver: %w", registerErr)
-	}
 	tz, err := resolveConnectionTimezone(cfg)
 	if err != nil {
 		return nil, nil, err
 	}
-	loc := mysqlLocQueryValue(tz)
-	dsn := fmt.Sprintf("%s:%s@cloudsql-mysql(%s)/%s?parseTime=true&loc=%s",
-		cfg.Username, cfg.Password, cfg.CloudSQLInstance, cfg.Dbname, loc)
-	if opts.UseIAM {
-		dsn = fmt.Sprintf("%s@cloudsql-mysql(%s)/%s?parseTime=true&loc=%s", cfg.Username, cfg.CloudSQLInstance, cfg.Dbname, loc)
+	mysqlDriverMu.Lock()
+	if !mysqlDriverReady {
+		var registerErr error
+		mysqlDriverCleanup, registerErr = registerCloudSQLMySQL(cloudSQLMySQLDriverName, buildDialerOptions(opts)...)
+		if registerErr != nil {
+			mysqlDriverMu.Unlock()
+			return nil, nil, fmt.Errorf("register cloudsql-mysql driver: %w", registerErr)
+		}
+		mysqlDriverReady = true
 	}
-	db, err := gorm.Open(mysql.New(mysql.Config{
-		DriverName: "cloudsql-mysql",
-		DSN:        dsn,
-	}), &gorm.Config{Logger: newFintechLogger(opts), PrepareStmt: true})
+	mysqlDriverMu.Unlock()
+	loc := mysqlLocQueryValue(tz)
+	db, err := openCloudSQLMySQLGORM(cfg, opts, loc)
 	if err != nil {
 		return nil, nil, fmt.Errorf("open: %w", err)
 	}
-	sqlDB, err := db.DB()
+	sqlDB, err := gormSQLDB(db)
 	if err != nil {
 		return nil, nil, fmt.Errorf("get sql.DB: %w", err)
 	}
 	configurePool(sqlDB, cfg, opts)
 	pingCtx, cancel := context.WithTimeout(ctx, opts.PingTimeout)
 	defer cancel()
-	if pingErr := sqlDB.PingContext(pingCtx); pingErr != nil {
+	if pingErr := pingSQLDB(pingCtx, sqlDB); pingErr != nil {
 		sqlDB.Close()
 		return nil, nil, fmt.Errorf("ping: %w", pingErr)
 	}
@@ -161,7 +190,7 @@ func connectCloudSQLMySQL(ctx context.Context, cfg *config.DatabaseConfiguration
 	})
 	sqlDBToClose := sqlDB
 	closeFn := func() error {
-		if closeErr := sqlDBToClose.Close(); closeErr != nil {
+		if closeErr := sqlDBClose(sqlDBToClose); closeErr != nil {
 			return closeErr
 		}
 		var cleanupErr error
@@ -176,3 +205,10 @@ func connectCloudSQLMySQL(ctx context.Context, cfg *config.DatabaseConfiguration
 }
 
 var mysqlCleanupOnce sync.Once
+
+func makeCloudSQLDialFunc(dialer *cloudsqlconn.Dialer, instance string) func(context.Context, string, string) (net.Conn, error) {
+	return func(ctx context.Context, _, _ string) (net.Conn, error) {
+		return cloudSQLDial(ctx, dialer, instance)
+	}
+}
+

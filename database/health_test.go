@@ -2,10 +2,11 @@ package database
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
-	"github.com/turahe/pkg/config"
+	"gorm.io/gorm"
 )
 
 func TestDatabase_Health_NilDB(t *testing.T) {
@@ -20,15 +21,7 @@ func TestDatabase_Health_NilDB(t *testing.T) {
 }
 
 func TestDatabase_Close_NoCleanups(t *testing.T) {
-	cfg := &config.DatabaseConfiguration{
-		Driver:  "sqlite",
-		Dbname:  "test_close",
-		Logmode: false,
-	}
-	db, err := New(cfg, Options{})
-	if err != nil {
-		t.Skipf("New: %v", err)
-	}
+	db, _ := newMockDatabase(t)
 	if err := db.Close(); err != nil {
 		t.Errorf("Close() = %v", err)
 	}
@@ -38,32 +31,28 @@ func TestDatabase_Close_NoCleanups(t *testing.T) {
 }
 
 func TestDatabase_Close_Idempotent(t *testing.T) {
-	cfg := &config.DatabaseConfiguration{
-		Driver:  "sqlite",
-		Dbname:  "test_close_idempotent",
-		Logmode: false,
-	}
-	db, err := New(cfg, Options{})
-	if err != nil {
-		t.Skipf("New: %v", err)
-	}
+	db, _ := newMockDatabase(t)
 	_ = db.Close()
 	_ = db.Close()
 }
 
 func TestDatabase_DB(t *testing.T) {
-	cfg := &config.DatabaseConfiguration{
-		Driver:  "sqlite",
-		Dbname:  "test_db_method",
-		Logmode: false,
-	}
-	db, err := New(cfg, Options{})
-	if err != nil {
-		t.Skipf("New: %v", err)
-	}
+	db, _ := newMockDatabase(t)
 	defer db.Close()
-	gormDB := db.DB()
-	if gormDB == nil {
+	if db.DB() == nil {
 		t.Fatal("DB() returned nil")
+	}
+}
+
+func TestDatabase_Close_CleanupError(t *testing.T) {
+	d := &Database{
+		db:   &gorm.DB{},
+		opts: &Options{},
+		cleanups: []func() error{
+			func() error { return errors.New("cleanup1") },
+		},
+	}
+	if err := d.Close(); err == nil {
+		t.Fatal("expected close error")
 	}
 }

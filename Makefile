@@ -55,7 +55,7 @@ test-docker-clean: ## Like test-docker but removes the module cache volume first
 	$(DC_TEST) down -v
 
 # ── Local services only ───────────────────────────────────────────────────────
-services-up: ## Start Redis/MySQL/Postgres/RustFS in the background (for local test runs)
+services-up: ## Start Redis/MySQL/Postgres/SQL Server/RustFS in the background (for local test runs)
 	$(DC) up -d
 
 services-down: ## Stop and remove local service containers

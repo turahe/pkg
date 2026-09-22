@@ -25,6 +25,8 @@ func New(cfg *config.DatabaseConfiguration, opts Options, override ...Option) (*
 	return NewContext(context.Background(), cfg, opts, override...)
 }
 
+var registerGORMInstrumentationFn = registerGORMInstrumentation
+
 // NewContext creates a Database with the given context (used for connection timeout/cancellation). Driver is read from cfg;
 // cloudsql-postgres and cloudsql-mysql use Cloud SQL connector; others use standard driver.
 func NewContext(ctx context.Context, cfg *config.DatabaseConfiguration, opts Options, override ...Option) (*Database, error) {
@@ -40,16 +42,16 @@ func NewContext(ctx context.Context, cfg *config.DatabaseConfiguration, opts Opt
 	var err error
 	switch cfg.Driver {
 	case "cloudsql-postgres":
-		db, cleanup, err = connectCloudSQLPostgres(ctx, cfg, o)
+		db, cleanup, err = connectCloudSQLPostgresFn(ctx, cfg, o)
 	case "cloudsql-mysql":
-		db, cleanup, err = connectCloudSQLMySQL(ctx, cfg, o)
+		db, cleanup, err = connectCloudSQLMySQLFn(ctx, cfg, o)
 	default:
-		db, cleanup, err = connectStandard(ctx, cfg, o)
+		db, cleanup, err = connectStandardFn(ctx, cfg, o)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("database: %w", err)
 	}
-	if err := registerGORMInstrumentation(db, cfg, o); err != nil {
+	if err := registerGORMInstrumentationFn(db, cfg, o); err != nil {
 		return nil, wrapConnectErr(err, cleanup)
 	}
 	cleanups := []func() error{}

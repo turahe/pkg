@@ -1,6 +1,6 @@
 # database
 
-GORM-based database layer with MySQL, Postgres, SQLite, SQL Server, and Google Cloud SQL (Postgres/MySQL) including optional IAM auth and Private IP.
+GORM-based database layer with MySQL, Postgres, SQL Server, and Google Cloud SQL (Postgres/MySQL) including optional IAM auth and Private IP.
 
 **Import:** `github.com/turahe/pkg/database`
 
@@ -34,7 +34,7 @@ Functional options: `WithIAM`, `WithPrivateIP`, `WithLogLevel`, `WithMaxOpenConn
 
 ## Drivers
 
-`mysql` · `postgres` · `sqlite` · `sqlserver` · `cloudsql-mysql` · `cloudsql-postgres`
+`mysql` · `postgres` · `sqlserver` · `cloudsql-mysql` · `cloudsql-postgres`
 
 ## Features
 

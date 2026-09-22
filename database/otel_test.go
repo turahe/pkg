@@ -12,7 +12,6 @@ func TestDBSystemForDriver(t *testing.T) {
 		"cloudsql-mysql":    "mysql",
 		"postgres":          "postgresql",
 		"cloudsql-postgres": "postgresql",
-		"sqlite":            "sqlite",
 		"sqlserver":         "mssql",
 	}
 	for driver, want := range tests {

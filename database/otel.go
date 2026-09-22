@@ -34,8 +34,6 @@ func dbSystemForDriver(driver string) string {
 		return "mysql"
 	case "postgres", "cloudsql-postgres":
 		return "postgresql"
-	case "sqlite":
-		return "sqlite"
 	case "sqlserver":
 		return "mssql"
 	default:

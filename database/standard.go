@@ -9,7 +9,6 @@ import (
 
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
-	"gorm.io/driver/sqlite"
 	"gorm.io/driver/sqlserver"
 	"gorm.io/gorm"
 )
@@ -34,8 +33,6 @@ func buildDSN(cfg *config.DatabaseConfiguration) (string, error) {
 		}
 		return fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=%s timezone=%s",
 			cfg.Host, cfg.Username, cfg.Password, cfg.Dbname, cfg.Port, mode, tz), nil
-	case "sqlite":
-		return "./" + cfg.Dbname + ".db", nil
 	case "sqlserver":
 		mode := "disable"
 		if cfg.Sslmode {
@@ -48,6 +45,27 @@ func buildDSN(cfg *config.DatabaseConfiguration) (string, error) {
 	}
 }
 
+var (
+	openGormMySQL = func(dsn string, opts *Options) (*gorm.DB, error) {
+		return gorm.Open(mysql.Open(dsn), &gorm.Config{
+			Logger:      newFintechLogger(opts),
+			PrepareStmt: true,
+		})
+	}
+	openGormPostgres = func(dsn string, opts *Options) (*gorm.DB, error) {
+		return gorm.Open(postgres.Open(dsn), &gorm.Config{
+			Logger:      newFintechLogger(opts),
+			PrepareStmt: true,
+		})
+	}
+	openGormSQLServer = func(dsn string, opts *Options) (*gorm.DB, error) {
+		return gorm.Open(sqlserver.Open(dsn), &gorm.Config{
+			Logger:      newFintechLogger(opts),
+			PrepareStmt: true,
+		})
+	}
+)
+
 func connectStandard(ctx context.Context, cfg *config.DatabaseConfiguration, opts *Options) (*gorm.DB, func() error, error) {
 	dsn, err := buildDSN(cfg)
 	if err != nil {
@@ -56,48 +74,32 @@ func connectStandard(ctx context.Context, cfg *config.DatabaseConfiguration, opt
 	var db *gorm.DB
 	switch cfg.Driver {
 	case "mysql":
-		db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{
-			Logger:      newFintechLogger(opts),
-			PrepareStmt: true,
-		})
+		db, err = openGormMySQL(dsn, opts)
 	case "postgres":
-		db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{
-			Logger:      newFintechLogger(opts),
-			PrepareStmt: true,
-		})
-	case "sqlite":
-		db, err = gorm.Open(sqlite.Open(dsn), &gorm.Config{
-			Logger:      newFintechLogger(opts),
-			PrepareStmt: true,
-		})
+		db, err = openGormPostgres(dsn, opts)
 	case "sqlserver":
-		db, err = gorm.Open(sqlserver.Open(dsn), &gorm.Config{
-			Logger:      newFintechLogger(opts),
-			PrepareStmt: true,
-		})
-	default:
-		return nil, nil, fmt.Errorf("unsupported driver: %s", cfg.Driver)
+		db, err = openGormSQLServer(dsn, opts)
 	}
 	if err != nil {
 		return nil, nil, fmt.Errorf("open: %w", err)
 	}
-	sqlDB, err := db.DB()
+	sqlDB, err := gormSQLDB(db)
 	if err != nil {
 		return nil, nil, fmt.Errorf("get sql.DB: %w", err)
 	}
 	configurePool(sqlDB, cfg, opts)
 	pingCtx, cancel := context.WithTimeout(ctx, opts.PingTimeout)
 	defer cancel()
-	if err := sqlDB.PingContext(pingCtx); err != nil {
+	if err := pingSQLDB(pingCtx, sqlDB); err != nil {
 		sqlDB.Close()
 		return nil, nil, fmt.Errorf("ping: %w", err)
 	}
-	if cfg.Driver == "sqlite" {
-		pkglogger.Info("[DB] database connected", pkglogger.Fields{"driver": cfg.Driver, "dbname": cfg.Dbname})
-	} else {
-		pkglogger.Info("[DB] database connected", pkglogger.Fields{
-			"driver": cfg.Driver, "host": cfg.Host, "port": cfg.Port, "dbname": cfg.Dbname,
-		})
-	}
+	logDatabaseConnected(cfg)
 	return db, func() error { return sqlDB.Close() }, nil
+}
+
+func logDatabaseConnected(cfg *config.DatabaseConfiguration) {
+	pkglogger.Info("[DB] database connected", pkglogger.Fields{
+		"driver": cfg.Driver, "host": cfg.Host, "port": cfg.Port, "dbname": cfg.Dbname,
+	})
 }

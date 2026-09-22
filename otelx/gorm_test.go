@@ -3,9 +3,11 @@ package otelx
 import (
 	"testing"
 
+	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/turahe/pkg/config"
-	"gorm.io/driver/sqlite"
+	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 func TestTracingEnabled(t *testing.T) {
@@ -30,12 +32,21 @@ func TestGORMEnabled(t *testing.T) {
 	}
 }
 
-func TestRegisterGORM_SQLite(t *testing.T) {
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
+func TestRegisterGORM_MySQLMock(t *testing.T) {
+	sqlDB, mock, err := sqlmock.New(sqlmock.MonitorPingsOption(true))
 	if err != nil {
-		t.Skipf("sqlite not available: %v", err)
+		t.Fatalf("sqlmock.New: %v", err)
 	}
-	if err := RegisterGORM(db, GORMOptions{DBSystem: "sqlite"}); err != nil {
+	defer sqlDB.Close()
+	mock.ExpectPing()
+	db, err := gorm.Open(mysql.New(mysql.Config{
+		Conn:                      sqlDB,
+		SkipInitializeWithVersion: true,
+	}), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+	if err != nil {
+		t.Fatalf("gorm.Open: %v", err)
+	}
+	if err := RegisterGORM(db, GORMOptions{DBSystem: "mysql"}); err != nil {
 		t.Fatalf("RegisterGORM() error = %v", err)
 	}
 }
