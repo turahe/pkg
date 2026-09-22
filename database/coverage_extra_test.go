@@ -213,7 +213,7 @@ func TestConnectStandard_SuccessSQLServer(t *testing.T) {
 	db, cleanup, err := connectStandard(context.Background(), &config.DatabaseConfiguration{
 		Driver: "sqlserver", Host: "h", Port: "1433", Username: "sa", Password: "p", Dbname: "master",
 	}, &Options{
-		PingTimeout: time.Second,
+		PingTimeout:  time.Second,
 		MaxOpenConns: 5, MaxIdleConns: 2, ConnMaxLife: time.Minute, ConnMaxIdle: time.Minute,
 	})
 	if err != nil {
@@ -239,7 +239,7 @@ func TestConnectStandard_SuccessMySQLAndPostgres(t *testing.T) {
 	defer func() { pingSQLDB = origPing }()
 
 	opts := &Options{
-		PingTimeout: time.Second,
+		PingTimeout:  time.Second,
 		MaxOpenConns: 3, MaxIdleConns: 1, ConnMaxLife: time.Minute, ConnMaxIdle: time.Minute,
 	}
 	for _, cfg := range []*config.DatabaseConfiguration{

@@ -60,8 +60,8 @@ func clusterSlotsReply(host, port string) string {
 	portNum, _ := strconv.Atoi(port)
 	var b strings.Builder
 	b.WriteString("*1\r\n*3\r\n:0\r\n:16383\r\n*2\r\n")
-	b.WriteString(fmt.Sprintf("$%d\r\n%s\r\n", len(host), host))
-	b.WriteString(fmt.Sprintf(":%d\r\n", portNum))
+	fmt.Fprintf(&b, "$%d\r\n%s\r\n", len(host), host)
+	fmt.Fprintf(&b, ":%d\r\n", portNum)
 	return b.String()
 }
 
@@ -80,8 +80,8 @@ func startFakeRedisOK(t *testing.T) (host, port string) {
 
 	go func() {
 		for {
-			conn, err := ln.Accept()
-			if err != nil {
+			conn, acceptErr := ln.Accept()
+			if acceptErr != nil {
 				return
 			}
 			go serveFakeRedisOK(conn, host, port)
@@ -151,8 +151,8 @@ func startFakeRedisClusterSelectErr(t *testing.T) (host, port string) {
 
 	go func() {
 		for {
-			conn, err := ln.Accept()
-			if err != nil {
+			conn, acceptErr := ln.Accept()
+			if acceptErr != nil {
 				return
 			}
 			go func(c net.Conn) {
@@ -160,8 +160,8 @@ func startFakeRedisClusterSelectErr(t *testing.T) (host, port string) {
 				_ = c.SetDeadline(time.Now().Add(5 * time.Second))
 				br := bufio.NewReader(c)
 				for {
-					cmd, err := readRESPCommand(br)
-					if err != nil {
+					cmd, readErr := readRESPCommand(br)
+					if readErr != nil {
 						return
 					}
 					if len(cmd) == 0 {
@@ -179,7 +179,7 @@ func startFakeRedisClusterSelectErr(t *testing.T) (host, port string) {
 					default:
 						reply = "+OK\r\n"
 					}
-					if _, err := io.WriteString(c, reply); err != nil {
+					if _, writeErr := io.WriteString(c, reply); writeErr != nil {
 						return
 					}
 				}

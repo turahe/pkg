@@ -36,8 +36,10 @@ func IsEmpty(value interface{}) bool {
 		return v.IsNil()
 	case reflect.Func, reflect.Interface, reflect.UnsafePointer:
 		return v.IsNil()
+	case reflect.Struct:
+		return false
 	default:
-		// Struct and any future kinds are treated as non-empty.
+		// Any future kinds are treated as non-empty.
 		return false
 	}
 }

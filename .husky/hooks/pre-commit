@@ -1,18 +1,24 @@
 #!/usr/bin/env sh
-# Pre-commit: format and test via Docker (no local Go toolchain required).
-# Keep GO_IMAGE in sync with docker-compose.test.yml / CI Go version.
+# Pre-commit: format, lint, and test via Docker (no local Go toolchain required).
+# Keep GO_IMAGE / GOLANGCI_LINT_IMAGE in sync with Makefile, docker-compose.test.yml, and CI.
 set -e
 
 ROOT="$(CDPATH= cd -- "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
 
 GO_IMAGE="${GO_IMAGE:-golang:1.27-alpine}"
+GOLANGCI_LINT_IMAGE="${GOLANGCI_LINT_IMAGE:-golangci/golangci-lint:v2.12.2}"
 
 docker run --rm \
 	-v "$ROOT:/app" -w /app \
 	-v pkg-go-mod-cache:/go/pkg/mod \
 	"$GO_IMAGE" \
 	go fmt ./...
+
+docker run --rm \
+	-v "$ROOT:/app" -w /app \
+	"$GOLANGCI_LINT_IMAGE" \
+	golangci-lint run --timeout=5m
 
 docker run --rm \
 	-v "$ROOT:/app" -w /app \

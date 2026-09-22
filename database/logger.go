@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"regexp"
 	"strings"
@@ -67,19 +68,19 @@ func (l *fintechLogger) LogMode(level logger.LogLevel) logger.Interface {
 
 func (l *fintechLogger) Info(ctx context.Context, msg string, args ...interface{}) {
 	if l.level >= logger.Info {
-		pkglogger.InfofContext(ctx, "[DB] "+msg, args...)
+		pkglogger.InfofContext(ctx, "%s", fmt.Sprintf("[DB] "+msg, args...))
 	}
 }
 
 func (l *fintechLogger) Warn(ctx context.Context, msg string, args ...interface{}) {
 	if l.level >= logger.Warn {
-		pkglogger.WarnfContext(ctx, "[DB] "+msg, args...)
+		pkglogger.WarnfContext(ctx, "%s", fmt.Sprintf("[DB] "+msg, args...))
 	}
 }
 
 func (l *fintechLogger) Error(ctx context.Context, msg string, args ...interface{}) {
 	if l.level >= logger.Error {
-		pkglogger.ErrorfContext(ctx, "[DB] "+msg, args...)
+		pkglogger.ErrorfContext(ctx, "%s", fmt.Sprintf("[DB] "+msg, args...))
 	}
 }
 

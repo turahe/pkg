@@ -30,13 +30,13 @@ var (
 		return db.PingContext(ctx)
 	}
 
-	newCloudSQLDialer = cloudsqlconn.NewDialer
-	registerCloudSQLMySQL = cloudsqlmysql.RegisterDriver
+	newCloudSQLDialer       = cloudsqlconn.NewDialer
+	registerCloudSQLMySQL   = cloudsqlmysql.RegisterDriver
 	cloudSQLMySQLDriverName = "cloudsql-mysql"
-	sqlOpen = sql.Open
-	gormSQLDB = func(db *gorm.DB) (*sql.DB, error) { return db.DB() }
-	sqlDBClose = func(db *sql.DB) error { return db.Close() }
-	cloudSQLDial = func(ctx context.Context, dialer *cloudsqlconn.Dialer, instance string) (net.Conn, error) {
+	sqlOpen                 = sql.Open
+	gormSQLDB               = func(db *gorm.DB) (*sql.DB, error) { return db.DB() }
+	sqlDBClose              = func(db *sql.DB) error { return db.Close() }
+	cloudSQLDial            = func(ctx context.Context, dialer *cloudsqlconn.Dialer, instance string) (net.Conn, error) {
 		return dialer.Dial(ctx, instance)
 	}
 
@@ -211,4 +211,3 @@ func makeCloudSQLDialFunc(dialer *cloudsqlconn.Dialer, instance string) func(con
 		return cloudSQLDial(ctx, dialer, instance)
 	}
 }
-
