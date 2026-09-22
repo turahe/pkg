@@ -112,7 +112,8 @@ func TestParseInt_InvalidReturnsDefault(t *testing.T) {
 }
 
 func TestBuildConfigFromEnv_Defaults(t *testing.T) {
-	// Clear env for keys that have non-empty defaults so we can assert defaults
+	// Clear env for keys that have non-empty defaults so we can assert defaults.
+	// Use t.Setenv("", ...) so values are restored after the test (CI sets many of these).
 	keys := []string{
 		"SERVER_PORT", "SERVER_MODE", "DATABASE_DRIVER", "DATABASE_HOST", "DATABASE_PORT",
 		"REDIS_HOST", "REDIS_PORT", "REDIS_ENABLED", "REDIS_DB",
@@ -120,7 +121,7 @@ func TestBuildConfigFromEnv_Defaults(t *testing.T) {
 		"STORAGE_ACCESS_KEY", "STORAGE_SECRET_KEY", "STORAGE_FORCE_PATH_STYLE", "GCS_CREDENTIALS_FILE",
 	}
 	for _, k := range keys {
-		os.Unsetenv(k)
+		t.Setenv(k, "")
 	}
 	cfg := buildConfigFromEnv()
 	if cfg == nil {
@@ -190,6 +191,8 @@ func TestBuildConfigFromEnv_Storage(t *testing.T) {
 }
 
 func TestBuildConfigFromEnv_StorageForcePathStyleUnset(t *testing.T) {
+	// Clear so CI/job env (e.g. STORAGE_FORCE_PATH_STYLE=true) does not leak into this case.
+	t.Setenv("STORAGE_FORCE_PATH_STYLE", "")
 	t.Setenv("STORAGE_DRIVER", "r2")
 	t.Setenv("STORAGE_BUCKET", "b")
 	cfg := buildConfigFromEnv()
