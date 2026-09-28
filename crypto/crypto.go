@@ -6,9 +6,10 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// HashAndSalt hashes plainPassword with bcrypt (MinCost) and returns the hash string. On bcrypt error logs and returns "".
+// HashAndSalt hashes plainPassword with bcrypt (DefaultCost) and returns the hash string. On bcrypt error logs and returns "".
+// Hashes created with a lower cost still verify with ComparePassword (the cost is stored in the hash).
 func HashAndSalt(plainPassword []byte) string {
-	hash, err := bcrypt.GenerateFromPassword(plainPassword, bcrypt.MinCost)
+	hash, err := bcrypt.GenerateFromPassword(plainPassword, bcrypt.DefaultCost)
 	if err != nil {
 		logger.Errorf("Failed to HashAndSalt: %v", err)
 		return ""

@@ -2,7 +2,29 @@ package crypto
 
 import (
 	"testing"
+
+	"golang.org/x/crypto/bcrypt"
 )
+
+func TestHashAndSalt_UsesDefaultCost(t *testing.T) {
+	cost, err := bcrypt.Cost([]byte(HashAndSalt([]byte("password123"))))
+	if err != nil {
+		t.Fatalf("bcrypt.Cost: %v", err)
+	}
+	if cost < bcrypt.DefaultCost {
+		t.Errorf("cost = %d, want >= %d", cost, bcrypt.DefaultCost)
+	}
+}
+
+func TestComparePassword_LegacyMinCostHash(t *testing.T) {
+	legacy, err := bcrypt.GenerateFromPassword([]byte("secret"), bcrypt.MinCost)
+	if err != nil {
+		t.Fatalf("GenerateFromPassword: %v", err)
+	}
+	if !ComparePassword(string(legacy), []byte("secret")) {
+		t.Error("hashes created with the previous MinCost must still verify")
+	}
+}
 
 func TestHashAndSalt(t *testing.T) {
 	plain := []byte("password123")
