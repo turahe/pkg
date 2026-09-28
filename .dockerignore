@@ -27,7 +27,16 @@ coverage.html
 # Environment files (never bake secrets into image)
 .env
 .env.*
-!env.example
+!.env.example
+
+# Private keys and credentials
+secrets/
+*.pem
+*.key
+*.p12
+*.pfx
+*credentials*.json
+*service-account*.json
 
 # Editor / OS noise
 .cursor/

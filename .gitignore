@@ -36,6 +36,15 @@ go.work.sum
 .env.*
 !.env.example
 
+# Private keys and credentials (JWT signing keys, TLS keys, service accounts)
+secrets/
+*.pem
+*.key
+*.p12
+*.pfx
+*credentials*.json
+*service-account*.json
+
 # =============================================================================
 # Editor / IDE
 # =============================================================================
