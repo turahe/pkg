@@ -22,8 +22,8 @@ Copy [`.env.example`](../.env.example) as a starting point. Tables below match t
 | `JWT_SIGNING_ALGORITHM` | `RS256` | `RS256` · `ES256` |
 | `JWT_PRIVATE_KEY` | — | Path or inline PEM |
 | `JWT_PUBLIC_KEY` | — | Path or inline PEM |
-| `JWT_ISSUER` | — | Optional `iss` |
-| `JWT_AUDIENCE` | — | Optional `aud` (comma-separated) |
+| `JWT_ISSUER` | — | Optional `iss`; set on issue and **required to match** on validation |
+| `JWT_AUDIENCE` | — | Optional `aud` (comma-separated); on validation the token must contain at least one |
 | `JWT_KEY_ID` | — | Optional `kid` |
 
 Embed PEM at build time via `config.Server.JWTPrivateKeyPEM` / `JWTPublicKeyPEM` instead of env paths.

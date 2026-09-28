@@ -52,7 +52,7 @@ Also: `ComparePassword` (bcrypt), `GetCurrentUserUUID(c *gin.Context)`, `GetActo
 2. `JWT_PRIVATE_KEY` / `JWT_PUBLIC_KEY` (file path **or** inline PEM containing `-----BEGIN`)
 3. Or set `Server.JWTPrivateKeyPEM` / `JWTPublicKeyPEM` (e.g. `//go:embed`) before `New*`
 
-Optional claims: `JWT_ISSUER`, `JWT_AUDIENCE`, `JWT_KEY_ID`.
+Optional claims: `JWT_ISSUER`, `JWT_AUDIENCE`, `JWT_KEY_ID`. When set, they are also enforced by `Manager.ValidateToken` / `Verifier.ValidateToken`: `iss` must equal `JWT_ISSUER`, `aud` must contain at least one `JWT_AUDIENCE` entry, and a `kid` header must equal `JWT_KEY_ID`. Configure the same values on signer and verifier services.
 
 ## See also
 

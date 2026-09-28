@@ -563,6 +563,71 @@ func TestNewSigner_NewVerifier_Split(t *testing.T) {
 	assert.Equal(t, TokenTypeAccess, claims.TokenType)
 }
 
+func TestVerifier_EnforcesIssuerAndAudience(t *testing.T) {
+	dir := t.TempDir()
+	privPath := filepath.Join(dir, "priv.pem")
+	pubPath := filepath.Join(dir, "pub.pem")
+	priv, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+	privPEM := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(priv)})
+	require.NoError(t, os.WriteFile(privPath, privPEM, 0600))
+	pubDER, err := x509.MarshalPKIXPublicKey(&priv.PublicKey)
+	require.NoError(t, err)
+	pubPEM := pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: pubDER})
+	require.NoError(t, os.WriteFile(pubPath, pubPEM, 0644))
+
+	cfgFor := func(iss, aud string) *config.Configuration {
+		return &config.Configuration{Server: config.ServerConfiguration{
+			JWTSigningAlgorithm: "RS256",
+			JWTPrivateKey:       privPath,
+			JWTPublicKey:        pubPath,
+			JWTIssuer:           iss,
+			JWTAudience:         aud,
+		}}
+	}
+	id := uuid.MustParse("550e8400-e29b-41d4-a716-446655440000")
+	tokenFor := func(iss, aud string) string {
+		s, signerErr := NewSigner(context.Background(), cfgFor(iss, aud))
+		require.NoError(t, signerErr)
+		tok, genErr := s.GenerateToken(id)
+		require.NoError(t, genErr)
+		return tok
+	}
+
+	strict, err := NewVerifier(context.Background(), cfgFor("https://auth.example.com", "api.example.com, admin.example.com"))
+	require.NoError(t, err)
+	lenient, err := NewVerifier(context.Background(), cfgFor("", ""))
+	require.NoError(t, err)
+
+	tests := []struct {
+		name     string
+		token    string
+		strictOK bool
+	}{
+		{name: "matching iss and one aud", token: tokenFor("https://auth.example.com", "admin.example.com"), strictOK: true},
+		{name: "wrong issuer", token: tokenFor("https://evil.example.com", "api.example.com")},
+		{name: "wrong audience", token: tokenFor("https://auth.example.com", "billing.example.com")},
+		{name: "no iss or aud", token: tokenFor("", "")},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, strictErr := strict.ValidateToken(tt.token)
+			if tt.strictOK {
+				assert.NoError(t, strictErr)
+			} else {
+				assert.Error(t, strictErr)
+			}
+			_, lenientErr := lenient.ValidateToken(tt.token)
+			assert.NoError(t, lenientErr, "verifier without JWT_ISSUER/JWT_AUDIENCE skips those checks")
+		})
+	}
+
+	m, err := NewManager(context.Background(), cfgFor("https://auth.example.com", "api.example.com"))
+	require.NoError(t, err)
+	_, err = m.ValidateToken(tokenFor("https://evil.example.com", "api.example.com"))
+	assert.Error(t, err, "Manager enforces its configured issuer too")
+}
+
 func TestDefaultAlgorithm_RS256(t *testing.T) {
 	// Empty algorithm defaults to RS256, so config without keys fails.
 	cfg := &config.Configuration{

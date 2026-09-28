@@ -81,6 +81,8 @@ type Verifier struct {
 	signingMethod jwt.SigningMethod
 	verifyKey     any
 	kid           string
+	issuer        string
+	audience      []string
 }
 
 // TokenVerifier is implemented by *Manager and *Verifier. Use it in auth middleware so either can be passed.
@@ -161,13 +163,7 @@ func NewManager(ctx context.Context, conf *config.Configuration) (*Manager, erro
 	if conf.Server.RefreshTokenExpiry > 0 {
 		m.refreshExpiry = time.Duration(conf.Server.RefreshTokenExpiry) * 24 * time.Hour
 	}
-	if a := strings.TrimSpace(conf.Server.JWTAudience); a != "" {
-		for _, s := range strings.Split(a, ",") {
-			if t := strings.TrimSpace(s); t != "" {
-				m.audience = append(m.audience, t)
-			}
-		}
-	}
+	m.audience = parseAudience(conf.Server.JWTAudience)
 
 	if err := m.loadFromEnvOrFiles(conf, alg); err != nil {
 		return nil, err
@@ -197,13 +193,7 @@ func NewSigner(ctx context.Context, conf *config.Configuration) (*Signer, error)
 	if conf.Server.RefreshTokenExpiry > 0 {
 		s.refreshExpiry = time.Duration(conf.Server.RefreshTokenExpiry) * 24 * time.Hour
 	}
-	if a := strings.TrimSpace(conf.Server.JWTAudience); a != "" {
-		for _, part := range strings.Split(a, ",") {
-			if t := strings.TrimSpace(part); t != "" {
-				s.audience = append(s.audience, t)
-			}
-		}
-	}
+	s.audience = parseAudience(conf.Server.JWTAudience)
 	if err := s.loadSignKey(ctx, conf, alg); err != nil {
 		return nil, err
 	}
@@ -251,7 +241,11 @@ func NewVerifier(ctx context.Context, conf *config.Configuration) (*Verifier, er
 	if err != nil {
 		return nil, err
 	}
-	v := &Verifier{kid: strings.TrimSpace(conf.Server.JWTKeyID)}
+	v := &Verifier{
+		kid:      strings.TrimSpace(conf.Server.JWTKeyID),
+		issuer:   strings.TrimSpace(conf.Server.JWTIssuer),
+		audience: parseAudience(conf.Server.JWTAudience),
+	}
 	if err := v.loadVerifyKey(ctx, conf, alg); err != nil {
 		return nil, err
 	}
@@ -290,23 +284,38 @@ func (v *Verifier) loadVerifyKeyFromEnvOrFiles(conf *config.Configuration, alg s
 	return nil
 }
 
-// ValidateToken implements TokenVerifier.
+// ValidateToken implements TokenVerifier. Validates alg, optional kid, and iss/aud when JWT_ISSUER / JWT_AUDIENCE are configured.
 func (v *Verifier) ValidateToken(tokenString string) (*Claims, error) {
+	return parseAndValidate(tokenString, v.signingMethod, v.verifyKey, v.kid, v.issuer, v.audience)
+}
+
+// parseAndValidate verifies signature, exp/nbf (30s leeway), alg, and kid. When issuer is set the iss claim
+// must match; when audience is set the aud claim must contain at least one of the configured values.
+func parseAndValidate(tokenString string, method jwt.SigningMethod, key any, configuredKid, issuer string, audience []string) (*Claims, error) {
+	opts := []jwt.ParserOption{
+		jwt.WithValidMethods([]string{method.Alg()}),
+		jwt.WithLeeway(30 * time.Second),
+	}
+	if issuer != "" {
+		opts = append(opts, jwt.WithIssuer(issuer))
+	}
+	if len(audience) > 0 {
+		opts = append(opts, jwt.WithAudience(audience...))
+	}
 	token, err := jwt.ParseWithClaims(
 		tokenString,
 		&Claims{},
 		func(token *jwt.Token) (interface{}, error) {
-			if token.Method.Alg() != v.signingMethod.Alg() {
+			if token.Method.Alg() != method.Alg() {
 				return nil, errors.New("unexpected signing method")
 			}
 			kid, _ := token.Header["kid"].(string)
-			if err := matchConfiguredKid(v.kid, kid); err != nil {
+			if err := matchConfiguredKid(configuredKid, kid); err != nil {
 				return nil, err
 			}
-			return v.verifyKey, nil
+			return key, nil
 		},
-		jwt.WithValidMethods([]string{v.signingMethod.Alg()}),
-		jwt.WithLeeway(30*time.Second),
+		opts...,
 	)
 	if err != nil {
 		return nil, err
@@ -319,6 +328,17 @@ func (v *Verifier) ValidateToken(tokenString string) (*Claims, error) {
 		return nil, errors.New("invalid token claims")
 	}
 	return claims, nil
+}
+
+// parseAudience splits a comma-separated JWT_AUDIENCE value, dropping empty entries.
+func parseAudience(raw string) []string {
+	var out []string
+	for _, part := range strings.Split(raw, ",") {
+		if t := strings.TrimSpace(part); t != "" {
+			out = append(out, t)
+		}
+	}
+	return out
 }
 
 // buildRegisteredClaims (Signer) sets exp, iat, nbf, sub, jti, iss, aud.
@@ -580,33 +600,7 @@ func (m *Manager) GenerateImpersonation(p ImpersonationParams) (string, error) {
 }
 
 // ValidateToken parses the token string, verifies signature and expiry, and returns Claims or an error.
-// Validates alg and optional kid against the Manager.
+// Validates alg, optional kid, and iss/aud when JWT_ISSUER / JWT_AUDIENCE are configured.
 func (m *Manager) ValidateToken(tokenString string) (*Claims, error) {
-	token, err := jwt.ParseWithClaims(
-		tokenString,
-		&Claims{},
-		func(token *jwt.Token) (interface{}, error) {
-			if token.Method.Alg() != m.signingMethod.Alg() {
-				return nil, errors.New("unexpected signing method")
-			}
-			kid, _ := token.Header["kid"].(string)
-			if err := matchConfiguredKid(m.kid, kid); err != nil {
-				return nil, err
-			}
-			return m.verifyKey, nil
-		},
-		jwt.WithValidMethods([]string{m.signingMethod.Alg()}),
-		jwt.WithLeeway(30*time.Second),
-	)
-	if err != nil {
-		return nil, err
-	}
-	if !token.Valid {
-		return nil, errors.New("token is not valid")
-	}
-	claims, ok := token.Claims.(*Claims)
-	if !ok {
-		return nil, errors.New("invalid token claims")
-	}
-	return claims, nil
+	return parseAndValidate(tokenString, m.signingMethod, m.verifyKey, m.kid, m.issuer, m.audience)
 }
