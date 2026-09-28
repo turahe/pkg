@@ -10,6 +10,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+const internalErrorMessage = "Internal server error"
+
 // BaseHandler provides shared methods for binding, validation, error handling, and pagination.
 // Embed or use as a struct; no fields required.
 type BaseHandler struct {
@@ -91,6 +93,7 @@ func (c *BaseHandler) GetIDFromRequestOrParam(ctx *gin.Context, reqID string, pa
 // HandleServiceError maps err to an HTTP response and writes it. Returns true if a response was written.
 // Checks errors.Is(ErrNotFound) -> 404, errors.Is(ErrUnauthorized) -> 401, then notFoundMessages exact match -> 404,
 // then legacy strings "current password is incorrect" / "Unauthorized" -> 401; otherwise 500.
+// 500 responses carry a generic message; the underlying error is only logged (it may contain SQL, hosts, or paths).
 func (c *BaseHandler) HandleServiceError(ctx *gin.Context, serviceCode string, err error, notFoundMessages ...string) bool {
 	if err == nil {
 		return false
@@ -123,8 +126,8 @@ func (c *BaseHandler) HandleServiceError(ctx *gin.Context, serviceCode string, e
 		return true
 	}
 
-	logger.Errorf("Service error: %v", err)
-	response.FailWithDetailed(ctx, http.StatusInternalServerError, serviceCode, response.CaseCodeInternalError, nil, errMsg)
+	logger.ErrorfContext(ctx.Request.Context(), "Service error: %v", err)
+	response.FailWithDetailed(ctx, http.StatusInternalServerError, serviceCode, response.CaseCodeInternalError, nil, internalErrorMessage)
 	return true
 }
 

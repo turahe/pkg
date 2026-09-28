@@ -37,7 +37,7 @@ func (h *MyHandler) Get(c *gin.Context) {
 | `HandleValidationError` | Write validation response |
 | `NormalizePagination` | Clamp page/size |
 | `GetIDFromParam` / `GetIDFromRequestOrParam` | Path / body ID |
-| `HandleServiceError` | Map `domain.ErrNotFound` / `ErrUnauthorized` etc. |
+| `HandleServiceError` | Map `domain.ErrNotFound` / `ErrUnauthorized` etc.; anything else → 500 "Internal server error" (error logged, not returned) |
 | `BuildPaginationResponse` | Pagination payload helper |
 | `GetCurrentUserID` / `GetActorType` / `CheckUserHasRole` | Auth context |
 

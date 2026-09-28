@@ -87,7 +87,8 @@ func TestRecoveryHandler(t *testing.T) {
 	var resp response.CommonResponse
 	err := json.Unmarshal(w.Body.Bytes(), &resp)
 	require.NoError(t, err)
-	assert.Equal(t, "test panic string", resp.Message)
+	assert.Equal(t, "Internal server error", resp.Message)
+	assert.NotContains(t, w.Body.String(), "test panic string")
 	// Response code format: HTTP_STATUS (3) + SERVICE (2) + CASE (2) = 7 digits
 	// 500 (Internal Server Error) should be in the first 3 digits
 	// Example: 5000055 = 500 (HTTP) + 00 (service) + 55 (case)
@@ -107,7 +108,8 @@ func TestRecoveryHandler(t *testing.T) {
 
 	err = json.Unmarshal(w.Body.Bytes(), &resp)
 	require.NoError(t, err)
-	assert.Equal(t, "test error", resp.Message)
+	assert.Equal(t, "Internal server error", resp.Message)
+	assert.NotContains(t, w.Body.String(), "test error")
 
 	// Test panic recovery with other type (will cause a panic in errorToString)
 	// This test verifies that the recovery handler handles panics, even if errorToString panics
@@ -134,6 +136,19 @@ func TestRecoveryHandler(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 	// Should not contain the success message
 	assert.NotContains(t, w.Body.String(), "should not reach here")
+}
+
+func TestRecoveryHandler_RepanicsErrAbortHandler(t *testing.T) {
+	router := setupRouter()
+	router.Use(RecoveryHandler)
+	router.GET("/abort", func(c *gin.Context) {
+		panic(http.ErrAbortHandler)
+	})
+
+	req := httptest.NewRequest("GET", "/abort", nil)
+	assert.PanicsWithValue(t, http.ErrAbortHandler, func() {
+		router.ServeHTTP(httptest.NewRecorder(), req)
+	})
 }
 
 func TestRecoveryHandler_NoPanic(t *testing.T) {

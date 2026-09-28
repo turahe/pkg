@@ -33,10 +33,15 @@ func NoRouteHandler() gin.HandlerFunc {
 }
 
 // RecoveryHandler recovers from panics, logs structured CRITICAL with trace/correlation preserved, and responds with 500.
+// The panic value is logged only; clients get a generic message. http.ErrAbortHandler is re-panicked so net/http
+// aborts the connection as intended.
 // Register with gin.Use(RecoveryHandler). Do not use for fatal errors in request context; use logger.Errorf + abort.
 func RecoveryHandler(ctx *gin.Context) {
 	defer func() {
 		if err := recover(); err != nil {
+			if err == http.ErrAbortHandler {
+				panic(err)
+			}
 			reqCtx := ctx.Request.Context()
 			logger.GetLogger().LogAttrs(reqCtx, logger.LevelCritical, "panic recovered",
 				slog.String("panic", errorToString(err)),
@@ -47,7 +52,7 @@ func RecoveryHandler(ctx *gin.Context) {
 				response.ServiceCodeCommon,
 				response.CaseCodeInternalError,
 				nil,
-				errorToString(err),
+				"Internal server error",
 			)
 			ctx.Abort()
 		}

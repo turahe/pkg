@@ -370,6 +370,21 @@ func TestBaseController_HandleServiceError(t *testing.T) {
 	router.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
+
+	// Unmapped errors return 500 with a generic message; details stay in logs
+	router.GET("/test-internal", func(c *gin.Context) {
+		err := errors.New("dial tcp 10.0.0.5:5432: connect: connection refused")
+		if handler.HandleServiceError(c, response.ServiceCodeCommon, err) {
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	})
+	req = httptest.NewRequest("GET", "/test-internal", nil)
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.Contains(t, w.Body.String(), "Internal server error")
+	assert.NotContains(t, w.Body.String(), "10.0.0.5")
 }
 
 type testError struct {

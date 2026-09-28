@@ -31,7 +31,7 @@ r.NoRoute(middlewares.NoRouteHandler())
 
 | Middleware | Purpose |
 |------------|---------|
-| `RecoveryHandler` | Panic → log stack → JSON 500 |
+| `RecoveryHandler` | Panic → log value + stack → JSON 500 with generic message (panic text is never returned); re-panics `http.ErrAbortHandler` |
 | `TraceMiddleware` / `CloudTraceMiddleware` / `RequestID` | Request / trace / correlation IDs |
 | `LoggerMiddleware` | Method, path, status, latency, IP |
 | `Metrics` / `HTTPInstrumentation` | Prometheus counters, histogram, in-flight |
