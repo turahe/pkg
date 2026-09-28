@@ -68,7 +68,7 @@ func loadDatabaseConfigFromEnv(suf string) DatabaseConfiguration {
 		Host:                   getEnvOrDefault("DATABASE_HOST"+suf, "127.0.0.1"),
 		Port:                   getEnvOrDefault("DATABASE_PORT"+suf, "3306"),
 		Sslmode:                parseBool("DATABASE_SSLMODE"+suf, false),
-		Logmode:                parseBool("DATABASE_LOGMODE"+suf, true),
+		Logmode:                parseBool("DATABASE_LOGMODE"+suf, false),
 		CloudSQLInstance:       getEnvOrDefault("DATABASE_CLOUD_SQL_INSTANCE"+suf, ""),
 		MaxIdleConns:           parseInt("DATABASE_MAX_IDLE_CONNS"+suf, 5),
 		MaxOpenConns:           parseInt("DATABASE_MAX_OPEN_CONNS"+suf, 10),

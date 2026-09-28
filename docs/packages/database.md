@@ -39,7 +39,7 @@ Functional options: `WithIAM`, `WithPrivateIP`, `WithLogLevel`, `WithMaxOpenConn
 ## Features
 
 - Connection pool from config (defaults: 10 idle, 30 open, 30 min lifetime)
-- SQL redaction in logs (passwords, tokens, card numbers) via `NewFintechLogger`
+- SQL logs never include bound values: `NewFintechLogger` implements `gorm.ParamsFilter` (placeholders stay as `?` / `$1`, also for `Scan`), plus regex redaction of inline literals (passwords, tokens, card numbers). Query logging is off unless `DATABASE_LOGMODE=true`
 - Optional OpenTelemetry GORM plugin (`OTEL_GORM_ENABLED`, or `WithOpenTelemetry`)
 - Session timezone from `DATABASE_TIMEZONE` / `SERVER_TIMEZONE`
 

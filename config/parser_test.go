@@ -119,6 +119,7 @@ func TestBuildConfigFromEnv_Defaults(t *testing.T) {
 		"REDIS_HOST", "REDIS_PORT", "REDIS_ENABLED", "REDIS_DB",
 		"CORS_GLOBAL", "STORAGE_DRIVER", "STORAGE_BUCKET", "STORAGE_ENDPOINT", "STORAGE_REGION",
 		"STORAGE_ACCESS_KEY", "STORAGE_SECRET_KEY", "STORAGE_FORCE_PATH_STYLE", "GCS_CREDENTIALS_FILE",
+		"DATABASE_LOGMODE", "DATABASE_LOGMODE_SITE",
 	}
 	for _, k := range keys {
 		t.Setenv(k, "")
@@ -126,6 +127,9 @@ func TestBuildConfigFromEnv_Defaults(t *testing.T) {
 	cfg := buildConfigFromEnv()
 	if cfg == nil {
 		t.Fatal("buildConfigFromEnv must not return nil")
+	}
+	if cfg.Database.Logmode || cfg.DatabaseSite.Logmode {
+		t.Errorf("Logmode defaults = %v/%v, want false/false", cfg.Database.Logmode, cfg.DatabaseSite.Logmode)
 	}
 	if cfg.Server.Port != "8080" {
 		t.Errorf("Server.Port = %q, want 8080", cfg.Server.Port)

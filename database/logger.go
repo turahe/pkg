@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	pkglogger "github.com/turahe/pkg/logger"
@@ -40,7 +41,20 @@ type fintechLogger struct {
 	ignoreRecordNotFoundErr bool
 }
 
+var dropRecorderParamsOnce sync.Once
+
+// dropRecorderParams makes gorm's process-wide Scan() recorder drop bound values too;
+// Scan logs through logger.Recorder, which bypasses fintechLogger.ParamsFilter.
+func dropRecorderParams() {
+	dropRecorderParamsOnce.Do(func() {
+		logger.RecorderParamsFilter = func(_ context.Context, sql string, _ ...interface{}) (string, []interface{}) {
+			return sql, nil
+		}
+	})
+}
+
 func newFintechLogger(opts *Options) logger.Interface {
+	dropRecorderParams()
 	return &fintechLogger{
 		level:                   opts.LogLevel,
 		slowThreshold:           opts.SlowThreshold,
@@ -49,6 +63,7 @@ func newFintechLogger(opts *Options) logger.Interface {
 }
 
 func NewFintechLogger(cfg logger.Config) logger.Interface {
+	dropRecorderParams()
 	slow := cfg.SlowThreshold
 	if slow == 0 {
 		slow = defaultSlowThreshold
@@ -82,6 +97,12 @@ func (l *fintechLogger) Error(ctx context.Context, msg string, args ...interface
 	if l.level >= logger.Error {
 		pkglogger.ErrorfContext(ctx, "%s", fmt.Sprintf("[DB] "+msg, args...))
 	}
+}
+
+// ParamsFilter implements gorm.ParamsFilter: bound values are dropped so logged SQL keeps its
+// placeholders and never contains user data (passwords, PII, amounts).
+func (l *fintechLogger) ParamsFilter(_ context.Context, sql string, _ ...interface{}) (string, []interface{}) {
+	return sql, nil
 }
 
 func (l *fintechLogger) Trace(ctx context.Context, begin time.Time, fc func() (sql string, rowsAffected int64), err error) {

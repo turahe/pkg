@@ -3,11 +3,64 @@ package database
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/DATA-DOG/go-sqlmock"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
+
+// capturingLogger records the SQL gorm passes to Trace; ParamsFilter is promoted from fintechLogger.
+type capturingLogger struct {
+	*fintechLogger
+	sql string
+}
+
+func (c *capturingLogger) Trace(_ context.Context, _ time.Time, fc func() (string, int64), _ error) {
+	c.sql, _ = fc()
+}
+
+func TestFintechLogger_ParamsFilter_OmitsBoundValues(t *testing.T) {
+	sqlDB, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock.New: %v", err)
+	}
+	defer sqlDB.Close()
+
+	capture := &capturingLogger{fintechLogger: NewFintechLogger(logger.Config{LogLevel: logger.Info}).(*fintechLogger)}
+	gdb, err := gorm.Open(mysql.New(mysql.Config{Conn: sqlDB, SkipInitializeWithVersion: true}), &gorm.Config{Logger: capture})
+	if err != nil {
+		t.Fatalf("gorm.Open: %v", err)
+	}
+
+	type user struct{ ID int }
+	queries := map[string]func(){
+		"Find (callback processor)": func() {
+			var users []user
+			gdb.Where("email = ? AND password_hash = ?", "alice@example.com", "s3cr3t").Find(&users)
+		},
+		"Raw.Scan (logger.Recorder)": func() {
+			var ids []int
+			gdb.Raw("SELECT id FROM users WHERE email = ? AND password_hash = ?", "alice@example.com", "s3cr3t").Scan(&ids)
+		},
+	}
+	for name, run := range queries {
+		t.Run(name, func(t *testing.T) {
+			capture.sql = ""
+			mock.ExpectQuery("SELECT").WillReturnRows(sqlmock.NewRows([]string{"id"}))
+			run()
+			if strings.Contains(capture.sql, "alice@example.com") || strings.Contains(capture.sql, "s3cr3t") {
+				t.Fatalf("logged SQL contains bound values: %q", capture.sql)
+			}
+			if !strings.Contains(capture.sql, "email = ?") {
+				t.Errorf("logged SQL = %q, want placeholders preserved", capture.sql)
+			}
+		})
+	}
+}
 
 func TestRedactSQL(t *testing.T) {
 	tests := []struct {
