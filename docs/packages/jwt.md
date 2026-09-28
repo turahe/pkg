@@ -27,10 +27,12 @@ adminTok, err := m.GenerateToken(adminID, "admins") // actor_type=admin
 svcTok, err := m.GenerateToken(svcID)              // actor_type=service (empty)
 refresh, err := m.GenerateRefreshToken(userID, "users")
 imp, err := m.GenerateImpersonationToken(adminID, "admin", targetID, 15*time.Minute) // actor_type=user
-claims, err := m.ValidateToken(tokenString)
+claims, err := m.ValidateToken(tokenString)             // signature/expiry only, any token_type
+claims, err = jwt.ValidateAccessToken(m, tokenString)   // access or impersonation only
+claims, err = jwt.ValidateRefreshToken(m, refreshToken) // refresh only (use in /refresh endpoint)
 ```
 
-Token types: `TokenTypeAccess`, `TokenTypeRefresh`, `TokenTypeImpersonation`.
+Token types: `TokenTypeAccess`, `TokenTypeRefresh`, `TokenTypeImpersonation`. `ValidateAccessToken` / `ValidateRefreshToken` return `ErrWrongTokenType` when the type does not match; `AuthMiddleware` uses `ValidateAccessToken`, so refresh tokens are rejected as bearer credentials.
 
 Actor types (`actor_type` claim via `ResolveActorType`):
 

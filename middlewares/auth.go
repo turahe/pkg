@@ -11,6 +11,7 @@ import (
 
 // AuthMiddleware returns a Gin middleware that validates the Authorization: Bearer <token> header
 // using the given JWT verifier (Manager or Verifier), and sets identity information in the Gin context.
+// Only access and impersonation tokens are accepted; refresh tokens are rejected with 401.
 // Pass a *jwt.Manager (from jwt.NewManager) or *jwt.Verifier (from jwt.NewVerifier) for verification-only services.
 // Verifier must not be nil.
 func AuthMiddleware(verifier jwt.TokenVerifier) gin.HandlerFunc {
@@ -32,7 +33,7 @@ func AuthMiddleware(verifier jwt.TokenVerifier) gin.HandlerFunc {
 			return
 		}
 
-		claims, err := verifier.ValidateToken(parts[1])
+		claims, err := jwt.ValidateAccessToken(verifier, parts[1])
 		if err != nil {
 			response.UnauthorizedError(ctx, "Invalid or expired token")
 			ctx.Abort()

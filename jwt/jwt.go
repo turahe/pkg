@@ -88,6 +88,37 @@ type TokenVerifier interface {
 	ValidateToken(tokenString string) (*Claims, error)
 }
 
+// ErrWrongTokenType is returned when a token has a valid signature but the wrong token_type for the use.
+var ErrWrongTokenType = errors.New("wrong token type")
+
+// ValidateAccessToken validates the token and accepts only token_type "access" or "impersonation".
+// Use it to authenticate API requests so refresh tokens cannot be used as bearer credentials.
+func ValidateAccessToken(v TokenVerifier, tokenString string) (*Claims, error) {
+	claims, err := v.ValidateToken(tokenString)
+	if err != nil {
+		return nil, err
+	}
+	switch claims.TokenType {
+	case TokenTypeAccess, TokenTypeImpersonation:
+		return claims, nil
+	default:
+		return nil, ErrWrongTokenType
+	}
+}
+
+// ValidateRefreshToken validates the token and accepts only token_type "refresh".
+// Use it in the token refresh endpoint so access tokens cannot be exchanged for new tokens.
+func ValidateRefreshToken(v TokenVerifier, tokenString string) (*Claims, error) {
+	claims, err := v.ValidateToken(tokenString)
+	if err != nil {
+		return nil, err
+	}
+	if claims.TokenType != TokenTypeRefresh {
+		return nil, ErrWrongTokenType
+	}
+	return claims, nil
+}
+
 // Claims is the JWT payload. It embeds jwt.RegisteredClaims (exp, iat, nbf, sub, iss, aud, jti)
 // and adds UUID, ActorType, TokenType, and optional impersonation fields.
 type Claims struct {

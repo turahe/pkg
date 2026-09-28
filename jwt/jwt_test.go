@@ -141,6 +141,46 @@ func TestValidateToken_Empty(t *testing.T) {
 	}
 }
 
+func TestValidateAccessAndRefreshToken(t *testing.T) {
+	m := testManager(t)
+	id := uuid.MustParse("550e8400-e29b-41d4-a716-446655440000")
+	adminID := uuid.MustParse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
+
+	access, err := m.GenerateToken(id)
+	require.NoError(t, err)
+	refresh, err := m.GenerateRefreshToken(id)
+	require.NoError(t, err)
+	imp, err := m.GenerateImpersonationToken(adminID, "admin", id, time.Minute)
+	require.NoError(t, err)
+	untyped, err := m.signToken(Claims{UUID: id.String(), RegisteredClaims: m.buildRegisteredClaims(id.String(), time.Hour)})
+	require.NoError(t, err)
+
+	tests := []struct {
+		name        string
+		token       string
+		wantAccess  error
+		wantRefresh error
+	}{
+		{name: "access", token: access, wantAccess: nil, wantRefresh: ErrWrongTokenType},
+		{name: "impersonation", token: imp, wantAccess: nil, wantRefresh: ErrWrongTokenType},
+		{name: "refresh", token: refresh, wantAccess: ErrWrongTokenType, wantRefresh: nil},
+		{name: "missing token_type", token: untyped, wantAccess: ErrWrongTokenType, wantRefresh: ErrWrongTokenType},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, accessErr := ValidateAccessToken(m, tt.token)
+			assert.ErrorIs(t, accessErr, tt.wantAccess)
+			_, refreshErr := ValidateRefreshToken(m, tt.token)
+			assert.ErrorIs(t, refreshErr, tt.wantRefresh)
+		})
+	}
+
+	_, err = ValidateAccessToken(m, "invalid-token")
+	assert.Error(t, err)
+	_, err = ValidateRefreshToken(m, "invalid-token")
+	assert.Error(t, err)
+}
+
 func TestGetCurrentUserUUID(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

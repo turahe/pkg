@@ -245,6 +245,28 @@ func TestAuthMiddleware_ExpiredToken(t *testing.T) {
 	assert.Contains(t, resp.Message, "Invalid or expired token")
 }
 
+func TestAuthMiddleware_RejectsRefreshToken(t *testing.T) {
+	manager := initTestJWT(t)
+
+	router := setupRouter()
+	router.Use(AuthMiddleware(manager))
+	router.GET("/test", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "should not reach here"})
+	})
+
+	userID := uuid.MustParse("550e8400-e29b-41d4-a716-446655440000")
+	token, err := manager.GenerateRefreshToken(userID)
+	require.NoError(t, err)
+
+	req := httptest.NewRequest("GET", "/test", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+	assert.NotContains(t, w.Body.String(), "should not reach here")
+}
+
 func TestAuthMiddleware_AbortsOnError(t *testing.T) {
 	manager := initTestJWT(t)
 
