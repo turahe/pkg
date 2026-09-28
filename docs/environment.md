@@ -87,6 +87,7 @@ Requires Redis. See [middlewares](packages/middlewares.md).
 | `RATE_LIMITER_WINDOW` | `60` | Seconds |
 | `RATE_LIMITER_KEY_BY` | `ip` | `ip` or `user` |
 | `RATE_LIMITER_SKIP_PATHS` | — | e.g. `/health,/metrics` |
+| `RATE_LIMITER_TRUST_PROXY` | `false` | `true` keys on gin `ClientIP` (`X-Forwarded-For`); enable only behind a proxy set via `engine.SetTrustedProxies` |
 
 ## Storage
 

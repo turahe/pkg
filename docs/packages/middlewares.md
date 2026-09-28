@@ -52,7 +52,7 @@ Sets `user_id` and impersonation fields in Gin context. Requires non-nil verifie
 
 ## Rate limiter
 
-Requires `REDIS_ENABLED` and `RATE_LIMITER_ENABLED`. **Fails open** on Redis errors. Key by `ip` or `user`; skip paths configurable.
+Requires `REDIS_ENABLED` and `RATE_LIMITER_ENABLED`. **Fails open** on Redis errors. Key by `ip` or `user` (`user_id` from `AuthMiddleware`, falling back to IP); skip paths configurable. The IP is the TCP peer address; set `RATE_LIMITER_TRUST_PROXY=true` behind a reverse proxy (and restrict `engine.SetTrustedProxies`) to key on `X-Forwarded-For`.
 
 ## Headers / context
 

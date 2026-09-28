@@ -43,7 +43,8 @@ return {count, ttl}
 `
 
 // RateLimiter returns a Gin middleware that enforces a sliding-window rate limit using Redis.
-// Key is per IP or per user (from "admin_id" in context when KeyBy is "user").
+// Key is per IP or per user ("user_id", then "admin_id" in context when KeyBy is "user").
+// The IP is the TCP peer address unless RateLimiter.TrustProxy is set, in which case gin's ClientIP is used.
 // SkipPaths (comma-separated) are not counted. On exceed returns 429 with Retry-After and X-RateLimit-* headers.
 // If config.RateLimiter.Enabled or config.Redis.Enabled is false, returns a no-op middleware. On Redis
 // error allows the request (fail open).
@@ -63,6 +64,7 @@ func RateLimiter() gin.HandlerFunc {
 		keyBy = "ip"
 	}
 	skipPaths := parseSkipPaths(conf.RateLimiter.SkipPaths)
+	trustProxy := conf.RateLimiter.TrustProxy
 	windowSec := conf.RateLimiter.Window
 	if windowSec <= 0 {
 		windowSec = defaultWindowSec
@@ -76,7 +78,7 @@ func RateLimiter() gin.HandlerFunc {
 			return
 		}
 
-		key := getRateLimitKey(ctx, keyBy)
+		key := getRateLimitKey(ctx, keyBy, trustProxy)
 		if key == "" {
 			ctx.Next()
 			return
@@ -144,21 +146,27 @@ func toInt64(v interface{}) (int64, bool) {
 	}
 }
 
-// getRateLimitKey determines the key for rate limiting based on the strategy
-func getRateLimitKey(ctx *gin.Context, keyBy string) string {
-	switch keyBy {
-	case "user":
-		if adminID, exists := ctx.Get("admin_id"); exists {
-			if id, ok := adminID.(string); ok && id != "" {
-				return fmt.Sprintf("user:%s", id)
+// getRateLimitKey determines the key for rate limiting based on the strategy.
+// "user" uses user_id (set by AuthMiddleware), then admin_id, then falls back to the IP key.
+func getRateLimitKey(ctx *gin.Context, keyBy string, trustProxy bool) string {
+	if keyBy == "user" {
+		for _, k := range []string{"user_id", "admin_id"} {
+			if v, exists := ctx.Get(k); exists {
+				if id, ok := v.(string); ok && id != "" {
+					return fmt.Sprintf("user:%s", id)
+				}
 			}
 		}
-		return fmt.Sprintf("ip:%s", ctx.ClientIP())
-	case "ip":
-		fallthrough
-	default:
-		return fmt.Sprintf("ip:%s", ctx.ClientIP())
 	}
+	return fmt.Sprintf("ip:%s", rateLimitIP(ctx, trustProxy))
+}
+
+// rateLimitIP returns the TCP peer address unless proxy headers are explicitly trusted.
+func rateLimitIP(ctx *gin.Context, trustProxy bool) string {
+	if trustProxy {
+		return ctx.ClientIP()
+	}
+	return ctx.RemoteIP()
 }
 
 // parseSkipPaths parses comma-separated paths into a slice (trimmed, non-empty only).

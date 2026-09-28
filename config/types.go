@@ -106,6 +106,10 @@ type RateLimiterConfiguration struct {
 	Window    int    // Window size in seconds
 	KeyBy     string // "ip" or "user" (user requires auth middleware)
 	SkipPaths string // Comma-separated paths to skip (e.g. "/health,/metrics")
+	// TrustProxy keys on gin's ClientIP (X-Forwarded-For / X-Real-IP) instead of the TCP peer address.
+	// Enable only behind a reverse proxy and restrict engine.SetTrustedProxies to it; otherwise clients
+	// can spoof the header to bypass the limit.
+	TrustProxy bool
 }
 
 // TimezoneConfiguration holds the server timezone (IANA name, e.g. "Asia/Jakarta", "UTC").

@@ -127,11 +127,12 @@ func parseOptionalBool(key string) *bool {
 
 func loadRateLimiterConfigFromEnv() RateLimiterConfiguration {
 	return RateLimiterConfiguration{
-		Enabled:   parseBool("RATE_LIMITER_ENABLED", false),
-		Requests:  parseInt("RATE_LIMITER_REQUESTS", 100),
-		Window:    parseInt("RATE_LIMITER_WINDOW", 60),
-		KeyBy:     getEnvOrDefault("RATE_LIMITER_KEY_BY", "ip"),
-		SkipPaths: getEnvOrDefault("RATE_LIMITER_SKIP_PATHS", ""),
+		Enabled:    parseBool("RATE_LIMITER_ENABLED", false),
+		Requests:   parseInt("RATE_LIMITER_REQUESTS", 100),
+		Window:     parseInt("RATE_LIMITER_WINDOW", 60),
+		KeyBy:      getEnvOrDefault("RATE_LIMITER_KEY_BY", "ip"),
+		SkipPaths:  getEnvOrDefault("RATE_LIMITER_SKIP_PATHS", ""),
+		TrustProxy: parseBool("RATE_LIMITER_TRUST_PROXY", false),
 	}
 }
 

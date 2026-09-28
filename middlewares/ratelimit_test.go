@@ -279,7 +279,7 @@ func TestRateLimiter_KeyByUser_FallbackToIP(t *testing.T) {
 func TestGetRateLimitKey_IP(t *testing.T) {
 	router := setupRouter()
 	router.GET("/test", func(c *gin.Context) {
-		key := getRateLimitKey(c, "ip")
+		key := getRateLimitKey(c, "ip", false)
 		c.JSON(http.StatusOK, gin.H{"key": key})
 	})
 
@@ -299,7 +299,7 @@ func TestGetRateLimitKey_User(t *testing.T) {
 	router := setupRouter()
 	router.GET("/test", func(c *gin.Context) {
 		c.Set("admin_id", "user456")
-		key := getRateLimitKey(c, "user")
+		key := getRateLimitKey(c, "user", false)
 		c.JSON(http.StatusOK, gin.H{"key": key})
 	})
 
@@ -318,7 +318,7 @@ func TestGetRateLimitKey_User_FallbackToIP(t *testing.T) {
 	router := setupRouter()
 	router.GET("/test", func(c *gin.Context) {
 		// No admin_id set
-		key := getRateLimitKey(c, "user")
+		key := getRateLimitKey(c, "user", false)
 		c.JSON(http.StatusOK, gin.H{"key": key})
 	})
 
@@ -334,10 +334,45 @@ func TestGetRateLimitKey_User_FallbackToIP(t *testing.T) {
 	assert.Equal(t, "ip:192.168.1.200", resp["key"])
 }
 
+func TestGetRateLimitKey_ForwardedHeaders(t *testing.T) {
+	tests := []struct {
+		name       string
+		keyBy      string
+		trustProxy bool
+		ctxKey     string
+		want       string
+	}{
+		{name: "spoofed XFF ignored by default", keyBy: "ip", want: "ip:10.0.0.1"},
+		{name: "XFF honored when proxy trusted", keyBy: "ip", trustProxy: true, want: "ip:203.0.113.7"},
+		{name: "user_id from AuthMiddleware", keyBy: "user", ctxKey: "user_id", want: "user:u-1"},
+		{name: "admin_id fallback", keyBy: "user", ctxKey: "admin_id", want: "user:u-1"},
+		{name: "user without identity uses peer IP", keyBy: "user", want: "ip:10.0.0.1"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var got string
+			router := setupRouter()
+			router.GET("/test", func(c *gin.Context) {
+				if tt.ctxKey != "" {
+					c.Set(tt.ctxKey, "u-1")
+				}
+				got = getRateLimitKey(c, tt.keyBy, tt.trustProxy)
+			})
+
+			req := httptest.NewRequest("GET", "/test", nil)
+			req.RemoteAddr = "10.0.0.1:12345"
+			req.Header.Set("X-Forwarded-For", "203.0.113.7")
+			router.ServeHTTP(httptest.NewRecorder(), req)
+
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
 func TestGetRateLimitKey_Default(t *testing.T) {
 	router := setupRouter()
 	router.GET("/test", func(c *gin.Context) {
-		key := getRateLimitKey(c, "unknown")
+		key := getRateLimitKey(c, "unknown", false)
 		c.JSON(http.StatusOK, gin.H{"key": key})
 	})
 

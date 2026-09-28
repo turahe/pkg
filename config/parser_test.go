@@ -357,6 +357,7 @@ func TestBuildConfigFromEnv_AllSections(t *testing.T) {
 		"RATE_LIMITER_WINDOW":              "120",
 		"RATE_LIMITER_KEY_BY":              "user",
 		"RATE_LIMITER_SKIP_PATHS":          "/health,/metrics",
+		"RATE_LIMITER_TRUST_PROXY":         "true",
 	}
 
 	// Set all environment variables
@@ -510,6 +511,9 @@ func TestBuildConfigFromEnv_AllSections(t *testing.T) {
 	}
 	if cfg.RateLimiter.SkipPaths != "/health,/metrics" {
 		t.Errorf("RateLimiter.SkipPaths = %q, want /health,/metrics", cfg.RateLimiter.SkipPaths)
+	}
+	if !cfg.RateLimiter.TrustProxy {
+		t.Errorf("RateLimiter.TrustProxy = %v, want true", cfg.RateLimiter.TrustProxy)
 	}
 
 	// Test Timezone configuration
