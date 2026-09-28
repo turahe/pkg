@@ -3,7 +3,9 @@ package repositories
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -16,12 +18,47 @@ import (
 // columnCache caches column names by reflect.Type to avoid repeated reflection in hot path.
 var columnCache sync.Map
 
+// ErrInvalidOrder is returned when an order clause is not a plain column list with optional direction.
+var ErrInvalidOrder = errors.New("invalid order clause")
+
+// orderTermPattern matches one ORDER BY term: column or table.column, optional ASC/DESC and NULLS FIRST/LAST.
+var orderTermPattern = regexp.MustCompile(`(?i)^[a-z_][a-z0-9_]*(\.[a-z_][a-z0-9_]*)?(\s+(asc|desc))?(\s+nulls\s+(first|last))?$`)
+
+// ValidateOrder reports whether order is a safe ORDER BY clause such as "name ASC, created_at DESC".
+// Order strings are interpolated into SQL, so Find, Scan and Paginate reject anything else with ErrInvalidOrder.
+func ValidateOrder(order string) error {
+	for _, term := range strings.Split(order, ",") {
+		if !orderTermPattern.MatchString(strings.TrimSpace(term)) {
+			return fmt.Errorf("%w: %q", ErrInvalidOrder, order)
+		}
+	}
+	return nil
+}
+
+// applyOrders validates and applies orders, defaulting to created_at DESC when none are given.
+func applyOrders(db *gorm.DB, orders []string) (*gorm.DB, error) {
+	if len(orders) == 0 {
+		return db.Order("created_at DESC"), nil
+	}
+	for _, order := range orders {
+		if err := ValidateOrder(order); err != nil {
+			return nil, err
+		}
+		db = db.Order(order)
+	}
+	return db, nil
+}
+
 // IBaseRepository defines the base repository interface. All methods accept context.Context for cancellation and timeouts.
 //
 // For Clean Architecture: define use-case-specific repository ports in domain/port (e.g. port.GetByID)
 // and implement them by adapting BaseRepository or by wrapping it. Keep IBaseRepository in this package
 // for backward compatibility and for code that needs full CRUD; use domain ports in use cases so they
 // depend only on domain.
+//
+// Security: types.Conditions keys are SQL fragments (e.g. "email = ?") and must be constants written
+// by the developer; only values are bound as parameters. Never build keys from request input.
+// Order strings are validated with ValidateOrder.
 type IBaseRepository interface {
 	Create(ctx context.Context, value interface{}) error
 	Save(ctx context.Context, value interface{}) error
@@ -167,13 +204,9 @@ func (r *BaseRepository) Find(ctx context.Context, out interface{}, conditions t
 		db = r.applyWhereCondition(db, key, value)
 	}
 
-	if len(orders) > 0 {
-		for _, order := range orders {
-			db = db.Order(order)
-		}
-	} else {
-		// Default order by created_at DESC if no orders specified
-		db = db.Order("created_at DESC")
+	db, err = applyOrders(db, orders)
+	if err != nil {
+		return err
 	}
 
 	// Get column names from struct
@@ -199,12 +232,9 @@ func (r *BaseRepository) ScanWith(ctx context.Context, opts ScanOptions) (bool, 
 		db = r.applyWhereCondition(db, key, value)
 	}
 
-	if len(opts.Orders) > 0 {
-		for _, order := range opts.Orders {
-			db = db.Order(order)
-		}
-	} else {
-		db = db.Order("created_at DESC")
+	db, err := applyOrders(db, opts.Orders)
+	if err != nil {
+		return false, err
 	}
 
 	columns := []string{}
@@ -223,7 +253,7 @@ func (r *BaseRepository) ScanWith(ctx context.Context, opts ScanOptions) (bool, 
 	if len(columns) > 0 {
 		db = db.Select(columns)
 	}
-	err := db.Scan(opts.Out).Error
+	err = db.Scan(opts.Out).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return true, nil
 	}
@@ -302,12 +332,9 @@ func (r *BaseRepository) Paginate(ctx context.Context, opts PaginationOptions) (
 	for _, preload := range opts.Preloads {
 		dataDB = dataDB.Preload(preload)
 	}
-	if len(opts.Orders) > 0 {
-		for _, order := range opts.Orders {
-			dataDB = dataDB.Order(order)
-		}
-	} else {
-		dataDB = dataDB.Order("created_at DESC")
+	dataDB, err := applyOrders(dataDB, opts.Orders)
+	if err != nil {
+		return 0, err
 	}
 
 	columns := r.getColumnNames(opts.Model)

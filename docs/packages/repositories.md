@@ -37,6 +37,8 @@ repo.SimplePagination(ctx, &model, &out, page, size, conditions, orders, "User",
 
 ## Constraints
 
+- **Condition keys are SQL.** `types.Conditions` keys (`"email = ?"`) are interpolated; only values are bound. Keys must be developer-written constants, never request input.
+- **Orders are validated.** `Find`, `Scan` and `SimplePagination`/`Paginate` return `ErrInvalidOrder` unless each order is a column list like `"name ASC, users.created_at DESC"` (optional `NULLS FIRST|LAST`). Still map user-facing sort params through an allowlist of columns; use `repositories.ValidateOrder` to check early.
 - Prefer injected DB over globals in new code.
 - Map not-found to domain errors in the use-case or handler layer as needed.
 - Must not import use-case or contain business rules.
