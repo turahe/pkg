@@ -27,7 +27,7 @@ services:
       start_period: 3s
 
   valkey:
-    image: valkey/valkey:7-alpine
+    image: valkey/valkey:9-alpine
     healthcheck:
       test: ["CMD", "valkey-cli", "ping"]
       interval: 5s
@@ -48,7 +48,7 @@ services:
       start_period: 15s
 
   postgres:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     environment:
       POSTGRES_USER: test
       POSTGRES_PASSWORD: test

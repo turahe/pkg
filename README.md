@@ -1,9 +1,13 @@
 # Go Package Collection
 
-![Go Reference](https://pkg.go.dev/badge/github.com/turahe/pkg.svg)
-![Test](https://github.com/turahe/pkg/actions/workflows/test.yml/badge.svg)
-![Go Report Card](https://goreportcard.com/badge/github.com/turahe/pkg)
-![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+[![Go Reference](https://pkg.go.dev/badge/github.com/turahe/pkg.svg)](https://pkg.go.dev/github.com/turahe/pkg)
+[![Test](https://github.com/turahe/pkg/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/turahe/pkg/actions/workflows/test.yml)
+[![Security](https://github.com/turahe/pkg/actions/workflows/security.yml/badge.svg?branch=main)](https://github.com/turahe/pkg/actions/workflows/security.yml)
+[![codecov](https://codecov.io/gh/turahe/pkg/branch/main/graph/badge.svg)](https://codecov.io/gh/turahe/pkg)
+[![Go Report Card](https://goreportcard.com/badge/github.com/turahe/pkg)](https://goreportcard.com/report/github.com/turahe/pkg)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/turahe/pkg)](go.mod)
+[![Release](https://img.shields.io/github/v/release/turahe/pkg?sort=semver)](https://github.com/turahe/pkg/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 A collection of production-ready Go packages for building web services: database, Redis (standard + cluster), JWT, crypto, object storage, structured logging, HTTP middleware, OpenTelemetry (`otelx`), Sentry (`sentryx`), mutual TLS (`mtls`), Prometheus metrics, graceful shutdown, and utilities. Follows clean architecture boundaries — domain, use-case, and infrastructure are separate.
 

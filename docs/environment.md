@@ -89,6 +89,18 @@ Requires Redis. See [middlewares](packages/middlewares.md).
 | `RATE_LIMITER_SKIP_PATHS` | — | e.g. `/health,/metrics` |
 | `RATE_LIMITER_TRUST_PROXY` | `false` | `true` keys on gin `ClientIP` (`X-Forwarded-For`); enable only behind a proxy set via `engine.SetTrustedProxies` |
 
+## Password hashing
+
+Read by `crypto.Setup()`. See [crypto](packages/crypto.md).
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `HASH_DRIVER` | `bcrypt` | `bcrypt`, `argon` (Argon2i) or `argon2id` |
+| `HASH_BCRYPT_ROUNDS` | `0` (= 10) | bcrypt cost, 4–31 |
+| `HASH_ARGON_MEMORY` | `0` (= 19456) | Argon2 memory in KiB |
+| `HASH_ARGON_TIME` | `0` (= 2) | Argon2 iterations |
+| `HASH_ARGON_THREADS` | `0` (= 1) | Argon2 parallelism, 1–255 |
+
 ## Storage
 
 See [storage](packages/storage.md) for driver-specific examples, including local RustFS and Cloudflare R2.

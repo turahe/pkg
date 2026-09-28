@@ -119,7 +119,7 @@ func TestBuildConfigFromEnv_Defaults(t *testing.T) {
 		"REDIS_HOST", "REDIS_PORT", "REDIS_ENABLED", "REDIS_DB",
 		"CORS_GLOBAL", "STORAGE_DRIVER", "STORAGE_BUCKET", "STORAGE_ENDPOINT", "STORAGE_REGION",
 		"STORAGE_ACCESS_KEY", "STORAGE_SECRET_KEY", "STORAGE_FORCE_PATH_STYLE", "GCS_CREDENTIALS_FILE",
-		"DATABASE_LOGMODE", "DATABASE_LOGMODE_SITE",
+		"DATABASE_LOGMODE", "DATABASE_LOGMODE_SITE", "HASH_DRIVER",
 	}
 	for _, k := range keys {
 		t.Setenv(k, "")
@@ -127,6 +127,9 @@ func TestBuildConfigFromEnv_Defaults(t *testing.T) {
 	cfg := buildConfigFromEnv()
 	if cfg == nil {
 		t.Fatal("buildConfigFromEnv must not return nil")
+	}
+	if cfg.Hashing.Driver != "bcrypt" {
+		t.Errorf("Hashing.Driver default = %q, want bcrypt", cfg.Hashing.Driver)
 	}
 	if cfg.Database.Logmode || cfg.DatabaseSite.Logmode {
 		t.Errorf("Logmode defaults = %v/%v, want false/false", cfg.Database.Logmode, cfg.DatabaseSite.Logmode)
@@ -362,6 +365,11 @@ func TestBuildConfigFromEnv_AllSections(t *testing.T) {
 		"RATE_LIMITER_KEY_BY":              "user",
 		"RATE_LIMITER_SKIP_PATHS":          "/health,/metrics",
 		"RATE_LIMITER_TRUST_PROXY":         "true",
+		"HASH_DRIVER":                      "Argon2id",
+		"HASH_BCRYPT_ROUNDS":               "12",
+		"HASH_ARGON_MEMORY":                "65536",
+		"HASH_ARGON_TIME":                  "3",
+		"HASH_ARGON_THREADS":               "4",
 	}
 
 	// Set all environment variables
@@ -518,6 +526,10 @@ func TestBuildConfigFromEnv_AllSections(t *testing.T) {
 	}
 	if !cfg.RateLimiter.TrustProxy {
 		t.Errorf("RateLimiter.TrustProxy = %v, want true", cfg.RateLimiter.TrustProxy)
+	}
+	wantHashing := HashingConfiguration{Driver: "argon2id", BcryptRounds: 12, ArgonMemory: 65536, ArgonTime: 3, ArgonThreads: 4}
+	if cfg.Hashing != wantHashing {
+		t.Errorf("Hashing = %+v, want %+v", cfg.Hashing, wantHashing)
 	}
 
 	// Test Timezone configuration

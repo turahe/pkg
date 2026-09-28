@@ -6,7 +6,8 @@
 
 GO      := go
 DC      := docker compose
-DC_TEST := docker compose -f docker-compose.test.yml
+# Separate project so the test stack never reuses containers/networks from services-up.
+DC_TEST := docker compose -p pkg-test -f docker-compose.test.yml
 
 # Keep in sync with .github/workflows/test.yml (golangci-lint-action version).
 GOLANGCI_LINT_VERSION := v2.12.2
@@ -46,11 +47,12 @@ test-versions: ## Run go test in Docker for each GO_TEST_VERSIONS (default: 1.26
 
 # ── Tests in Docker (all services included, no local setup needed) ─────────────
 test-docker: ## Run tests (race+cover) and benchmarks inside Docker
+	$(DC_TEST) down --remove-orphans
 	$(DC_TEST) up --build --abort-on-container-exit --exit-code-from test
 	$(DC_TEST) down -v
 
 test-docker-clean: ## Like test-docker but removes the module cache volume first
-	$(DC_TEST) down -v
+	$(DC_TEST) down -v --remove-orphans
 	$(DC_TEST) up --build --abort-on-container-exit --exit-code-from test
 	$(DC_TEST) down -v
 

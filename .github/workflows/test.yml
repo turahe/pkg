@@ -56,7 +56,7 @@ jobs:
           --health-retries 5
 
       valkey:
-        image: valkey/valkey:7-alpine
+        image: valkey/valkey:9-alpine
         ports:
           - 6380:6379
         options: >-
@@ -79,7 +79,7 @@ jobs:
           --health-retries 10
 
       postgres:
-        image: postgres:16-alpine
+        image: postgres:18-alpine
         env:
           POSTGRES_USER: test
           POSTGRES_PASSWORD: test

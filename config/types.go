@@ -16,6 +16,17 @@ type Configuration struct {
 	OpenTelemetry OpenTelemetryConfiguration
 	Sentry        SentryConfiguration
 	MTLS          MTLSConfiguration
+	Hashing       HashingConfiguration
+}
+
+// HashingConfiguration selects the password hashing driver used by crypto.Setup / crypto.NewHasherFromConfig.
+// Driver is "bcrypt" (default), "argon" (Argon2i) or "argon2id". Zero numeric values use crypto defaults.
+type HashingConfiguration struct {
+	Driver       string // HASH_DRIVER: bcrypt | argon | argon2id
+	BcryptRounds int    // HASH_BCRYPT_ROUNDS: bcrypt cost (4..31); 0 = 10
+	ArgonMemory  int    // HASH_ARGON_MEMORY: KiB; 0 = 19456 (19 MiB)
+	ArgonTime    int    // HASH_ARGON_TIME: iterations; 0 = 2
+	ArgonThreads int    // HASH_ARGON_THREADS: parallelism; 0 = 1
 }
 
 // ServerConfiguration holds server and session settings (port, mode, token and session expiry).

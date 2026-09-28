@@ -28,6 +28,17 @@ func buildConfigFromEnv() *Configuration {
 		OpenTelemetry: loadOpenTelemetryConfigFromEnv(),
 		Sentry:        loadSentryConfigFromEnv(),
 		MTLS:          loadMTLSConfigFromEnv(),
+		Hashing:       loadHashingConfigFromEnv(),
+	}
+}
+
+func loadHashingConfigFromEnv() HashingConfiguration {
+	return HashingConfiguration{
+		Driver:       strings.ToLower(getEnvOrDefault("HASH_DRIVER", "bcrypt")),
+		BcryptRounds: parseInt("HASH_BCRYPT_ROUNDS", 0),
+		ArgonMemory:  parseInt("HASH_ARGON_MEMORY", 0),
+		ArgonTime:    parseInt("HASH_ARGON_TIME", 0),
+		ArgonThreads: parseInt("HASH_ARGON_THREADS", 0),
 	}
 }
 
