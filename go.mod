@@ -3,13 +3,13 @@ module github.com/turahe/pkg
 go 1.26.0
 
 require (
-	cloud.google.com/go/cloudsqlconn v1.25.2
-	cloud.google.com/go/storage v1.68.0
+	cloud.google.com/go/cloudsqlconn v1.25.3
+	cloud.google.com/go/storage v1.69.0
 	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/aws/aws-sdk-go-v2 v1.47.1
 	github.com/aws/aws-sdk-go-v2/config v1.33.6
 	github.com/aws/aws-sdk-go-v2/credentials v1.20.6
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.113.4
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.114.0
 	github.com/aws/smithy-go v1.28.2
 	github.com/getsentry/sentry-go v0.49.0
 	github.com/getsentry/sentry-go/grpc v0.49.0
@@ -30,7 +30,7 @@ require (
 	go.opentelemetry.io/otel/sdk v1.46.0
 	golang.org/x/crypto v0.57.0
 	golang.org/x/text v0.42.0
-	google.golang.org/api v0.299.0
+	google.golang.org/api v0.300.0
 	google.golang.org/grpc v1.84.0
 	gorm.io/driver/mysql v1.6.0
 	gorm.io/driver/postgres v1.6.3
