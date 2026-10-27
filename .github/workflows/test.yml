@@ -17,14 +17,14 @@ jobs:
   # ── Lint ─────────────────────────────────────────────────────────────────────
   lint:
     name: Lint
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
 
       - uses: actions/setup-go@v7
         with:
-          go-version: stable
+          go-version: "1.27"
           cache: true
 
       - name: golangci-lint
@@ -33,16 +33,11 @@ jobs:
           version: v2.15.0
           args: --timeout=5m
 
-  # ── Tests (matrix) ──────────────────────────────────────────────────────────
+  # ── Tests ────────────────────────────────────────────────────────────────────
   test:
-    name: Test (Go ${{ matrix.go }})
-    runs-on: ubuntu-latest
+    name: Test (Go 1.27)
+    runs-on: ubuntu-26.04
     timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix:
-        # Minimum (go.mod), previous stable channel, and current stable.
-        go: ["1.27.3", "oldstable", "stable"]
 
     services:
       redis:
@@ -169,7 +164,7 @@ jobs:
 
       - uses: actions/setup-go@v7
         with:
-          go-version: ${{ matrix.go }}
+          go-version: "1.27"
           cache: true
 
       - name: Verify modules
@@ -177,9 +172,7 @@ jobs:
           go mod verify
           go mod download
 
-      # Only on the go.mod baseline — other matrix versions can rewrite go.sum.
       - name: Check go mod tidy
-        if: matrix.go == '1.27.3'
         run: |
           go mod tidy
           git diff --exit-code go.mod go.sum
@@ -194,7 +187,6 @@ jobs:
         run: go tool cover -func=coverage.out | tail -1
 
       - name: Upload coverage artifact
-        if: matrix.go == '1.27.3'
         uses: actions/upload-artifact@v7
         with:
           name: coverage-report
@@ -202,7 +194,6 @@ jobs:
           retention-days: 7
 
       - name: Upload coverage to Codecov
-        if: matrix.go == '1.27.3'
         uses: codecov/codecov-action@v7
         with:
           files: ./coverage.out
@@ -213,7 +204,7 @@ jobs:
     name: SonarQube
     needs: test
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     permissions:
       contents: read
@@ -225,7 +216,7 @@ jobs:
 
       - uses: actions/setup-go@v7
         with:
-          go-version: "1.26"
+          go-version: "1.27"
           cache: true
 
       - name: Download Go modules
