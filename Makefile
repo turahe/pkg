@@ -10,10 +10,10 @@ DC      := docker compose
 DC_TEST := docker compose -p pkg-test -f docker-compose.test.yml
 
 # Keep in sync with .github/workflows/test.yml (golangci-lint-action version).
-GOLANGCI_LINT_VERSION := v2.12.2
+GOLANGCI_LINT_VERSION := v2.15.0
 
 # Docker tags for local multi-version smoke tests (CI also uses oldstable/stable via setup-go).
-GO_TEST_VERSIONS ?= 1.26 latest
+GO_TEST_VERSIONS ?= 1.27 latest
 
 # ── Help ──────────────────────────────────────────────────────────────────────
 help: ## Show this help
@@ -35,7 +35,7 @@ test-cover: ## Run tests and show coverage summary
 	$(GO) test -v -count=1 -coverprofile=coverage.out ./...
 	$(GO) tool cover -func=coverage.out | tail -1
 
-test-versions: ## Run go test in Docker for each GO_TEST_VERSIONS (default: 1.26 latest)
+test-versions: ## Run go test in Docker for each GO_TEST_VERSIONS (default: 1.27 latest)
 	@for v in $(GO_TEST_VERSIONS); do \
 		echo "──── Go $$v ────"; \
 		docker run --rm \

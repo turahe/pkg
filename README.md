@@ -52,7 +52,7 @@ A collection of production-ready Go packages for building web services: database
 go get github.com/turahe/pkg
 ```
 
-Requires Go 1.26+.
+Requires Go 1.27+.
 
 ---
 

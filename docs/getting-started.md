@@ -2,7 +2,7 @@
 
 ## Requirements
 
-- Go **1.26+**
+- Go **1.27+**
 - Optional: Docker / Docker Compose for Redis, MySQL, Postgres, SQL Server (tests and local services)
 
 ## Install

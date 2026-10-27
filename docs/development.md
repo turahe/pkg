@@ -12,7 +12,7 @@ make test-versions   # go test in Docker for GO_TEST_VERSIONS (default: 1.26 lat
 make test-docker     # race+cover tests + benchmarks in Docker
 make services-up     # docker compose up -d (Redis/MySQL/Postgres/SQL Server/RustFS)
 make services-down   # stop local services
-make lint            # golangci-lint via Docker (v2.12.2, matches CI)
+make lint            # golangci-lint via Docker (v2.15.0, matches CI)
 make vuln            # govulncheck
 make tidy            # go mod tidy && verify
 make docker-build    # production image

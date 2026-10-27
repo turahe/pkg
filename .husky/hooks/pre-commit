@@ -6,8 +6,8 @@ set -e
 ROOT="$(CDPATH= cd -- "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
 
-GO_IMAGE="${GO_IMAGE:-golang:1.27-alpine}"
-GOLANGCI_LINT_IMAGE="${GOLANGCI_LINT_IMAGE:-golangci/golangci-lint:v2.12.2}"
+GO_IMAGE="${GO_IMAGE:-golang:1.27.3-alpine}"
+GOLANGCI_LINT_IMAGE="${GOLANGCI_LINT_IMAGE:-golangci/golangci-lint:v2.15.0}"
 
 docker run --rm \
 	-v "$ROOT:/app" -w /app \

@@ -98,7 +98,7 @@ services:
 
   # ── Test runner ────────────────────────────────────────────────────────────
   test:
-    image: golang:1.26-alpine
+    image: golang:1.27-alpine
     working_dir: /app
 
     # Mount the project source; do NOT copy — changes are reflected instantly.

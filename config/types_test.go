@@ -51,8 +51,14 @@ func TestConfiguration_StructFields(t *testing.T) {
 	if cfg.Server.Port != "8080" || cfg.Server.AccessTokenExpiry != 1 {
 		t.Error("ServerConfiguration fields not set correctly")
 	}
+	if !cfg.Cors.Global || cfg.Cors.Ips != "127.0.0.1" {
+		t.Error("CorsConfiguration fields not set correctly")
+	}
 	if cfg.Database.Driver != "mysql" || cfg.Database.CloudSQLInstance != "p:r:i" {
 		t.Error("DatabaseConfiguration fields not set correctly")
+	}
+	if cfg.DatabaseSite.Dbname != "" {
+		t.Errorf("DatabaseSite.Dbname = %q, want empty", cfg.DatabaseSite.Dbname)
 	}
 	if !cfg.Redis.Enabled || cfg.Redis.DB != 0 {
 		t.Error("RedisConfiguration fields not set correctly")

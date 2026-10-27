@@ -1,6 +1,6 @@
 module github.com/turahe/pkg
 
-go 1.26.0
+go 1.27.3
 
 require (
 	cloud.google.com/go/cloudsqlconn v1.25.4
